@@ -1,61 +1,184 @@
-from pdf2image import convert_from_path
+from pdf2image import (
+    convert_from_path,
+    pdfinfo_from_path
+)
 from pathlib import Path
 
-# Root source folder
-source_root = Path("data/source_documents")
+# =====================================================
+# ROOT SOURCE FOLDER
+# =====================================================
 
-# Root output folder
-output_root = Path("data/page_images")
+source_root = Path(
+    "data/source_documents"
+)
 
-# Find all PDFs recursively
-pdf_files = source_root.rglob("*.pdf")
+# =====================================================
+# ROOT OUTPUT FOLDER
+# =====================================================
 
-# Counters
+output_root = Path(
+    "data/page_images"
+)
+
+# =====================================================
+# FIND ALL PDFs RECURSIVELY
+# =====================================================
+
+pdf_files = sorted(
+    source_root.rglob("*.pdf")
+)
+
+# =====================================================
+# COUNTERS
+# =====================================================
+
 processed_pdfs = 0
 skipped_pdfs = 0
 total_pages = 0
+
+# =====================================================
+# PROCESS ALL PDFs
+# =====================================================
 
 for pdf_path in pdf_files:
 
     # Example:
     # laws/law_01.pdf
+
     category = pdf_path.parent.name
+
     pdf_name = pdf_path.stem
 
-    # Output folder
-    output_dir = output_root / category / pdf_name
+    # =====================================================
+    # OUTPUT FOLDER
+    # =====================================================
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = (
+        output_root /
+        category /
+        pdf_name
+    )
 
-    # Skip if already converted
-    existing_images = list(output_dir.glob("*.png"))
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    # =====================================================
+    # SKIP IF ALREADY CONVERTED
+    # =====================================================
+
+    existing_images = list(
+        output_dir.glob("*.png")
+    )
 
     if existing_images:
-        print(f"Skipping already processed: {pdf_name}")
+
+        print(
+            f"Skipping already processed: "
+            f"{pdf_name}"
+        )
+
         skipped_pdfs += 1
         continue
 
-    print(f"\nProcessing: {pdf_path}")
+    print(
+        f"\nProcessing: "
+        f"{pdf_path}"
+    )
 
-    # Convert PDF pages to images (400 dpi is higher quality than 300 dpi)
-    pages = convert_from_path(pdf_path, dpi=400)
+    # =====================================================
+    # GET TOTAL PAGE COUNT
+    # =====================================================
 
-    # Save pages
-    for i, page in enumerate(pages):
+    pdf_info = pdfinfo_from_path(
+        pdf_path
+    )
 
-        page_path = output_dir / f"page_{i+1:03}.png"
+    page_count = pdf_info["Pages"]
 
-        page.save(page_path, "PNG")
+    print(
+        f"Total Pages: "
+        f"{page_count}"
+    )
 
-    page_count = len(pages)
+    # =====================================================
+    # CONVERT PAGE BY PAGE
+    # =====================================================
+
+    for i in range(page_count):
+
+        print(
+            f"Converting page "
+            f"{i + 1}/{page_count}"
+        )
+
+        try:
+
+            # Convert ONE page only
+            pages = convert_from_path(
+                pdf_path,
+                dpi=400,
+                first_page=i + 1,
+                last_page=i + 1
+            )
+
+            page = pages[0]
+
+            # =====================================================
+            # SAVE PAGE
+            # =====================================================
+
+            page_path = (
+                output_dir /
+                f"page_{i+1:03}.png"
+            )
+
+            page.save(
+                page_path,
+                "PNG"
+            )
+
+            total_pages += 1
+
+        except Exception as e:
+
+            print(
+                f"Failed page "
+                f"{i + 1}: {e}"
+            )
+
+            continue
 
     processed_pdfs += 1
-    total_pages += page_count
 
-    print(f"Completed: {pdf_name} ({page_count} pages)")
+    print(
+        f"Completed: "
+        f"{pdf_name} "
+        f"({page_count} pages)"
+    )
+
+# =====================================================
+# SUMMARY
+# =====================================================
 
 print("\n========== SUMMARY ==========")
-print(f"Processed PDFs : {processed_pdfs}")
-print(f"Skipped PDFs   : {skipped_pdfs}")
-print(f"Total PNG pages: {total_pages}")
-print("All PDFs converted successfully.")
+
+print(
+    f"Processed PDFs : "
+    f"{processed_pdfs}"
+)
+
+print(
+    f"Skipped PDFs   : "
+    f"{skipped_pdfs}"
+)
+
+print(
+    f"Total PNG pages: "
+    f"{total_pages}"
+)
+
+print(
+    "All PDFs converted successfully."
+)
