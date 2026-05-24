@@ -140,10 +140,10 @@ for image_path in image_files:
 
     if output_path.exists():
 
-        print(
-            f"Skipping already processed: "
-            f"{document_id} - {page_name}"
-        )
+        # print(
+        #     f"Skipping already processed: "
+        #     f"{document_id} - {page_name}"
+        # )
 
         skipped_pages += 1
         continue
