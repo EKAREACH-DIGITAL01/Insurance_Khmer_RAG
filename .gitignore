@@ -6,6 +6,18 @@ data/evaluation/*
 data/page_images/*
 !data/page_images/.gitkeep
 
+# Ignore cleaned text
+data/extracted_text/cleaned/*
+!data/extracted_text/cleaned/.gitkeep
+
+# Ignore chunked documents
+data/chunked_documents/*
+!data/chunked_documents/.gitkeep
+
+# Ignore vector database
+vector_db/*
+!vector_db/.gitkeep
+
 # Python
 __pycache__/
 *.pyc
