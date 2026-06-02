@@ -2,74 +2,167 @@ import json
 from pathlib import Path
 import time
 
-# Root cleaned folder
-input_root = Path(
-    "data/extracted_text/cleaned"
-)
-
-# Root chunk output folder
-output_root = Path(
-    "data/chunked_documents"
-)
+input_root = Path("data/extracted_text/cleaned")
+output_root = Path("data/chunked_documents")
 
 output_root.mkdir(
     parents=True,
     exist_ok=True
 )
 
-# Find ALL cleaned JSON files
+CHUNK_SIZE = 300
+
 json_files = sorted(
     input_root.rglob("*.json")
 )
 
-# Counters
 processed_files = 0
 skipped_files = 0
 total_chunks = 0
 
-# Runtime
 start_time = time.time()
+
+
+def recursive_split_text(text, chunk_size=300):
+
+    separators = [
+        "\n\n",
+        "\n",
+        "។",
+        ".",
+        " ",
+        ""
+    ]
+
+    return split_with_separators(
+        text,
+        separators,
+        chunk_size
+    )
+
+
+def split_with_separators(
+    text,
+    separators,
+    chunk_size
+):
+
+    text = text.strip()
+
+    if not text:
+        return []
+
+    if len(text) <= chunk_size:
+        return [text]
+
+    separator = separators[0]
+
+    if separator == "":
+        return [
+            text[i:i + chunk_size]
+            for i in range(
+                0,
+                len(text),
+                chunk_size
+            )
+        ]
+
+    pieces = text.split(separator)
+
+    chunks = []
+    current_chunk = ""
+
+    for piece in pieces:
+
+        piece = piece.strip()
+
+        if not piece:
+            continue
+
+        if separator in ["។", "."]:
+            piece = piece + separator
+
+        if current_chunk:
+
+            if separator in ["\n\n", "\n"]:
+                possible_chunk = (
+                    current_chunk
+                    + separator
+                    + piece
+                )
+            else:
+                possible_chunk = (
+                    current_chunk
+                    + " "
+                    + piece
+                )
+
+        else:
+            possible_chunk = piece
+
+        if len(possible_chunk) <= chunk_size:
+
+            current_chunk = possible_chunk
+
+        else:
+
+            if current_chunk:
+                chunks.append(current_chunk)
+
+            if len(piece) > chunk_size:
+
+                smaller_chunks = (
+                    split_with_separators(
+                        piece,
+                        separators[1:],
+                        chunk_size
+                    )
+                )
+
+                chunks.extend(
+                    smaller_chunks
+                )
+
+                current_chunk = ""
+
+            else:
+                current_chunk = piece
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
+
 
 for input_path in json_files:
 
-    # Example:
-    # laws/law_01_page_001.json
-    relative_path = input_path.relative_to(
-        input_root
+    relative_path = (
+        input_path.relative_to(
+            input_root
+        )
     )
 
-    # Convert filename
     output_filename = (
-        input_path.stem + "_chunks.json"
+        input_path.stem
+        + "_chunks.json"
     )
 
-    # Preserve folder structure
     output_path = (
         output_root
         / relative_path.parent
         / output_filename
     )
 
-    # Create folders
     output_path.parent.mkdir(
         parents=True,
         exist_ok=True
     )
 
-    # Skip existing chunks
-    if output_path.exists():
+    print(
+        f"\nChunking: "
+        f"{relative_path}"
+    )
 
-        print(
-            f"Skipping already chunked: "
-            f"{relative_path}"
-        )
-
-        skipped_files += 1
-        continue
-
-    print(f"\nChunking: {relative_path}")
-
-    # Load cleaned JSON
     with open(
         input_path,
         "r",
@@ -78,35 +171,63 @@ for input_path in json_files:
 
         data = json.load(f)
 
-    cleaned_text = data["cleaned_text"]
+    cleaned_text = (
+        data.get(
+            "cleaned_text",
+            ""
+        ).strip()
+    )
 
-    # Split by double newline
-    paragraphs = cleaned_text.split("\n\n")
+    if not cleaned_text:
+
+        print(
+            f"No cleaned text found: "
+            f"{relative_path}"
+        )
+
+        skipped_files += 1
+        continue
+
+    split_chunks = (
+        recursive_split_text(
+            cleaned_text,
+            CHUNK_SIZE
+        )
+    )
 
     chunks = []
 
-    for i, paragraph in enumerate(paragraphs):
-
-        paragraph = paragraph.strip()
-
-        # Safe Khmer filtering
-        if len(paragraph) == 0:
-            continue
+    for i, text in enumerate(
+        split_chunks
+    ):
 
         chunk = {
-            "document_id": data["document_id"],
-            "page": data["page"],
-            "chunk_id": (
-                f"{data['document_id']}"
-                f"_page_{data['page']}"
-                f"_chunk_{i+1}"
-            ),
-            "text": paragraph
+            "chunk_id": i,
+            "content": text,
+            "metadata": {
+                "chunk_id": i,
+                "document_id": data.get(
+                    "document_id"
+                ),
+                "page": data.get(
+                    "page"
+                ),
+                "source_doc": data.get(
+                    "document_id"
+                ),
+                "chunk_size": len(
+                    text
+                ),
+                "chunking_method":
+                    "recursive",
+                "tables_converted":
+                    False
+            },
+            "chunk_size": len(text)
         }
 
         chunks.append(chunk)
 
-    # Save chunk file
     with open(
         output_path,
         "w",
@@ -121,18 +242,23 @@ for input_path in json_files:
         )
 
     processed_files += 1
-    total_chunks += len(chunks)
-
-    print(
-        f"Created {len(chunks)} chunks."
+    total_chunks += len(
+        chunks
     )
 
-# Total runtime
+    print(
+        f"Created "
+        f"{len(chunks)} chunks."
+    )
+
 elapsed_time = (
-    time.time() - start_time
+    time.time()
+    - start_time
 )
 
-print("\n========== SUMMARY ==========")
+print(
+    "\n========== SUMMARY =========="
+)
 
 print(
     f"Processed Files : "
@@ -155,5 +281,5 @@ print(
 )
 
 print(
-    "Chunking completed successfully."
+    "Recursive chunking completed successfully."
 )

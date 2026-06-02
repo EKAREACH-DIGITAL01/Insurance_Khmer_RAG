@@ -23,12 +23,17 @@ st.set_page_config(
 
 load_dotenv()
 
+st.write(
+    "API Key Loaded:",
+    os.getenv("GEMINI_API_KEY_02") is not None
+)
+
 # -----------------------------
 # GEMINI CLIENT
 # -----------------------------
 
 client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
+    api_key=os.getenv("GEMINI_API_KEY_01")
 )
 
 # -----------------------------
@@ -164,39 +169,24 @@ Question:
         # GEMINI RETRY LOGIC
         # -----------------------------
 
-        max_retries = 5
-        retry_count = 0
-
         response = None
 
-        while retry_count < max_retries:
+        try:
 
-            try:
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+                config={
+                    "temperature": 0
+                }
+            )
 
-                response = client.models.generate_content(
-                    ## change to different model using for answering question which is cheaper.
-                    model="gemini-2.5-flash",
-                    contents=prompt,
-                    config={
-                        "temperature": 0
-                    }
-                )
+        except Exception as e:
 
-                break
+            st.error("REAL GEMINI ERROR:")
+            st.code(str(e))
 
-            except Exception as e:
-
-                retry_count += 1
-
-                wait_time = retry_count * 10
-
-                st.warning(
-                    f"Gemini busy. "
-                    f"Retry {retry_count}/{max_retries} "
-                    f"after {wait_time}s..."
-                )
-
-                time.sleep(wait_time)
+            st.stop()
 
         # -----------------------------
         # FAILURE
@@ -205,8 +195,7 @@ Question:
         if response is None:
 
             st.error(
-                "Gemini is currently overloaded. "
-                "Please try again later."
+                "Gemini request failed."
             )
 
             st.stop()

@@ -10,7 +10,7 @@ import time
 # =====================================================
 
 model = SentenceTransformer(
-    "paraphrase-multilingual-MiniLM-L12-v2"
+    "BAAI/bge-m3"
 )
 
 # =====================================================
@@ -100,6 +100,66 @@ print(
 )
 
 # =====================================================
+# NORMALIZE CHUNK FORMAT
+# =====================================================
+
+normalized_chunks = []
+
+for chunk in all_chunks:
+
+    metadata = chunk.get(
+        "metadata",
+        {}
+    )
+
+    document_id = metadata.get(
+        "document_id",
+        "unknown_doc"
+    )
+
+    page = metadata.get(
+        "page",
+        0
+    )
+
+    local_chunk_id = metadata.get(
+        "chunk_id",
+        chunk.get("chunk_id", 0)
+    )
+
+    text = (
+        chunk.get("text")
+        or chunk.get("content")
+        or ""
+    )
+
+    normalized_chunk = {
+        "chunk_id": f"{document_id}_page_{page}_chunk_{local_chunk_id}",
+        "document_id": document_id,
+        "page": page,
+        "text": text,
+        "chunk_size": len(text),
+        "chunking_method": metadata.get(
+            "chunking_method",
+            "recursive"
+        ),
+        "source_doc": metadata.get(
+            "source_doc",
+            document_id
+        ),
+        "tables_converted": metadata.get(
+            "tables_converted",
+            False
+        )
+    }
+
+    normalized_chunks.append(
+        normalized_chunk
+    )
+
+all_chunks = normalized_chunks
+
+# =====================================================
 # EXTRACT TEXT ONLY
 # =====================================================
 
@@ -116,7 +176,8 @@ print("\nGenerating embeddings...")
 
 embeddings = model.encode(
     texts,
-    show_progress_bar=True
+    show_progress_bar=True,
+    normalize_embeddings=True
 )
 
 # =====================================================
@@ -133,7 +194,7 @@ embeddings = np.array(
 
 dimension = embeddings.shape[1]
 
-index = faiss.IndexFlatL2(
+index = faiss.IndexFlatIP(
     dimension
 )
 
@@ -154,7 +215,6 @@ print(
 # SAVE VECTOR DATABASE
 # =====================================================
 
-# Save FAISS index
 faiss_output = (
     output_root /
     "khmer_insurance.index"
