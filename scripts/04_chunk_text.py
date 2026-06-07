@@ -206,25 +206,19 @@ for input_path in json_files:
             "chunk_id": i,
             "content": text,
             "metadata": {
-                "chunk_id": i,
                 "document_id": data.get(
                     "document_id"
                 ),
+                "category": relative_path.parts[0],
                 "page": data.get(
                     "page"
-                ),
-                "source_doc": data.get(
-                    "document_id"
                 ),
                 "chunk_size": len(
                     text
                 ),
                 "chunking_method":
-                    "recursive",
-                "tables_converted":
-                    False
-            },
-            "chunk_size": len(text)
+                    "recursive"
+            }
         }
 
         chunks.append(chunk)
