@@ -3,10 +3,8 @@ import time
 import faiss
 import numpy as np
 import streamlit as st
-from google import genai
-from dotenv import load_dotenv
+import ollama
 from sentence_transformers import SentenceTransformer
-import os
 
 # -----------------------------
 # PAGE CONFIG
@@ -21,20 +19,7 @@ st.set_page_config(
 # LOAD ENV
 # -----------------------------
 
-load_dotenv()
 
-st.write(
-    "API Key Loaded:",
-    os.getenv("GEMINI_API_KEY_02") is not None
-)
-
-# -----------------------------
-# GEMINI CLIENT
-# -----------------------------
-
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY_01")
-)
 
 # -----------------------------
 # CACHED RESOURCES
@@ -44,7 +29,7 @@ client = genai.Client(
 def load_embedding_model():
 
     return SentenceTransformer(
-        "paraphrase-multilingual-MiniLM-L12-v2"
+        "BAAI/bge-m3"
     )
 
 @st.cache_resource
@@ -173,12 +158,14 @@ Question:
 
         try:
 
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-                config={
-                    "temperature": 0
-                }
+            response = ollama.chat(
+                model="qwen3.5:9b",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
             )
 
         except Exception as e:
@@ -206,7 +193,9 @@ Question:
 
     st.subheader("Answer")
 
-    st.write(response.text)
+    st.write(
+    response["message"]["content"]
+    )
 
     # -----------------------------
     # SOURCES
