@@ -1,7 +1,3 @@
-# Ignore evaluation
-data/evaluation/*
-!data/evaluation/.gitkeep
-
 # Ignore generated page images
 data/page_images/*
 !data/page_images/.gitkeep

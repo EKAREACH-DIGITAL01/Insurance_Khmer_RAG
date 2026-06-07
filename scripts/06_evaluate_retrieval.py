@@ -9,9 +9,10 @@ from sentence_transformers import SentenceTransformer
 
 TOP_K = 5
 
-INDEX_PATH = "vector_db/khmer_insurance.index"
-METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
-GOLD_PATH = "data/evaluation/gold_questions.json"
+## Can be modified (300, 500, 700, etc.)
+INDEX_PATH = "vector_db/khmer_insurance_300.index"
+METADATA_PATH = "vector_db/khmer_insurance_metadata_300.json"
+GOLD_PATH = "data/evaluation/gold_questions_300.json"
 
 # -----------------------------
 # LOAD MODEL
@@ -62,16 +63,26 @@ with open(
     gold_questions = json.load(f)
 
 # -----------------------------
-# METRICS
+# VALIDATION
 # -----------------------------
 
 total_questions = len(
     gold_questions
 )
 
-hit_count = 0
-recall_count = 0
+if total_questions == 0:
 
+    raise ValueError(
+        "gold_questions.json is empty."
+    )
+
+# -----------------------------
+# METRICS
+# -----------------------------
+
+hit_count = 0
+
+recall_sum = 0
 precision_sum = 0
 mrr_sum = 0
 
@@ -86,6 +97,19 @@ for item in gold_questions:
     relevant_chunk_ids = set(
         item["relevant_chunk_ids"]
     )
+
+    if not relevant_chunk_ids:
+
+        print(
+            "\nSkipping question with no "
+            "relevant_chunk_ids:"
+        )
+
+        print(question)
+
+        total_questions -= 1
+
+        continue
 
     # -----------------------------
     # EMBED QUESTION
@@ -110,13 +134,29 @@ for item in gold_questions:
     )
 
     retrieved_chunk_ids = []
+    retrieved_results = []
 
-    for i in indices[0]:
+    for idx, score in zip(
+        indices[0],
+        distances[0]
+    ):
 
-        chunk = chunks[i]
+        if idx < 0 or idx >= len(chunks):
+            continue
+
+        chunk = chunks[idx]
+
+        chunk_id = chunk["chunk_id"]
 
         retrieved_chunk_ids.append(
-            chunk["chunk_id"]
+            chunk_id
+        )
+
+        retrieved_results.append(
+            {
+                "chunk_id": chunk_id,
+                "score": float(score)
+            }
         )
 
     retrieved_set = set(
@@ -124,7 +164,7 @@ for item in gold_questions:
     )
 
     # -----------------------------
-    # HIT RATE / RECALL@K
+    # MATCH RELEVANT CHUNKS
     # -----------------------------
 
     found_relevant = (
@@ -133,29 +173,52 @@ for item in gold_questions:
         )
     )
 
+    # -----------------------------
+    # HIT RATE
+    # -----------------------------
+
     if found_relevant:
 
         hit_count += 1
-        recall_count += 1
+
+    # -----------------------------
+    # RECALL@K
+    # -----------------------------
+    # Recall@K = relevant retrieved / total relevant
+
+    recall = (
+        len(found_relevant)
+        / len(relevant_chunk_ids)
+    )
+
+    recall_sum += recall
 
     # -----------------------------
     # PRECISION@K
     # -----------------------------
+    # Precision@K = relevant retrieved / retrieved count
 
-    relevant_retrieved_count = len(
-        found_relevant
+    retrieved_count = len(
+        retrieved_chunk_ids
     )
 
-    precision = (
-        relevant_retrieved_count
-        / TOP_K
-    )
+    if retrieved_count == 0:
+
+        precision = 0
+
+    else:
+
+        precision = (
+            len(found_relevant)
+            / retrieved_count
+        )
 
     precision_sum += precision
 
     # -----------------------------
     # MRR
     # -----------------------------
+    # MRR = 1 / rank of first relevant chunk
 
     reciprocal_rank = 0
 
@@ -182,18 +245,52 @@ for item in gold_questions:
     print("Question:")
     print(question)
 
-    print("\nExpected Chunk:")
-    print(list(relevant_chunk_ids))
+    print("\nExpected Chunks:")
+    for chunk_id in sorted(
+        relevant_chunk_ids
+    ):
+
+        print(f"- {chunk_id}")
 
     print("\nRetrieved Chunks:")
-    print(retrieved_chunk_ids)
+    for rank, result in enumerate(
+        retrieved_results,
+        start=1
+    ):
+
+        print(
+            f"{rank}. "
+            f"{result['chunk_id']} "
+            f"(score={result['score']:.4f})"
+        )
 
     print("\nFound:")
     print(bool(found_relevant))
 
+    print(
+        f"Recall@{TOP_K}: "
+        f"{recall:.4f}"
+    )
+
+    print(
+        f"Precision@{TOP_K}: "
+        f"{precision:.4f}"
+    )
+
+    print(
+        f"Reciprocal Rank: "
+        f"{reciprocal_rank:.4f}"
+    )
+
 # -----------------------------
 # FINAL METRICS
 # -----------------------------
+
+if total_questions == 0:
+
+    raise ValueError(
+        "No valid evaluation questions found."
+    )
 
 hit_rate = (
     hit_count
@@ -201,7 +298,7 @@ hit_rate = (
 )
 
 recall_at_k = (
-    recall_count
+    recall_sum
     / total_questions
 )
 

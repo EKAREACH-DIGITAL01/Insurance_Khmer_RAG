@@ -10,6 +10,7 @@ output_root.mkdir(
     exist_ok=True
 )
 
+# Can be modified (300, 500, 700, etc.)
 CHUNK_SIZE = 300
 
 json_files = sorted(
