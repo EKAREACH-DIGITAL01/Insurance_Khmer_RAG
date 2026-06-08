@@ -6,6 +6,10 @@ import streamlit as st
 import ollama
 from sentence_transformers import SentenceTransformer
 
+OLLAMA_MODEL = "qwen3.5:4b"
+TOP_K = 3
+MAX_OUTPUT_TOKENS = 1024
+
 # -----------------------------
 # PAGE CONFIG
 # -----------------------------
@@ -74,30 +78,44 @@ query = st.text_area(
 # -----------------------------
 # ASK BUTTON
 # -----------------------------
-
 if st.button("Ask") and query.strip():
 
     with st.spinner("Searching documents..."):
+
+        total_start = time.time()
 
         # -----------------------------
         # EMBED QUERY
         # -----------------------------
 
+        start = time.time()
+
         query_embedding = embedding_model.encode(
-            [query]
+            [query],
+            normalize_embeddings=True
         )
 
         query_embedding = np.array(
             query_embedding
         ).astype("float32")
 
+        st.write(
+            f"Embedding time: {time.time() - start:.2f}s"
+        )
+
         # -----------------------------
         # VECTOR SEARCH
         # -----------------------------
 
+        start = time.time()
+
         distances, indices = index.search(
             query_embedding,
-            k=5
+            k=TOP_K
+        )
+
+        st.write(
+            f"FAISS search time: {time.time() - start:.2f}s"
         )
 
         # -----------------------------
@@ -125,6 +143,10 @@ Chunk ID: {chunk["chunk_id"]}
             retrieved_chunks
         )
 
+        st.write(
+            f"Prompt context length: {len(context)} characters"
+        )
+
         # -----------------------------
         # RAG PROMPT
         # -----------------------------
@@ -135,12 +157,16 @@ You are a Khmer legal document assistant.
 Answer the user's question using ONLY the provided context.
 
 Rules:
+- Answer directly.
+- Do not show reasoning.
+- Do not think step by step.
 - Do NOT use outside knowledge.
 - Do NOT invent information.
 - Do NOT hallucinate laws.
 - If the answer is not found in the context, say:
   "រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។"
 - Answer in Khmer.
+- Keep the answer short and clear.
 - Mention page numbers if relevant.
 
 Context:
@@ -151,59 +177,83 @@ Question:
 """
 
         # -----------------------------
-        # GEMINI RETRY LOGIC
+        # LOCAL QWEN GENERATION
         # -----------------------------
 
         response = None
 
         try:
 
+            start = time.time()
+
             response = ollama.chat(
-                model="qwen3.5:9b",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
+            model=OLLAMA_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a Khmer legal assistant. "
+                        "Answer directly and briefly in Khmer. "
+                        "Do not show thinking. "
+                        "Do not explain your reasoning."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": prompt + "\n\n/no_think"
+                }
+            ],
+            options={
+                "temperature": 0.2,
+                "num_predict": 512,
+                "num_ctx": 2048
+            }
+        )
+
+            st.write(
+                f"LLM generation time: {time.time() - start:.2f}s"
             )
 
         except Exception as e:
 
-            st.error("REAL GEMINI ERROR:")
+            st.error("OLLAMA ERROR:")
             st.code(str(e))
 
             st.stop()
 
-        # -----------------------------
-        # FAILURE
-        # -----------------------------
-
         if response is None:
 
             st.error(
-                "Gemini request failed."
+                "Ollama request failed."
             )
 
             st.stop()
 
-    # -----------------------------
-    # ANSWER
-    # -----------------------------
+        st.write(
+            f"Total time: {time.time() - total_start:.2f}s"
+        )
 
     st.subheader("Answer")
 
-    st.write(
-    response["message"]["content"]
-    )
+    message = response["message"]
 
-    # -----------------------------
-    # SOURCES
-    # -----------------------------
+    answer = message.get(
+        "content",
+        ""
+    ).strip()
 
-    st.subheader(
-        "Retrieved Sources"
-    )
+    thinking = message.get(
+        "thinking",
+        ""
+    ).strip()
+
+    if not answer and thinking:
+        answer = (
+            "រកមិនឃើញចម្លើយចុងក្រោយពីម៉ូដែល។ "
+            "ម៉ូដែលបានបង្កើតតែ thinking output ប៉ុណ្ណោះ។"
+        )
+
+    st.subheader("Retrieved Sources")
 
     for rank, i in enumerate(indices[0]):
 
