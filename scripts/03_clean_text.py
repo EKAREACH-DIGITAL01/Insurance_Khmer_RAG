@@ -78,6 +78,7 @@ for input_path in json_files:
 
     cleaned_text = raw_text
 
+    # Add hyphenated line break fix
     cleaned_text = re.sub(
     r"(\S+)-\n(\S+)",
     r"\1\2",

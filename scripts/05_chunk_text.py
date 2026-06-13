@@ -72,7 +72,6 @@ def recursive_split_text(text, chunk_size=300):
         "\n\n",
         "\n",
         "។",
-        ".",
         " ",
         ""
     ]
