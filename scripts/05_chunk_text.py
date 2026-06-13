@@ -1,3 +1,4 @@
+import re
 import json
 from pathlib import Path
 import time
@@ -23,6 +24,47 @@ total_chunks = 0
 
 start_time = time.time()
 
+def guidance_chunking(text):
+
+    text = text.replace(
+        "**",
+        ""
+    )
+
+    section_pattern = (
+        r"(?m)(?=^[០១២៣៤៥៦៧៨៩]+"
+        r"(?:\.[០១២៣៤៥៦៧៨៩]+)*"
+        r"[\.\)]?\s+)"
+    )
+
+    sections = re.split(
+        section_pattern,
+        text
+    )
+
+    chunks = []
+
+    for section in sections:
+
+        section = section.strip()
+
+        if not section:
+            continue
+
+        if len(section) <= CHUNK_SIZE:
+
+            chunks.append(section)
+
+        else:
+
+            chunks.extend(
+                recursive_split_text(
+                    section,
+                    CHUNK_SIZE
+                )
+            )
+
+    return chunks
 
 def recursive_split_text(text, chunk_size=300):
 
@@ -40,7 +82,6 @@ def recursive_split_text(text, chunk_size=300):
         separators,
         chunk_size
     )
-
 
 def split_with_separators(
     text,
@@ -134,6 +175,22 @@ def split_with_separators(
 
     return chunks
 
+def chunk_document(
+    text,
+    category
+):
+
+    if category == "guidance":
+
+        return guidance_chunking(
+            text
+        )
+
+    return recursive_split_text(
+        text,
+        CHUNK_SIZE
+    )
+
 
 for input_path in json_files:
 
@@ -189,10 +246,14 @@ for input_path in json_files:
         skipped_files += 1
         continue
 
+    category = (
+        relative_path.parts[0]
+    )
+
     split_chunks = (
-        recursive_split_text(
+        chunk_document(
             cleaned_text,
-            CHUNK_SIZE
+            category
         )
     )
 
@@ -203,13 +264,17 @@ for input_path in json_files:
     ):
 
         chunk = {
-            "chunk_id": i,
+            "chunk_id": (
+                f"{data['document_id']}"
+                f"_page_{data['page']}"
+                f"_chunk_{i}"
+            ),
             "content": text,
             "metadata": {
                 "document_id": data.get(
                     "document_id"
                 ),
-                "category": relative_path.parts[0],
+                "category": category,
                 "page": data.get(
                     "page"
                 ),
@@ -217,7 +282,11 @@ for input_path in json_files:
                     text
                 ),
                 "chunking_method":
-                    "recursive"
+                (
+                    "guidance_section"
+                    if category == "guidance"
+                    else "recursive"
+                )
             }
         }
 

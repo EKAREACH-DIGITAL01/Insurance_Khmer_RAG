@@ -6,6 +6,10 @@ data/page_images/*
 data/extracted_text/cleaned/*
 !data/extracted_text/cleaned/.gitkeep
 
+# Ignore merged documents
+data/merged_documents/*
+!data/merged_documents/.gitkeep
+
 # Ignore chunked documents
 data/chunked_documents/*
 !data/chunked_documents/.gitkeep
