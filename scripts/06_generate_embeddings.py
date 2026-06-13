@@ -112,21 +112,6 @@ for chunk in all_chunks:
         {}
     )
 
-    document_id = metadata.get(
-        "document_id",
-        "unknown_doc"
-    )
-
-    page = metadata.get(
-        "page",
-        0
-    )
-
-    local_chunk_id = metadata.get(
-        "chunk_id",
-        chunk.get("chunk_id", 0)
-    )
-
     text = (
         chunk.get("text")
         or chunk.get("content")
@@ -134,22 +119,20 @@ for chunk in all_chunks:
     )
 
     normalized_chunk = {
-        "chunk_id": f"{document_id}_page_{page}_chunk_{local_chunk_id}",
-        "document_id": document_id,
-        "page": page,
+        "chunk_id": chunk["chunk_id"],
+        "document_id": metadata.get(
+            "document_id",
+            "unknown_doc"
+        ),
         "text": text,
         "chunk_size": len(text),
         "chunking_method": metadata.get(
             "chunking_method",
             "recursive"
         ),
-        "source_doc": metadata.get(
-            "source_doc",
-            document_id
-        ),
-        "tables_converted": metadata.get(
-            "tables_converted",
-            False
+        "category": metadata.get(
+            "category",
+            "unknown"
         )
     }
 
