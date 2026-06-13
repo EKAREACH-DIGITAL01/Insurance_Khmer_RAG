@@ -1,6 +1,7 @@
 import json
 import faiss
 import numpy as np
+from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
 # -----------------------------
@@ -9,10 +10,10 @@ from sentence_transformers import SentenceTransformer
 
 TOP_K = 5
 
-## Can be modified (300, 500, 700, etc.)
-INDEX_PATH = "vector_db/khmer_insurance_300.index"
-METADATA_PATH = "vector_db/khmer_insurance_metadata_300.json"
-GOLD_PATH = "data/evaluation/gold_questions_300.json"
+INDEX_PATH = "vector_db/khmer_insurance.index"
+METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
+
+EVALUATION_ROOT = Path("data/evaluation")
 
 # -----------------------------
 # LOAD MODEL
@@ -49,294 +50,345 @@ with open(
     chunks = json.load(f)
 
 # -----------------------------
-# LOAD GOLD QUESTIONS
+# FIND GOLD FILES
 # -----------------------------
 
-print("Loading evaluation questions...")
-
-with open(
-    GOLD_PATH,
-    "r",
-    encoding="utf-8"
-) as f:
-
-    gold_questions = json.load(f)
-
-# -----------------------------
-# VALIDATION
-# -----------------------------
-
-total_questions = len(
-    gold_questions
+gold_files = sorted(
+    EVALUATION_ROOT.rglob(
+        "gold_questions.json"
+    )
 )
 
-if total_questions == 0:
+if not gold_files:
 
     raise ValueError(
-        "gold_questions.json is empty."
+        "No gold_questions.json files found."
     )
+
+summary = []
 
 # -----------------------------
-# METRICS
+# EVALUATE EACH CATEGORY
 # -----------------------------
 
-hit_count = 0
+for gold_file in gold_files:
 
-recall_sum = 0
-precision_sum = 0
-mrr_sum = 0
+    category = gold_file.parent.name
 
-# -----------------------------
-# EVALUATION LOOP
-# -----------------------------
+    print("\n================================")
+    print(f"CATEGORY: {category}")
+    print("================================")
 
-for item in gold_questions:
+    with open(
+        gold_file,
+        "r",
+        encoding="utf-8"
+    ) as f:
 
-    question = item["question"]
+        gold_questions = json.load(f)
 
-    relevant_chunk_ids = set(
-        item["relevant_chunk_ids"]
+    total_questions = len(
+        gold_questions
     )
 
-    if not relevant_chunk_ids:
+    if total_questions == 0:
 
-        print(
-            "\nSkipping question with no "
-            "relevant_chunk_ids:"
+        raise ValueError(
+            f"{gold_file} is empty."
         )
 
-        print(question)
+    valid_questions = 0
 
-        total_questions -= 1
+    hit_count = 0
 
-        continue
-
-    # -----------------------------
-    # EMBED QUESTION
-    # -----------------------------
-
-    query_embedding = embedding_model.encode(
-        [question],
-        normalize_embeddings=True
-    )
-
-    query_embedding = np.array(
-        query_embedding
-    ).astype("float32")
+    recall_sum = 0
+    precision_sum = 0
+    mrr_sum = 0
 
     # -----------------------------
-    # SEARCH FAISS
+    # EVALUATION LOOP
     # -----------------------------
 
-    distances, indices = index.search(
-        query_embedding,
-        k=TOP_K
-    )
+    for item in gold_questions:
 
-    retrieved_chunk_ids = []
-    retrieved_results = []
+        question = item["question"]
 
-    for idx, score in zip(
-        indices[0],
-        distances[0]
-    ):
-
-        if idx < 0 or idx >= len(chunks):
-            continue
-
-        chunk = chunks[idx]
-
-        chunk_id = chunk["chunk_id"]
-
-        retrieved_chunk_ids.append(
-            chunk_id
+        relevant_chunk_ids = set(
+            item["relevant_chunk_ids"]
         )
 
-        retrieved_results.append(
-            {
-                "chunk_id": chunk_id,
-                "score": float(score)
-            }
-        )
+        if not relevant_chunk_ids:
 
-    retrieved_set = set(
-        retrieved_chunk_ids
-    )
-
-    # -----------------------------
-    # MATCH RELEVANT CHUNKS
-    # -----------------------------
-
-    found_relevant = (
-        retrieved_set.intersection(
-            relevant_chunk_ids
-        )
-    )
-
-    # -----------------------------
-    # HIT RATE
-    # -----------------------------
-
-    if found_relevant:
-
-        hit_count += 1
-
-    # -----------------------------
-    # RECALL@K
-    # -----------------------------
-    # Recall@K = relevant retrieved / total relevant
-
-    recall = (
-        len(found_relevant)
-        / len(relevant_chunk_ids)
-    )
-
-    recall_sum += recall
-
-    # -----------------------------
-    # PRECISION@K
-    # -----------------------------
-    # Precision@K = relevant retrieved / retrieved count
-
-    retrieved_count = len(
-        retrieved_chunk_ids
-    )
-
-    if retrieved_count == 0:
-
-        precision = 0
-
-    else:
-
-        precision = (
-            len(found_relevant)
-            / retrieved_count
-        )
-
-    precision_sum += precision
-
-    # -----------------------------
-    # MRR
-    # -----------------------------
-    # MRR = 1 / rank of first relevant chunk
-
-    reciprocal_rank = 0
-
-    for rank, chunk_id in enumerate(
-        retrieved_chunk_ids,
-        start=1
-    ):
-
-        if chunk_id in relevant_chunk_ids:
-
-            reciprocal_rank = (
-                1 / rank
+            print(
+                "\nSkipping question with no "
+                "relevant_chunk_ids:"
             )
 
-            break
+            print(question)
 
-    mrr_sum += reciprocal_rank
+            continue
 
-    # -----------------------------
-    # PRINT RESULT
-    # -----------------------------
+        valid_questions += 1
 
-    print("\n--------------------------------")
-    print("Question:")
-    print(question)
+        # -----------------------------
+        # EMBED QUESTION
+        # -----------------------------
 
-    print("\nExpected Chunks:")
-    for chunk_id in sorted(
-        relevant_chunk_ids
-    ):
-
-        print(f"- {chunk_id}")
-
-    print("\nRetrieved Chunks:")
-    for rank, result in enumerate(
-        retrieved_results,
-        start=1
-    ):
-
-        print(
-            f"{rank}. "
-            f"{result['chunk_id']} "
-            f"(score={result['score']:.4f})"
+        query_embedding = embedding_model.encode(
+            [question],
+            normalize_embeddings=True
         )
 
-    print("\nFound:")
-    print(bool(found_relevant))
+        query_embedding = np.array(
+            query_embedding
+        ).astype("float32")
+
+        # -----------------------------
+        # SEARCH FAISS
+        # -----------------------------
+
+        distances, indices = index.search(
+            query_embedding,
+            k=TOP_K
+        )
+
+        retrieved_chunk_ids = []
+        retrieved_results = []
+
+        for idx, score in zip(
+            indices[0],
+            distances[0]
+        ):
+
+            if idx < 0 or idx >= len(chunks):
+                continue
+
+            chunk = chunks[idx]
+
+            chunk_id = chunk["chunk_id"]
+
+            retrieved_chunk_ids.append(
+                chunk_id
+            )
+
+            retrieved_results.append(
+                {
+                    "chunk_id": chunk_id,
+                    "score": float(score)
+                }
+            )
+
+        retrieved_set = set(
+            retrieved_chunk_ids
+        )
+
+        # -----------------------------
+        # MATCH RELEVANT CHUNKS
+        # -----------------------------
+
+        found_relevant = (
+            retrieved_set.intersection(
+                relevant_chunk_ids
+            )
+        )
+
+        # -----------------------------
+        # HIT RATE
+        # -----------------------------
+
+        if found_relevant:
+
+            hit_count += 1
+
+        # -----------------------------
+        # RECALL@K
+        # -----------------------------
+
+        recall = (
+            len(found_relevant)
+            / len(relevant_chunk_ids)
+        )
+
+        recall_sum += recall
+
+        # -----------------------------
+        # PRECISION@K
+        # -----------------------------
+
+        retrieved_count = len(
+            retrieved_chunk_ids
+        )
+
+        if retrieved_count == 0:
+
+            precision = 0
+
+        else:
+
+            precision = (
+                len(found_relevant)
+                / retrieved_count
+            )
+
+        precision_sum += precision
+
+        # -----------------------------
+        # MRR
+        # -----------------------------
+
+        reciprocal_rank = 0
+
+        for rank, chunk_id in enumerate(
+            retrieved_chunk_ids,
+            start=1
+        ):
+
+            if chunk_id in relevant_chunk_ids:
+
+                reciprocal_rank = (
+                    1 / rank
+                )
+
+                break
+
+        mrr_sum += reciprocal_rank
+
+        # -----------------------------
+        # PRINT RESULT
+        # -----------------------------
+
+        print("\n--------------------------------")
+        print("Question:")
+        print(question)
+
+        print("\nExpected Chunks:")
+        for chunk_id in sorted(
+            relevant_chunk_ids
+        ):
+
+            print(f"- {chunk_id}")
+
+        print("\nRetrieved Chunks:")
+        for rank, result in enumerate(
+            retrieved_results,
+            start=1
+        ):
+
+            print(
+                f"{rank}. "
+                f"{result['chunk_id']} "
+                f"(score={result['score']:.4f})"
+            )
+
+        print("\nFound:")
+        print(bool(found_relevant))
+
+        print(
+            f"Recall@{TOP_K}: "
+            f"{recall:.4f}"
+        )
+
+        print(
+            f"Precision@{TOP_K}: "
+            f"{precision:.4f}"
+        )
+
+        print(
+            f"Reciprocal Rank: "
+            f"{reciprocal_rank:.4f}"
+        )
+
+    # -----------------------------
+    # FINAL METRICS FOR CATEGORY
+    # -----------------------------
+
+    if valid_questions == 0:
+
+        raise ValueError(
+            f"No valid evaluation questions found in {gold_file}."
+        )
+
+    hit_rate = (
+        hit_count
+        / valid_questions
+    )
+
+    recall_at_k = (
+        recall_sum
+        / valid_questions
+    )
+
+    precision_at_k = (
+        precision_sum
+        / valid_questions
+    )
+
+    mrr = (
+        mrr_sum
+        / valid_questions
+    )
+
+    summary.append(
+        {
+            "category": category,
+            "hit_rate": hit_rate,
+            "recall": recall_at_k,
+            "precision": precision_at_k,
+            "mrr": mrr
+        }
+    )
+
+    print("\nFINAL RESULTS")
+
+    print(
+        f"Total Questions: "
+        f"{total_questions}"
+    )
+
+    print(
+        f"Valid Questions: "
+        f"{valid_questions}"
+    )
+
+    print(
+        f"Hit Rate: "
+        f"{hit_rate:.4f}"
+    )
 
     print(
         f"Recall@{TOP_K}: "
-        f"{recall:.4f}"
+        f"{recall_at_k:.4f}"
     )
 
     print(
         f"Precision@{TOP_K}: "
-        f"{precision:.4f}"
+        f"{precision_at_k:.4f}"
     )
 
     print(
-        f"Reciprocal Rank: "
-        f"{reciprocal_rank:.4f}"
+        f"MRR: "
+        f"{mrr:.4f}"
     )
 
 # -----------------------------
-# FINAL METRICS
+# ALL CATEGORIES SUMMARY
 # -----------------------------
 
-if total_questions == 0:
+print("\n========================")
+print("ALL CATEGORIES SUMMARY")
+print("========================")
 
-    raise ValueError(
-        "No valid evaluation questions found."
+summary.sort(
+    key=lambda x: x["hit_rate"],
+    reverse=True
+)
+
+for row in summary:
+
+    print(
+        f"{row['category']}: "
+        f"Hit={row['hit_rate']:.4f}, "
+        f"Recall={row['recall']:.4f}, "
+        f"Precision={row['precision']:.4f}, "
+        f"MRR={row['mrr']:.4f}"
     )
-
-hit_rate = (
-    hit_count
-    / total_questions
-)
-
-recall_at_k = (
-    recall_sum
-    / total_questions
-)
-
-precision_at_k = (
-    precision_sum
-    / total_questions
-)
-
-mrr = (
-    mrr_sum
-    / total_questions
-)
-
-print("\n================================")
-print("FINAL RESULTS")
-print("================================")
-
-print(
-    f"Total Questions: "
-    f"{total_questions}"
-)
-
-print(
-    f"Hit Rate: "
-    f"{hit_rate:.4f}"
-)
-
-print(
-    f"Recall@{TOP_K}: "
-    f"{recall_at_k:.4f}"
-)
-
-print(
-    f"Precision@{TOP_K}: "
-    f"{precision_at_k:.4f}"
-)
-
-print(
-    f"MRR: "
-    f"{mrr:.4f}"
-)
