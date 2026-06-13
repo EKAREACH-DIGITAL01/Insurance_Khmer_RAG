@@ -11,9 +11,24 @@ output_root.mkdir(
     exist_ok=True
 )
 
-CHUNK_SIZE = 400
-
-MIN_CHUNK_SIZE = 120
+CATEGORY_CONFIG = {
+    "guidance": {
+        "chunk_size": 400,
+        "min_chunk_size": 120
+    },
+    "prakas": {
+        "chunk_size": 400,
+        "min_chunk_size": 120
+    },
+    "sub_decrees": {
+        "chunk_size": 400,
+        "min_chunk_size": 120
+    },
+    "laws": {
+        "chunk_size": 400,
+        "min_chunk_size": 120
+    }
+}
 
 json_files = sorted(
     input_root.rglob("*.json")
@@ -25,7 +40,10 @@ total_chunks = 0
 
 start_time = time.time()
 
-def guidance_chunking(text):
+def guidance_chunking(
+    text,
+    chunk_size
+):
 
     text = text.replace(
         "**",
@@ -52,7 +70,7 @@ def guidance_chunking(text):
         if not section:
             continue
 
-        if len(section) <= CHUNK_SIZE:
+        if len(section) <= chunk_size:
 
             chunks.append(section)
 
@@ -61,13 +79,16 @@ def guidance_chunking(text):
             chunks.extend(
                 recursive_split_text(
                     section,
-                    CHUNK_SIZE
+                    chunk_size
                 )
             )
 
     return chunks
 
-def recursive_split_text(text, chunk_size=300):
+def recursive_split_text(
+    text,
+    chunk_size
+):
 
     separators = [
         "\n\n",
@@ -177,7 +198,7 @@ def split_with_separators(
 
 def merge_small_chunks(
     chunks,
-    min_size=120
+    min_size
 ):
 
     if not chunks:
@@ -202,18 +223,20 @@ def merge_small_chunks(
 
 def chunk_document(
     text,
-    category
+    category,
+    chunk_size
 ):
 
     if category == "guidance":
 
         return guidance_chunking(
-            text
+            text,
+            chunk_size
         )
 
     return recursive_split_text(
         text,
-        CHUNK_SIZE
+        chunk_size
     )
 
 
@@ -275,16 +298,24 @@ for input_path in json_files:
         relative_path.parts[0]
     )
 
+    config = CATEGORY_CONFIG[
+        category
+    ]
+
+    chunk_size = config["chunk_size"]
+    min_chunk_size = config["min_chunk_size"]
+
     split_chunks = (
         chunk_document(
             cleaned_text,
-            category
+            category,
+            chunk_size
         )
     )
 
     split_chunks = merge_small_chunks(
         split_chunks,
-        MIN_CHUNK_SIZE
+        min_chunk_size
     )
 
     chunks = []
