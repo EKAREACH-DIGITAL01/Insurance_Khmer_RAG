@@ -7,8 +7,8 @@ import ollama
 from sentence_transformers import SentenceTransformer
 
 OLLAMA_MODEL = "nxphi47/seallm-7b-v2:q4_0"
-TOP_K = 3
-MAX_OUTPUT_TOKENS = 1024
+TOP_K = 5
+MIN_SCORE = 0.50
 
 # -----------------------------
 # PAGE CONFIG
@@ -114,6 +114,29 @@ if st.button("Ask") and query.strip():
             k=TOP_K
         )
 
+        valid_results = []
+
+        for score, idx in zip(
+            distances[0],
+            indices[0]
+        ):
+
+            if score >= MIN_SCORE:
+
+                valid_results.append(
+                    (score, idx)
+                )
+
+        if not valid_results:
+
+            st.subheader("Answer")
+
+            st.write(
+                "រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។"
+            )
+
+            st.stop()
+
         st.write(
             f"FAISS search time: {time.time() - start:.2f}s"
         )
@@ -124,24 +147,51 @@ if st.button("Ask") and query.strip():
 
         retrieved_chunks = []
 
-        for rank, i in enumerate(indices[0]):
+        sources = []
+
+        for rank, (score, i) in enumerate(
+            valid_results
+        ):
 
             chunk = chunks[i]
 
-            retrieved_chunks.append(
-                f"""
-[Source {rank + 1}]
-Document ID: {chunk["document_id"]}
-Page: {chunk["page"]}
-Chunk ID: {chunk["chunk_id"]}
+            sources.append(
+                (
+                    chunk["chunk_id"],
+                    score
+                )
+            )
 
-{chunk["text"]}
-"""
+            retrieved_chunks.append(
+                (
+                    f"[Source {rank + 1}]\n"
+                    f"Document ID: {chunk['document_id']}\n"
+                    f"Chunk ID: {chunk['chunk_id']}\n\n"
+                    f"{chunk['text']}"
+                )
             )
 
         context = "\n\n".join(
             retrieved_chunks
         )
+
+        st.subheader("Retrieved Chunks")
+
+        for rank, (score, i) in enumerate(
+            valid_results
+        ):
+
+            chunk = chunks[i]
+
+            st.markdown(
+                        f"""
+                **Rank {rank + 1}**
+                - Score: {score:.4f}
+                - Document: {chunk['document_id']}
+                - Category: {chunk['category']}
+                - Chunk ID: {chunk['chunk_id']}
+                """
+            )
 
         st.write(
             f"Prompt context length: {len(context)} characters"
@@ -154,16 +204,18 @@ Chunk ID: {chunk["chunk_id"]}
         prompt = f"""
         You are a Khmer legal assistant.
 
-        Use ONLY the context below.
+        Answer ONLY using the provided context.
 
-        If the answer exists in the context:
-        - answer in 1-3 sentences
-        - answer in Khmer
-        - summarize the information
+        Rules:
 
-        If the answer does not exist:
-        - say:
-        "រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។"
+        - Answer in Khmer.
+        - Do not invent facts.
+        - If multiple chunks contain relevant information, combine them.
+        - If dates, fees, deadlines, authorities, procedures or requirements are mentioned, preserve them exactly.
+        - Do not add outside legal knowledge.
+        - If the answer is not explicitly supported by the context, reply exactly:
+
+        រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។
 
         Context:
         {context}
@@ -171,7 +223,7 @@ Chunk ID: {chunk["chunk_id"]}
         Question:
         {query}
 
-        Final Answer:
+        Answer:
         """
 
         # -----------------------------
@@ -204,7 +256,7 @@ Chunk ID: {chunk["chunk_id"]}
                 options={
                     "temperature": 0.2,
                     "num_predict": 512,
-                    "num_ctx": 2048
+                    "num_ctx": 4096
                 }
             )
 
@@ -256,15 +308,36 @@ Chunk ID: {chunk["chunk_id"]}
 
     st.write(answer)
 
-    for rank, i in enumerate(indices[0]):
+    st.markdown(
+        "**Sources:**\n\n"
+        + "\n".join(
+            f"- {chunk_id} ({score:.4f})"
+            for chunk_id, score in sources
+        )
+    )
+
+    for rank, (score, i) in enumerate(
+        valid_results
+    ):
 
         chunk = chunks[i]
 
         with st.expander(
-            f"Rank {rank + 1} | "
-            f"Page {chunk['page']} | "
-            f"Distance "
-            f"{distances[0][rank]:.4f}"
+            f"Rank {rank + 1} | Score {score:.4f}"
         ):
 
-            st.write(chunk["text"])
+            st.caption(
+                f"Document: {chunk['document_id']}"
+            )
+
+            st.caption(
+                f"Category: {chunk['category']}"
+            )
+
+            st.caption(
+                f"Chunk: {chunk['chunk_id']}"
+            )
+
+            st.write(
+                chunk["text"]
+            )
