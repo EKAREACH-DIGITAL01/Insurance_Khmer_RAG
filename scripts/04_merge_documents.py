@@ -119,13 +119,15 @@ for (
     if category == "laws":
 
         chapter_match = re.search(
-            r"ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+",
-            merged_text
+            r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+|Chapter\s+[0-9]+)",
+            merged_text,
+            flags=re.IGNORECASE
         )
 
         article_match = re.search(
-            r"មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+",
-            merged_text
+            r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+|Article\s*[0-9]+)",
+            merged_text,
+            flags=re.IGNORECASE
         )
 
         if chapter_match:

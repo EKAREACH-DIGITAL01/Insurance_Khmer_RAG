@@ -31,7 +31,7 @@ CATEGORY_CONFIG = {
         "merge_small_chunks": True
     },
     "laws": {
-        "chunk_size": 700,
+        "chunk_size": None,
         "min_chunk_size": 0,
         "chunking_method": "law_article",
         "merge_small_chunks": False
@@ -95,39 +95,92 @@ def guidance_chunking(
 
 def law_chunking(
     text,
-    chunk_size
+    chunk_size=None
 ):
 
-    article_pattern = (
-        r"(?=មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+\s*-)"
+    chapter_pattern = (
+        r"(?="
+        r"(?:"
+        r"ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+"
+        r"|"
+        r"Chapter\s+[0-9]+"
+        r")"
+        r")"
     )
 
-    articles = re.split(
-        article_pattern,
-        text
+    article_pattern = (
+        r"(?="
+        r"(?:"
+        r"មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
+        r"|"
+        r"Article\s*[0-9]+"
+        r")"
+        r")"
+    )
+
+    chapter_sections = re.split(
+        chapter_pattern,
+        text,
+        flags=re.IGNORECASE
     )
 
     chunks = []
 
-    for article in articles:
+    for chapter_text in chapter_sections:
 
-        article = article.strip()
+        chapter_text = chapter_text.strip()
 
-        if not article:
+        if not chapter_text:
             continue
 
-        if len(article) <= chunk_size:
+        chapter_match = re.search(
+            r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+|Chapter\s+[0-9]+)",
+            chapter_text,
+            flags=re.IGNORECASE
+        )
 
-            chunks.append(article)
+        chapter_name = None
 
-        else:
+        if chapter_match:
 
-            chunks.extend(
-                recursive_split_text(
-                    article,
-                    chunk_size
-                )
+            chapter_name = (
+                chapter_match.group(1)
             )
+
+        articles = re.split(
+            article_pattern,
+            chapter_text,
+            flags=re.IGNORECASE
+        )
+
+        for article in articles:
+
+            article = article.strip()
+
+            if not article:
+                continue
+
+            article_match = re.search(
+                r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+|Article\s*[0-9]+)",
+                article,
+                flags=re.IGNORECASE
+            )
+
+            if not article_match:
+                continue
+
+            article_name = (
+                article_match.group(1)
+            )
+
+            chunks.append(
+                {
+                    "content": article,
+                    "chapter": chapter_name,
+                    "article": article_name
+                }
+            )
+
     return chunks
 
 
@@ -383,9 +436,41 @@ for input_path in json_files:
 
     chunks = []
 
-    for i, text in enumerate(
+    for i, chunk_data in enumerate(
         split_chunks
     ):
+
+        if category == "laws":
+
+            text = chunk_data["content"]
+
+            metadata = {
+                "document_id": data.get(
+                    "document_id"
+                ),
+                "category": category,
+                "chapter": chunk_data.get(
+                    "chapter"
+                ),
+                "article": chunk_data.get(
+                    "article"
+                ),
+                "chunk_size": len(text),
+                "chunking_method": chunking_method
+            }
+
+        else:
+
+            text = chunk_data
+
+            metadata = {
+                "document_id": data.get(
+                    "document_id"
+                ),
+                "category": category,
+                "chunk_size": len(text),
+                "chunking_method": chunking_method
+            }
 
         chunk = {
             "chunk_id": (
@@ -393,16 +478,7 @@ for input_path in json_files:
                 f"_chunk_{i}"
             ),
             "content": text,
-            "metadata": {
-                "document_id": data.get(
-                    "document_id"
-                ),
-                "category": category,
-                "chunk_size": len(
-                    text
-                ),
-                "chunking_method": chunking_method
-            }
+            "metadata": metadata
         }
 
         chunks.append(chunk)
