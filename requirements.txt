@@ -7,6 +7,7 @@ faiss-cpu
 numpy
 torch
 torchvision
+tabulate
 transformers
 huggingface-hub
 pdf2image
