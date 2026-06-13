@@ -78,10 +78,42 @@ for input_path in json_files:
 
     cleaned_text = raw_text
 
+    cleaned_text = re.sub(
+    r"(\S+)-\n(\S+)",
+    r"\1\2",
+    cleaned_text
+    )
+
     # Remove page numbers
     cleaned_text = re.sub(
         r"ទំព័រទី\s*[0-9០១២៣៤៥៦៧៨៩]+\s*នៃ\s*[0-9០១២៣៤៥៦៧៨៩]+",
         "",
+        cleaned_text
+    )
+
+    # Footer Removal
+    footer_patterns = [
+        r"^.*Building\s*#.*$",
+        r"^.*www\.irc\.gov\.kh.*$",
+        r"^.*@irc\.gov\.kh.*$",
+        r"^071\s*\d+.*$",
+        r"^អគារលេខ.*$",
+        r"^Khan Russey Keo.*$",
+    ]
+
+    for pattern in footer_patterns:
+
+        cleaned_text = re.sub(
+            pattern,
+            "",
+            cleaned_text,
+            flags=re.MULTILINE
+        )
+
+    # OCR spacing normalization
+    cleaned_text = re.sub(
+        r"\.\s+",
+        ".",
         cleaned_text
     )
 
