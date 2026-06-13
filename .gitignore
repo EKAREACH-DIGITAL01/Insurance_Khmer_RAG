@@ -14,6 +14,12 @@ data/merged_documents/*
 data/chunked_documents/*
 !data/chunked_documents/.gitkeep
 
+# Ignore merge chunks script
+scripts/08_merge_chunks.py
+
+# Ignore merged_chunks data
+data/merged_chunks/*
+
 # Ignore vector database
 vector_db/*
 !vector_db/.gitkeep
