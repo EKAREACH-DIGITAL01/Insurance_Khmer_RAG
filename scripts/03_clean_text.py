@@ -32,8 +32,6 @@ start_time = time.time()
 
 for input_path in json_files:
 
-    # Example:
-    # laws/law_01_page_001.json
     relative_path = input_path.relative_to(
         input_root
     )
@@ -80,24 +78,58 @@ for input_path in json_files:
 
     cleaned_text = raw_text
 
+    # Remove page numbers
+    cleaned_text = re.sub(
+        r"ទំព័រទី\s*[0-9០១២៣៤៥៦៧៨៩]+\s*នៃ\s*[0-9០១២៣៤៥៦៧៨៩]+",
+        "",
+        cleaned_text
+    )
+
+    # Remove URLs
+    cleaned_text = re.sub(
+        r"www\.[^\s]+",
+        "",
+        cleaned_text
+    )
+
+    # Remove email addresses
+    cleaned_text = re.sub(
+        r"[\w\.-]+@[\w\.-]+",
+        "",
+        cleaned_text
+    )
+
+    # Remove phone numbers
+    cleaned_text = re.sub(
+        r"\b\d{3}\s\d{3}\s\d{4}\b",
+        "",
+        cleaned_text
+    )
+
+    # Remove markdown artifacts
+    cleaned_text = cleaned_text.replace(
+        "**",
+        ""
+    )
+
     # Normalize excessive line breaks
     cleaned_text = re.sub(
-        r'\n{3,}',
-        '\n\n',
+        r"\n{3,}",
+        "\n\n",
         cleaned_text
     )
 
     # Remove excessive spaces/tabs
     cleaned_text = re.sub(
-        r'[ \t]+',
-        ' ',
+        r"[ \t]+",
+        " ",
         cleaned_text
     )
 
     # Remove trailing spaces
     cleaned_text = re.sub(
-        r' +\n',
-        '\n',
+        r" +\n",
+        "\n",
         cleaned_text
     )
 
