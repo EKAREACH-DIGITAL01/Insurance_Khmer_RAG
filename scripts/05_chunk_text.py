@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import time
 
-input_root = Path("data/extracted_text/cleaned")
+input_root = Path("data/merged_documents")
 output_root = Path("data/chunked_documents")
 
 output_root.mkdir(
@@ -231,7 +231,7 @@ for input_path in json_files:
 
     cleaned_text = (
         data.get(
-            "cleaned_text",
+            "merged_text",
             ""
         ).strip()
     )
@@ -266,7 +266,6 @@ for input_path in json_files:
         chunk = {
             "chunk_id": (
                 f"{data['document_id']}"
-                f"_page_{data['page']}"
                 f"_chunk_{i}"
             ),
             "content": text,
@@ -275,9 +274,6 @@ for input_path in json_files:
                     "document_id"
                 ),
                 "category": category,
-                "page": data.get(
-                    "page"
-                ),
                 "chunk_size": len(
                     text
                 ),
