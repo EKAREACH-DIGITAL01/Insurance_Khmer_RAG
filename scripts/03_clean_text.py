@@ -133,8 +133,22 @@ def clean_laws(text):
     )
 
     text = re.sub(
-        r"មាត្រា\s*([0-9០១២៣៤៥៦៧៨៩]+)\s*\.*\s*-\s*",
+        r"មាត្រា\s*([0-9០១២៣៤៥៦៧៨៩]+)\s*(?:\.\.|\.|-)+\s*",
         r"មាត្រា \1 - ",
+        text
+    )
+
+    # Add space after numbered legal list markers
+    text = re.sub(
+        r"(^|\n)([0-9០១២៣៤៥៦៧៨៩]+)[\.\-]\s*",
+        r"\1\2. ",
+        text
+    )
+
+    # Add space after Khmer letter list markers
+    text = re.sub(
+        r"(^|\n)([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])[\.\-]\s*",
+        r"\1\2. ",
         text
     )
 
