@@ -159,6 +159,7 @@ print("\nGenerating embeddings...")
 
 embeddings = model.encode(
     texts,
+    batch_size=8,
     show_progress_bar=True,
     normalize_embeddings=True
 )
