@@ -14,19 +14,27 @@ output_root.mkdir(
 CATEGORY_CONFIG = {
     "guidance": {
         "chunk_size": 400,
-        "min_chunk_size": 120
+        "min_chunk_size": 120,
+        "chunking_method": "guidance_section",
+        "merge_small_chunks": True
     },
     "prakas": {
         "chunk_size": 400,
-        "min_chunk_size": 120
+        "min_chunk_size": 120,
+        "chunking_method": "recursive",
+        "merge_small_chunks": True
     },
     "sub_decrees": {
         "chunk_size": 400,
-        "min_chunk_size": 120
+        "min_chunk_size": 120,
+        "chunking_method": "recursive",
+        "merge_small_chunks": True
     },
     "laws": {
-        "chunk_size": 400,
-        "min_chunk_size": 120
+        "chunk_size": 700,
+        "min_chunk_size": 0,
+        "chunking_method": "law_article",
+        "merge_small_chunks": False
     }
 }
 
@@ -84,6 +92,44 @@ def guidance_chunking(
             )
 
     return chunks
+
+def law_chunking(
+    text,
+    chunk_size
+):
+
+    article_pattern = (
+        r"(?=មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+\s*-)"
+    )
+
+    articles = re.split(
+        article_pattern,
+        text
+    )
+
+    chunks = []
+
+    for article in articles:
+
+        article = article.strip()
+
+        if not article:
+            continue
+
+        if len(article) <= chunk_size:
+
+            chunks.append(article)
+
+        else:
+
+            chunks.extend(
+                recursive_split_text(
+                    article,
+                    chunk_size
+                )
+            )
+    return chunks
+
 
 def recursive_split_text(
     text,
@@ -234,6 +280,13 @@ def chunk_document(
             chunk_size
         )
 
+    elif category == "laws":
+
+        return law_chunking(
+            text,
+            chunk_size
+        )
+
     return recursive_split_text(
         text,
         chunk_size
@@ -305,6 +358,14 @@ for input_path in json_files:
     chunk_size = config["chunk_size"]
     min_chunk_size = config["min_chunk_size"]
 
+    chunking_method = config[
+        "chunking_method"
+    ]
+
+    merge_small = config[
+        "merge_small_chunks"
+    ]
+
     split_chunks = (
         chunk_document(
             cleaned_text,
@@ -313,10 +374,12 @@ for input_path in json_files:
         )
     )
 
-    split_chunks = merge_small_chunks(
-        split_chunks,
-        min_chunk_size
-    )
+    if merge_small:
+
+        split_chunks = merge_small_chunks(
+            split_chunks,
+            min_chunk_size
+        )
 
     chunks = []
 
@@ -338,12 +401,7 @@ for input_path in json_files:
                 "chunk_size": len(
                     text
                 ),
-                "chunking_method":
-                (
-                    "guidance_section"
-                    if category == "guidance"
-                    else "recursive"
-                )
+                "chunking_method": chunking_method
             }
         }
 
