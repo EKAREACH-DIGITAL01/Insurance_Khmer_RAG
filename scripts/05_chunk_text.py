@@ -11,8 +11,9 @@ output_root.mkdir(
     exist_ok=True
 )
 
-# Can be modified (300, 500, 700, etc.)
-CHUNK_SIZE = 300
+CHUNK_SIZE = 400
+
+MIN_CHUNK_SIZE = 120
 
 json_files = sorted(
     input_root.rglob("*.json")
@@ -70,8 +71,8 @@ def recursive_split_text(text, chunk_size=300):
 
     separators = [
         "\n\n",
-        "\n",
         "។",
+        "\n",
         " ",
         ""
     ]
@@ -174,6 +175,31 @@ def split_with_separators(
 
     return chunks
 
+def merge_small_chunks(
+    chunks,
+    min_size=120
+):
+
+    if not chunks:
+        return chunks
+
+    merged = []
+
+    for chunk in chunks:
+
+        if (
+            merged
+            and len(chunk) < min_size
+        ):
+
+            merged[-1] += "\n" + chunk
+
+        else:
+
+            merged.append(chunk)
+
+    return merged
+
 def chunk_document(
     text,
     category
@@ -254,6 +280,11 @@ for input_path in json_files:
             cleaned_text,
             category
         )
+    )
+
+    split_chunks = merge_small_chunks(
+        split_chunks,
+        MIN_CHUNK_SIZE
     )
 
     chunks = []
