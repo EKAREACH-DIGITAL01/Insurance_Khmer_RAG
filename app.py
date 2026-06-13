@@ -6,7 +6,7 @@ import streamlit as st
 import ollama
 from sentence_transformers import SentenceTransformer
 
-OLLAMA_MODEL = "yxchia/seallms-v3-7b:Q4_K_M"
+OLLAMA_MODEL = "nxphi47/seallm-7b-v2:q4_0"
 TOP_K = 5
 MIN_SCORE = 0.50
 
