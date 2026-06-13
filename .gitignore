@@ -20,10 +20,6 @@ scripts/08_merge_chunks.py
 # Ignore merged_chunks data
 data/merged_chunks/*
 
-# Ignore vector database
-vector_db/*
-!vector_db/.gitkeep
-
 # Python
 __pycache__/
 *.pyc
