@@ -3,6 +3,8 @@ import faiss
 import numpy as np
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
+from tabulate import tabulate
+
 
 # -----------------------------
 # CONFIG
@@ -374,21 +376,38 @@ for gold_file in gold_files:
 # ALL CATEGORIES SUMMARY
 # -----------------------------
 
-print("\n========================")
-print("ALL CATEGORIES SUMMARY")
-print("========================")
-
 summary.sort(
     key=lambda x: x["hit_rate"],
     reverse=True
 )
 
+table = []
+
 for row in summary:
 
-    print(
-        f"{row['category']}: "
-        f"Hit={row['hit_rate']:.4f}, "
-        f"Recall={row['recall']:.4f}, "
-        f"Precision={row['precision']:.4f}, "
-        f"MRR={row['mrr']:.4f}"
+    table.append([
+        row["category"],
+        row["hit_rate"],
+        row["recall"],
+        row["precision"],
+        row["mrr"]
+    ])
+
+print("\n==================================================================")
+print("\t\t\tALL CATEGORIES SUMMARY")
+print("==================================================================")
+
+print(
+    tabulate(
+        table,
+        headers=[
+            "Category",
+            "Hit Rate",
+            f"Recall@{TOP_K}",
+            f"Precision@{TOP_K}",
+            "MRR"
+        ],
+        tablefmt="grid",
+        floatfmt=".4f"
     )
+)
