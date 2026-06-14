@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 import time
 
-input_root = Path("data/merged_documents")
-output_root = Path("data/chunked_documents")
+input_root = Path("data/06_cleaned_documents")
+output_root = Path("data/07_chunked_documents")
 
 output_root.mkdir(
     parents=True,

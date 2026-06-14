@@ -15,7 +15,7 @@ TOP_K = 5
 INDEX_PATH = "vector_db/khmer_insurance.index"
 METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
 
-EVALUATION_ROOT = Path("data/evaluation")
+EVALUATION_ROOT = Path("data/08_evaluation")
 
 # -----------------------------
 # LOAD MODEL

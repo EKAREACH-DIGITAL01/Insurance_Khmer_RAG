@@ -18,7 +18,7 @@ model = SentenceTransformer(
 # =====================================================
 
 input_root = Path(
-    "data/chunked_documents"
+    "data/07_chunked_documents"
 )
 
 # =====================================================

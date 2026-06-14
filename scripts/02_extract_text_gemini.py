@@ -26,7 +26,7 @@ client = genai.Client(
 # =====================================================
 
 input_root = Path(
-    "data/page_images"
+    "data/02_page_images"
 )
 
 # =====================================================
@@ -34,7 +34,7 @@ input_root = Path(
 # =====================================================
 
 output_root = Path(
-    "data/extracted_text/raw"
+    "data/03_raw_pages"
 )
 
 output_root.mkdir(
@@ -91,9 +91,6 @@ def generate_ocr_response(image):
 # =====================================================
 
 for image_path in image_files:
-
-    # Example:
-    # data/page_images/laws/law_01/page_001.png
 
     relative_path = image_path.relative_to(
         input_root

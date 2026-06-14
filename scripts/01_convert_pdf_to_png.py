@@ -9,7 +9,7 @@ from pathlib import Path
 # =====================================================
 
 source_root = Path(
-    "data/source_documents"
+    "data/01_source_documents"
 )
 
 # =====================================================
@@ -17,7 +17,7 @@ source_root = Path(
 # =====================================================
 
 output_root = Path(
-    "data/page_images"
+    "data/02_page_images"
 )
 
 # =====================================================

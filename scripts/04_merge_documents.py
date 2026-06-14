@@ -5,11 +5,11 @@ from collections import defaultdict
 import time
 
 input_root = Path(
-    "data/extracted_text/cleaned"
+    "data/04_cleaned_pages"
 )
 
 output_root = Path(
-    "data/merged_documents"
+    "data/05_merged_documents"
 )
 
 output_root.mkdir(

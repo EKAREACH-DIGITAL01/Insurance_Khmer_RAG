@@ -5,12 +5,12 @@ import time
 
 # Root input folder
 input_root = Path(
-    "data/extracted_text/raw"
+    "data/03_raw_pages"
 )
 
 # Root output folder
 output_root = Path(
-    "data/extracted_text/cleaned"
+    "data/04_cleaned_pages"
 )
 
 output_root.mkdir(
