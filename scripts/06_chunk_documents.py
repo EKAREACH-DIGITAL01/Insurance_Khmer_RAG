@@ -385,7 +385,7 @@ for input_path in json_files:
 
     cleaned_text = (
         data.get(
-            "merged_text",
+            "cleaned_text",
             ""
         ).strip()
     )

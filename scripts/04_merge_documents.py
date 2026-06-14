@@ -63,41 +63,6 @@ for input_path in json_files:
         }
     )
 
-# -----------------------------
-# MERGE PAGES
-# -----------------------------
-def clean_law_merged_document(text):
-
-    signature_markers = [
-        r"ថ្ងៃ\s+.*?ព\.ស\.\d+",
-        r"ធ្វើនៅព្រះបរមរាជវាំង",
-        r"Royal Palace",
-    ]
-
-    positions = []
-
-    for marker in signature_markers:
-
-        match = re.search(
-            marker,
-            text,
-            flags=re.IGNORECASE
-        )
-
-        if match:
-
-            positions.append(
-                match.start()
-            )
-
-    if positions:
-
-        text = text[
-            :min(positions)
-        ]
-
-    return text.strip()
-
 merged_count = 0
 
 for (
@@ -114,37 +79,6 @@ for (
         page["text"]
         for page in pages
     )
-
-    # Remove law preamble before first chapter/article
-    if category == "laws":
-
-        chapter_match = re.search(
-            r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+|Chapter\s+[0-9]+)",
-            merged_text,
-            flags=re.IGNORECASE
-        )
-
-        article_match = re.search(
-            r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+|Article\s*[0-9]+)",
-            merged_text,
-            flags=re.IGNORECASE
-        )
-
-        if chapter_match:
-
-            merged_text = merged_text[
-                chapter_match.start():
-            ]
-
-        elif article_match:
-
-            merged_text = merged_text[
-                article_match.start():
-            ]
-
-        merged_text = clean_law_merged_document(
-            merged_text
-        )
 
     output_folder = (
         output_root
