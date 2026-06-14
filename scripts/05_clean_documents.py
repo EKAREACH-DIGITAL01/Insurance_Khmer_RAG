@@ -87,6 +87,92 @@ def clean_law_document(text):
     return text.strip()
 
 
+def clean_sub_decree_document(text):
+
+    chapter_match = re.search(
+        r"ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+",
+        text
+    )
+
+    article_match = re.search(
+        r"មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+",
+        text
+    )
+
+    if chapter_match:
+
+        text = text[
+            chapter_match.start():
+        ]
+
+    elif article_match:
+
+        text = text[
+            article_match.start():
+        ]
+
+    else:
+
+      start_match = re.search(
+          r"HEREBY\s+DECIDES",
+          text,
+          flags=re.IGNORECASE
+      )
+
+      if start_match:
+
+          text = text[
+              start_match.end():
+          ]
+
+    signature_markers = [
+        r"ថ្ងៃ.*?ព\.ស\.[0-9០១២៣៤៥៦៧៨៩]+",
+        r"ធ្វើនៅរាជធានីភ្នំពេញ",
+        r"នាយករដ្ឋមន្ត្រី",
+        r"បានយកសេចក្តីគោរព",
+        r"កន្លែងទទួល",
+
+        r"Phnom Penh,\s*\d+.*?\d{4}",
+        r"Have Proposed Signature to",
+        r"Royal Gazette",
+        r"Chronological documents",
+    ]
+
+    positions = []
+
+    for marker in signature_markers:
+
+        match = re.search(
+            marker,
+            text,
+            flags=re.IGNORECASE
+        )
+
+        if match:
+
+            positions.append(
+                match.start()
+            )
+
+    appendix_match = re.search(
+        r"^\s*ឧបសម្ព័ន្ធទី\s*[0-9០១២៣៤៥៦៧៨៩]+\s*$",
+        text,
+        flags=re.MULTILINE
+    )
+
+    if appendix_match:
+
+        positions.append(
+            appendix_match.start()
+        )
+
+    if positions:
+
+        text = text[:min(positions)]
+
+    return text.strip()
+
+
 # =====================================================
 # PROCESS FILES
 # =====================================================
@@ -137,6 +223,12 @@ for input_path in json_files:
         if category == "laws":
 
             text = clean_law_document(
+                text
+            )
+
+        elif category == "sub_decrees":
+
+            text = clean_sub_decree_document(
                 text
             )
 

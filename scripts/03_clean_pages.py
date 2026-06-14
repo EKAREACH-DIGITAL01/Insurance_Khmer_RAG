@@ -167,12 +167,33 @@ def clean_prakas(text):
 
 def clean_sub_decrees(text):
 
-    # Remove page markers
+    # Remove page markers like 1/16
     text = re.sub(
         r"^[0-9០១២៣៤៥៦៧៨៩]+/[0-9០១២៣៤៥៦៧៨៩]+$",
         "",
         text,
         flags=re.MULTILINE
+    )
+
+    # Remove page markers like ទំព័រ ២
+    text = re.sub(
+        r"^\s*ទំព័រ\s*[0-9០១២៣៤៥៦៧៨៩]+\s*$",
+        "",
+        text,
+        flags=re.MULTILINE
+    )
+
+    # Remove page markers like - ១ - or - ២ -
+    text = re.sub(
+        r"\s*-\s*[0-9០១២៣៤៥៦៧៨៩]+\s*-\s*",
+        "\n",
+        text
+    )
+
+    # Remove backlash infront of bullet points
+    text = text.replace(
+        "\\-",
+        "-"
     )
 
     # Normalize article formatting
