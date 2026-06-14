@@ -14,42 +14,36 @@
   "law_03": {
     "document_name": "ច្បាប់ស្តីពីការរៀបចំនិងការប្រព្រឹត្តទៅនៃអាជ្ញាធរសេវាហិរញ្ញវត្ថុមិនមែនធនាគារ",
     "document_type": "law",
-    "release_date": "2021-11-08",
-    "language": "en"
+    "release_date": "2021-11-08"
   },
 
   "law_04": {
     "document_name": "ច្បាប់ស្តីពីការធានារ៉ាប់រង",
     "document_type": "law",
-    "release_date": "2021-11-02",
-    "language": "en"
+    "release_date": "2021-11-02"
   },
 
   "sub_decree_01": {
-    "document_name": "Sub-Decree on Microinsurance",
+    "document_name": "អនុក្រឹត្យស្តីពីការធានារ៉ាប់រងខ្នាតតូច",
     "document_type": "sub_decree",
-    "release_date": "2025-01-10",
-    "language": "kh"
+    "release_date": "2025-01-10"
   },
 
   "sub_decree_02": {
-    "document_name": "Sub-Decree on the Uniform, Identification Insignia, and Rank Insignia of Insurance Inspection Officers",
+    "document_name": "អនុក្រឹត្យស្តីពីឯកសណ្ឋាន សញ្ញាសម្គាល់ និងសញ្ញាសក្តិរបស់មន្ត្រីអធិការកិច្ចធានារ៉ាប់រង",
     "document_type": "sub_decree",
-    "release_date": "2024-08-19",
-    "language": "kh"
+    "release_date": "2024-08-19"
   },
 
   "sub_decree_03": {
-    "document_name": "Sub-Decree on Insurance",
+    "document_name": "អនុក្រឹត្យស្តីពីការធានារ៉ាប់រង",
     "document_type": "sub_decree",
-    "release_date": "2022-01-03",
-    "language": "en"
+    "release_date": "2022-01-03"
   },
    "sub_decree_04": {
-    "document_name": "Sub-Decree No. 113 ANKr.BK dated 14 July 2021 on the Organization and Functioning of Subordinate Units under the Non-Bank Financial Services Authority",
+    "document_name": "អនុក្រឹត្យស្តីពីការរៀបចំនិងការប្រព្រឹត្តទៅរបស់អង្គភាពក្រោមឧ៌វាទរបស់អាជ្ញាធរសេវាហិរញ្ញវត្ថុមិនមែនធនាគារ",
     "document_type": "sub_decree",
-    "release_date": "2021-01-08",
-    "language": "kh"
+    "release_date": "2021-01-08"
   },
 
   "guidance_01": {
