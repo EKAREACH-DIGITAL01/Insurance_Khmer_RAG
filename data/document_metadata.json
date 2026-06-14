@@ -47,118 +47,100 @@
   },
 
   "guidance_01": {
-    "document_name": "Guideline on the Receipt and Settlement of Insurance Claims for Microinsurance Companies",
+    "document_name": "គោលការណ៍ណែនាំស្តីពីការទទួល និងដោះស្រាយសំណងធានារ៉ាប់រងសម្រាប់ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច",
     "document_type": "guidance",
-    "release_date": "2026-01-14",
-    "language": "kh"
+    "release_date": "2026-01-14"
   },
 
   "guidance_02": {
-    "document_name": "Instruction on Professional Training for Insurance Agents",
+    "document_name": "សេចក្តីណែនាំស្តីពីការបណ្តុះបណ្តាលវិជ្ជាជីវៈជើងសាធារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2026-01-14",
-    "language": "kh"
+    "release_date": "2026-01-14"
   },
 
   "guidance_03": {
-    "document_name": "Instruction on the Implementation of Mortality Tables in the Insurance Sector",
+    "document_name": "សេចក្តីណែនាំស្តីពីការដាក់ឱ្យប្រើប្រាស់តារាងអត្រាមរណភាពក្នុងវិស័យធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2025-05-06",
-    "language": "kh"
+    "release_date": "2025-05-06"
   },
 
    "guidance_04": {
-    "document_name": "Guideline on the Code of Ethics for Insurance Professionals",
+    "document_name": "គោលការណ៍ណែនាំស្តីពីក្រមសីលធម៌បុគ្គលវិជ្ជាជីវៈជើងសាធារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2024-12-10",
-    "language": "kh"
+    "release_date": "2024-12-10"
   },
 
   "guidance_05": {
-    "document_name": "Instruction on Minimum Principles for Microinsurance Contracts",
+    "document_name": "សេចក្តីណែនាំស្តីពីគោលការណ៍អប្បបរមាចំពោះកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូច",
     "document_type": "guidance",
-    "release_date": "2024-09-05",
-    "language": "kh"
+    "release_date": "2024-09-05"
   },
 
   "guidance_06": {
-    "document_name": "Instruction on the Diversification of Reinsurance",
+    "document_name": "សេចក្តីណែនាំស្តីពីពិពិធកម្មនៃការធានារ៉ាប់រងបន្ត",
     "document_type": "guidance",
-    "release_date": "2024-08-07",
-    "language": "kh"
+    "release_date": "2024-08-07"
   },
 
   "guidance_07": {
-    "document_name": "Guideline on the Prevention of Insurance Fraud",
+    "document_name": "គោលការណ៍ណែនាំស្តីពីការការពារការក្លែងបន្លំធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2024-01-30",
-    "language": "kh"
+    "release_date": "2024-01-30"
   },
 
-
-
   "guidance_08": {
-    "document_name": "Instruction on the Required Solvency Guarantee Cash Account of Insurance Companies",
+    "document_name": "សេចក្តីណែនាំស្តីពីគណនីសាច់ប្រាក់ធានាសាធនភាពតម្រូវរបស់ក្រុមហ៊ុនធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2023-12-28",
-    "language": "kh"
+    "release_date": "2023-12-28"
   },
 
   "guidance_09": {
-    "document_name": "Guideline on Advertising of Insurance Products",
+    "document_name": "គោលការណ៍ណែនាំស្តីពីការផ្សាយពាណិជ្ជកម្មលើផលិតផលធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2023-12-06",
-    "language": "kh"
+    "release_date": "2023-12-06"
   },
 
   "guidance_10": {
-    "document_name": "Guideline on the Insurance Technology Regulatory Sandbox",
+    "document_name": "គោលការណ៍ណែនាំស្តីពីបរិស្ថានសាកល្បងបច្ចេកវិទ្យាធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2023-10-17",
-    "language": "kh"
+    "release_date": "2023-10-17"
   },
 
 
    "guidance_11": {
-    "document_name": "Instruction on the Code of Professional Ethics for Insurance Agents",
+    "document_name": "សេចក្តីណែនាំស្តីពីក្រមសីលធម៌វិជ្ជាជីវៈភ្នាក់ងារធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2023-05-10",
-    "language": "kh"
+    "release_date": "2023-05-10"
   },
 
   "guidance_12": {
-    "document_name": "Guideline on the Receipt and Settlement of Insurance Claims",
+    "document_name": "គោលការណ៍ណែនាំស្តីពីការទទួលនិងដោះស្រាយសំណងធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2023-01-17",
-    "language": "kh"
+    "release_date": "2023-01-17"
   },
 
   "guidance_13": {
-    "document_name": "Instruction on the Periodic Report Format to be Submitted by Insurance Brokerage Companies and Insurance Agency Companies",
+    "document_name": "សេចក្តីណែនាំស្តីពីទម្រង់របាយការណ៍ប្រចាំគ្រាដែលត្រូវផ្តល់ដោយក្រុមហ៊ុនជើងសាធារ៉ាប់រង និងក្រុមហ៊ុនភ្នាក់ងារធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2022-12-21",
-    "language": "kh"
+    "release_date": "2022-12-21"
   },
 
   "guidance_14": {
-    "document_name": " Instruction on Reporting the Freezing of Assets by Reporting Entities in the Insurance Sector ",
+    "document_name": "សេចក្តីណែនាំស្តីពីការរាយការណ៍អំពីការបង្កកទ្រព្យសម្បត្តិដោយបុគ្គលរាយការណ៍ក្នុងវិស័យធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2022-04-01",
-    "language": "kh"
+    "release_date": "2022-04-01"
   },
 
    "guidance_15": {
-    "document_name": " Instruction on the Organization of Insurance Agent Training Courses ",
+    "document_name": "សេចក្តីណែនាំអំពីការរៀបចំវគ្គបណ្តុះបណ្តាលភ្នាក់ងារធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2022-01-01",
-    "language": "kh"
+    "release_date": "2022-01-01"
   },
 
   "guidance_16": {
-    "document_name": " Instruction on Minimum Principles for Insurance Contracts ",
+    "document_name": "សេចក្តីណែនាំស្តីពីគោលការណ៍អប្បបរមាចំពោះកិច្ចសន្យាធានារ៉ាប់រង",
     "document_type": "guidance",
-    "release_date": "2022-01-01",
-    "language": "kh"
+    "release_date": "2022-01-01"
   },
 
    "prakas_01": {
