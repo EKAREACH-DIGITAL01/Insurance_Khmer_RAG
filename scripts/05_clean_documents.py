@@ -33,13 +33,13 @@ start_time = time.time()
 def clean_law_document(text):
 
     chapter_match = re.search(
-        r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+",
+        r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)",
         text,
         flags=re.IGNORECASE
     )
 
     article_match = re.search(
-        r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+",
+        r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+)",
         text,
         flags=re.IGNORECASE
     )
