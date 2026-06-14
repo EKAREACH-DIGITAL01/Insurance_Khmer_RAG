@@ -18,22 +18,22 @@ CATEGORY_CONFIG = {
         "chunking_method": "guidance_section",
         "merge_small_chunks": True
     },
-    "prakas": {
-        "chunk_size": 400,
-        "min_chunk_size": 120,
-        "chunking_method": "recursive",
-        "merge_small_chunks": True
-    },
-    "sub_decrees": {
-        "chunk_size": 400,
-        "min_chunk_size": 120,
-        "chunking_method": "recursive",
-        "merge_small_chunks": True
-    },
-    "laws": {
+     "laws": {
         "chunk_size": None,
         "min_chunk_size": 0,
-        "chunking_method": "law_article",
+        "chunking_method": "legal_article",
+        "merge_small_chunks": False
+    },
+    "prakas": {
+        "chunk_size": None,
+        "min_chunk_size": 0,
+        "chunking_method": "legal_article",
+        "merge_small_chunks": False
+    },
+    "sub_decrees": {
+        "chunk_size": None,
+        "min_chunk_size": 0,
+        "chunking_method": "legal_article",
         "merge_small_chunks": False
     }
 }
@@ -93,7 +93,7 @@ def guidance_chunking(
 
     return chunks
 
-def law_chunking(
+def legal_article_chunking(
     text,
     chunk_size=None
 ):
@@ -113,7 +113,9 @@ def law_chunking(
         r"(?:"
         r"មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
         r"|"
-        r"Article\s*[0-9]+"
+        r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+"
+        r"|"
+        r"Article\s+[0-9]+"
         r")"
         r")"
     )
@@ -161,7 +163,11 @@ def law_chunking(
                 continue
 
             article_match = re.search(
-                r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+|Article\s*[0-9]+)",
+                r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
+                r"|"
+                r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+"
+                r"|"
+                r"Article\s+[0-9]+)",
                 article,
                 flags=re.IGNORECASE
             )
@@ -177,7 +183,7 @@ def law_chunking(
                 {
                     "content": article,
                     "chapter": chapter_name,
-                    "article": article_name
+                    "legal_unit": article_name
                 }
             )
 
@@ -333,9 +339,9 @@ def chunk_document(
             chunk_size
         )
 
-    elif category == "laws":
+    elif category in ["laws", "sub_decrees", "prakas"]:
 
-        return law_chunking(
+        return legal_article_chunking(
             text,
             chunk_size
         )
@@ -440,7 +446,7 @@ for input_path in json_files:
         split_chunks
     ):
 
-        if category == "laws":
+        if category in ["laws", "sub_decrees", "prakas"]:
 
             text = chunk_data["content"]
 
@@ -452,8 +458,8 @@ for input_path in json_files:
                 "chapter": chunk_data.get(
                     "chapter"
                 ),
-                "article": chunk_data.get(
-                    "article"
+                "legal_unit": chunk_data.get(
+                    "legal_unit"
                 ),
                 "chunk_size": len(text),
                 "chunking_method": chunking_method
