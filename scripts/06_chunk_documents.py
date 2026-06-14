@@ -206,30 +206,15 @@ def legal_article_chunking(
                 article_match.group(1)
             )
 
-            # Remove leading chapter/section headers
-            article = re.sub(
-                r"^.*?(?="
-                r"មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
-                r"|"
-                r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+"
-                r"|"
-                r"Article\s+[0-9]+"
-                r")",
-                "",
-                article,
-                flags=re.DOTALL
-            ).strip()
-
             # Remove trailing next section header
             article = re.sub(
-                r"\n\s*("
-                r"ផ្នែកទី\s*[0-9០១២៣៤៥៦៧៨៩]+"
-                r"|"
-                r"Part\s+[0-9]+"
-                r")\s*$",
+                r"\n\s*"
+                r"(ផ្នែកទី\s*[0-9០១២៣៤៥៦៧៨៩]+"
+                r"|Part\s+[0-9]+)"
+                r"\s*\n.*$",
                 "",
                 article,
-                flags=re.IGNORECASE
+                flags=re.IGNORECASE | re.DOTALL
             ).strip()
 
             chunks.append(
