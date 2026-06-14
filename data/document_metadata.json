@@ -1,27 +1,25 @@
 {
   "law_01": {
-    "document_name": "Electronic Commerce Law",
+    "document_name": "ច្បាប់ស្តីពីពាណិជ្ជកម្មតាមប្រព័ន្ធអេឡិចត្រូនិច",
     "document_type": "law",
-    "release_date": "2022-10-30",
-    "language": "kh"
+    "release_date": "2022-10-30"
   },
 
   "law_02": {
-    "document_name": "Consumer Protection Law",
+    "document_name": "ច្បាប់ស្តីពីកិច្ចការពារអ្នកប្រើប្រាស់",
     "document_type": "law",
-    "release_date": "2022-10-30",
-    "language": "kh"
+    "release_date": "2022-10-30"
   },
 
   "law_03": {
-    "document_name": "The Law on the Organization and Functioning of the Non-Bank Financial Services Authority",
+    "document_name": "ច្បាប់ស្តីពីការរៀបចំនិងការប្រព្រឹត្តទៅនៃអាជ្ញាធរសេវាហិរញ្ញវត្ថុមិនមែនធនាគារ",
     "document_type": "law",
     "release_date": "2021-11-08",
     "language": "en"
   },
 
   "law_04": {
-    "document_name": "Law on Insurance",
+    "document_name": "ច្បាប់ស្តីពីការធានារ៉ាប់រង",
     "document_type": "law",
     "release_date": "2021-11-02",
     "language": "en"
@@ -86,44 +84,44 @@
     "document_name": "Instruction on Minimum Principles for Microinsurance Contracts",
     "document_type": "guidance",
     "release_date": "2024-09-05",
-    "language": "kh"  
+    "language": "kh"
   },
 
   "guidance_06": {
     "document_name": "Instruction on the Diversification of Reinsurance",
     "document_type": "guidance",
     "release_date": "2024-08-07",
-    "language": "kh"  
+    "language": "kh"
   },
 
   "guidance_07": {
     "document_name": "Guideline on the Prevention of Insurance Fraud",
     "document_type": "guidance",
     "release_date": "2024-01-30",
-    "language": "kh"  
+    "language": "kh"
   },
 
 
-  
+
   "guidance_08": {
     "document_name": "Instruction on the Required Solvency Guarantee Cash Account of Insurance Companies",
     "document_type": "guidance",
     "release_date": "2023-12-28",
-    "language": "kh"  
+    "language": "kh"
   },
 
   "guidance_09": {
     "document_name": "Guideline on Advertising of Insurance Products",
     "document_type": "guidance",
     "release_date": "2023-12-06",
-    "language": "kh"  
+    "language": "kh"
   },
 
   "guidance_10": {
     "document_name": "Guideline on the Insurance Technology Regulatory Sandbox",
     "document_type": "guidance",
     "release_date": "2023-10-17",
-    "language": "kh"  
+    "language": "kh"
   },
 
 
@@ -131,42 +129,42 @@
     "document_name": "Instruction on the Code of Professional Ethics for Insurance Agents",
     "document_type": "guidance",
     "release_date": "2023-05-10",
-    "language": "kh"  
+    "language": "kh"
   },
 
   "guidance_12": {
     "document_name": "Guideline on the Receipt and Settlement of Insurance Claims",
     "document_type": "guidance",
     "release_date": "2023-01-17",
-    "language": "kh"  
+    "language": "kh"
   },
 
   "guidance_13": {
     "document_name": "Instruction on the Periodic Report Format to be Submitted by Insurance Brokerage Companies and Insurance Agency Companies",
     "document_type": "guidance",
     "release_date": "2022-12-21",
-    "language": "kh"  
+    "language": "kh"
   },
 
   "guidance_14": {
     "document_name": " Instruction on Reporting the Freezing of Assets by Reporting Entities in the Insurance Sector ",
     "document_type": "guidance",
     "release_date": "2022-04-01",
-    "language": "kh"  
+    "language": "kh"
   },
 
    "guidance_15": {
     "document_name": " Instruction on the Organization of Insurance Agent Training Courses ",
     "document_type": "guidance",
     "release_date": "2022-01-01",
-    "language": "kh"  
+    "language": "kh"
   },
 
   "guidance_16": {
     "document_name": " Instruction on Minimum Principles for Insurance Contracts ",
     "document_type": "guidance",
     "release_date": "2022-01-01",
-    "language": "kh"  
+    "language": "kh"
   },
 
    "prakas_01": {
