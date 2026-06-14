@@ -167,6 +167,49 @@ def clean_prakas(text):
 
 def clean_sub_decrees(text):
 
+    # Remove page markers
+    text = re.sub(
+        r"^[0-9០១២៣៤៥៦៧៨៩]+/[0-9០១២៣៤៥៦៧៨៩]+$",
+        "",
+        text,
+        flags=re.MULTILINE
+    )
+
+    # Normalize article formatting
+    text = re.sub(
+        r"មាត្រា\s*([0-9០១២៣៤៥៦៧៨៩]+)\s*(?:\.\.|\.|-|\. -|.-)*\s*",
+        r"មាត្រា \1 - ",
+        text
+    )
+
+    # Normalize chapter formatting
+    text = re.sub(
+        r"ជំពូកទី\s*([0-9០១២៣៤៥៦៧៨៩]+)",
+        r"ជំពូកទី \1",
+        text
+    )
+
+    # Normalize section formatting
+    text = re.sub(
+        r"ផ្នែកទី\s*([0-9០១២៣៤៥៦៧៨៩]+)",
+        r"ផ្នែកទី \1",
+        text
+    )
+
+    # Add space after numbered legal list markers
+    text = re.sub(
+        r"(^|\n)([0-9០១២៣៤៥៦៧៨៩]+)[\.\-]\s*",
+        r"\1\2. ",
+        text
+    )
+
+    # Add space after Khmer letter list markers
+    text = re.sub(
+        r"(^|\n)([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])[\.\-]\s*",
+        r"\1\2. ",
+        text
+    )
+
     return text
 
 
