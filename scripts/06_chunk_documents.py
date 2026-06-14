@@ -101,9 +101,9 @@ def legal_article_chunking(
     chapter_pattern = (
         r"(?="
         r"(?:"
-        r"ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+"
+        r"^ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+"
         r"|"
-        r"Chapter\s+[0-9]+"
+        r"^Chapter\s+[0-9]+"
         r")"
         r")"
     )
@@ -111,11 +111,11 @@ def legal_article_chunking(
     article_pattern = (
         r"(?="
         r"(?:"
-        r"មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
+        r"^មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
         r"|"
-        r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+"
+        r"^ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+"
         r"|"
-        r"Article\s+[0-9]+"
+        r"^Article\s+[0-9]+"
         r")"
         r")"
     )
@@ -123,7 +123,7 @@ def legal_article_chunking(
     chapter_sections = re.split(
         chapter_pattern,
         text,
-        flags=re.IGNORECASE
+        flags=re.IGNORECASE | re.MULTILINE
     )
 
     chunks = []
@@ -142,6 +142,7 @@ def legal_article_chunking(
         )
 
         chapter_name = None
+        section_name = None
 
         if chapter_match:
 
@@ -149,10 +150,22 @@ def legal_article_chunking(
                 chapter_match.group(1)
             )
 
+        section_matches = list(
+            re.finditer(
+                r"^("
+                r"ផ្នែកទី\s*[0-9០១២៣៤៥៦៧៨៩]+"
+                r"|"
+                r"Part\s+[0-9]+"
+                r")",
+                chapter_text,
+                flags=re.IGNORECASE | re.MULTILINE
+            )
+        )
+
         articles = re.split(
             article_pattern,
             chapter_text,
-            flags=re.IGNORECASE
+            flags=re.IGNORECASE | re.MULTILINE
         )
 
         for article in articles:
@@ -162,14 +175,28 @@ def legal_article_chunking(
             if not article:
                 continue
 
+            article_start = chapter_text.find(article)
+
+            section_name = None
+
+            for section_match in section_matches:
+
+                if section_match.start() < article_start:
+
+                    section_name = section_match.group(1)
+
+                else:
+
+                    break
+
             article_match = re.search(
-                r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
+                r"^(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
                 r"|"
                 r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+"
                 r"|"
                 r"Article\s+[0-9]+)",
                 article,
-                flags=re.IGNORECASE
+                flags=re.IGNORECASE | re.MULTILINE
             )
 
             if not article_match:
@@ -179,10 +206,37 @@ def legal_article_chunking(
                 article_match.group(1)
             )
 
+            # Remove leading chapter/section headers
+            article = re.sub(
+                r"^.*?(?="
+                r"មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
+                r"|"
+                r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+"
+                r"|"
+                r"Article\s+[0-9]+"
+                r")",
+                "",
+                article,
+                flags=re.DOTALL
+            ).strip()
+
+            # Remove trailing next section header
+            article = re.sub(
+                r"\n\s*("
+                r"ផ្នែកទី\s*[0-9០១២៣៤៥៦៧៨៩]+"
+                r"|"
+                r"Part\s+[0-9]+"
+                r")\s*$",
+                "",
+                article,
+                flags=re.IGNORECASE
+            ).strip()
+
             chunks.append(
                 {
                     "content": article,
                     "chapter": chapter_name,
+                    "section": section_name,
                     "legal_unit": article_name
                 }
             )
@@ -457,6 +511,9 @@ for input_path in json_files:
                 "category": category,
                 "chapter": chunk_data.get(
                     "chapter"
+                ),
+                "section": chunk_data.get(
+                    "section"
                 ),
                 "legal_unit": chunk_data.get(
                     "legal_unit"
