@@ -144,177 +144,152 @@
   },
 
    "prakas_01": {
-    "document_name": "Prakas on the Public Disclosure of Annual Reports of Insurance Companies",
+    "document_name": "ប្រកាសស្តីពីការផ្សព្វផ្សាយជាសាធារណៈនូវរបាយការណ៍ប្រចាំឆ្នាំរបស់ក្រុមហ៊ុនធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2026-02-25",
-    "language": "kh"
+    "release_date": "2026-02-25"
   },
 
   "prakas_02": {
-    "document_name": "Prakas on the Conditions and Procedures for the Renewal, Suspension, and Termination of Insurance Contracts",
+    "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការបន្ត ការផ្អាក និងការបញ្ចប់កិច្ចសន្យាធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2025-06-20",
-    "language": "kh"
+    "release_date": "2025-06-20"
   },
 
   "prakas_03": {
-    "document_name": "Prakas on the Formalities and Procedures for Imposing Sanctions on Persons Violating Laws or Regulatory Instruments in the Insurance Secto",
+    "document_name": "ប្រកាសស្តីពីបែបបទ និងនីតិវិធីនៃការដាក់ទណ្ឌកម្មចំពោះបុគ្គលប្រព្រឹត្តល្មើសនឹងច្បាប់ឬលិខិតបទដ្ឋានគតិយុត្តក្នុងវិស័យធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2025-03-12",
-    "language": "kh"
+    "release_date": "2025-03-12"
   },
 
   "prakas_04": {
-    "document_name": "Prakas on the Recognition of Liquidators in the Insurance Sector",
+    "document_name": "ប្រកាសស្តីពីការទទួលស្គាល់អ្នកជម្រះបញ្ជីក្នុងវិស័យធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2025-03-12",
-    "language": "kh"
+    "release_date": "2025-03-12"
   },
 
   "prakas_05": {
-    "document_name": "Prakas on the Protection of Insurance Service Consumers",
+    "document_name": "ប្រកាសស្តីពីកិច្ចការពារអ្នកប្រើប្រាស់សេវាធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2025-03-12",
-    "language": "kh"
+    "release_date": "2025-03-12"
   },
 
   "prakas_06": {
-    "document_name": "Prakas on the Implementation of General Rules on the Management of Fire Insurance, Business Interruption Insurance, and Property Insurance against All Risks and Insurance Premium Rates",
+    "document_name": "ប្រកាសស្តីពីការដាក់ឱ្យអនុវត្តវិធានទូទៅស្តីពីការគ្រប់គ្រងការធានារ៉ាប់រងអគ្គិភ័យ ការរំខានធុរកិច្ច និងការធានារ៉ាប់រងលើទ្រព្យសម្បត្តិចំពោះគ្រប់ហានិភ័យនិងអត្រាបុព្វលាភធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2025-03-12",
-    "language": "kh"
+    "release_date": "2025-03-12"
   },
 
   "prakas_07": {
-    "document_name": "Prakas on Rules and Guidelines for Reinsurance",
+    "document_name": "ប្រកាសស្តីពីវិធាន និងគោលការណ៍ណែនាំនៃការធានារ៉ាប់រងបន្ត",
     "document_type": "prakas",
-    "release_date": "2024-08-07",
-    "language": "kh"
+    "release_date": "2024-08-07"
   },
 
   "prakas_08": {
-    "document_name": "Prakas on the Formalities and Procedures for Conducting Insurance Inspections",
+    "document_name": "ប្រកាសស្តីពីបែបបទ និងនីតិវិធីនៃការធ្វើអធិការកិច្ចធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2024-01-29",
-    "language": "kh"
+    "release_date": "2024-01-29"
   },
 
   "prakas_09": {
-    "document_name": "Prakas on Corporate Governance of Insurance Companies",
+    "document_name": "ប្រកាសស្តីពីអភិបាលកិច្ចក្រុមហ៊ុនធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2024-01-18",
-    "language": "kh"
+    "release_date": "2024-01-18"
   },
 
   "prakas_10": {
-    "document_name": "Prakas on the Recognition of Audit Service Providers in the Insurance Sector",
+    "document_name": "ប្រកាសស្តីពីការទទួលស្គាល់ក្រុមហ៊ុនផ្តល់សេវាសវនកម្មក្នងវិស័យធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2023-10-19",
-    "language": "kh"
+    "release_date": "2023-10-19"
   },
 
   "prakas_11": {
-    "document_name": "Prakas on General Requirements for Insurance Institutions, Actuarial Companies, and Insurance Claims Management Companies",
+    "document_name": "ប្រកាសស្តីពីការកំណត់ទូទៅចំពោះគ្រឹះស្ថានធានារ៉ាប់រង ក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រង និងក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2023-07-18",
-    "language": "kh"
+    "release_date": "2023-07-18"
   },
 
   "prakas_12": {
-    "document_name": "Prakas on the Procedures and Rules for Calculating Insurance Technical Reserves",
+    "document_name": "ប្រកាសស្តីពីនីតិវិធី និងវិធាននៃការគណនាប្រាក់បម្រុងបច្ចេកទេសធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2022-12-23",
-    "language": "kh"
+    "release_date": "2022-12-23"
   },
 
   "prakas_13": {
-    "document_name": "Prakas on the Conditions and Procedures for Licensing Insurance Intermediary Businesses",
+    "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការផ្តល់អាជ្ញាបណ្ណអាជីវកម្មអន្តរការីធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2022-12-14",
-    "language": "kh"
+    "release_date": "2022-12-14"
   },
 
   "prakas_14": {
-    "document_name": "Prakas on the Determination of Solvency Levels for Insurance Companies",
+    "document_name": "ប្រកាសស្តីពីការកំណត់កម្រិតសាធនភាពសម្រាប់ក្រុមហ៊ុនធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2022-12-14",
-    "language": "kh"
+    "release_date": "2022-12-14"
   },
 
   "prakas_15": {
-    "document_name": "Prakas on the Conditions and Procedures for Licensing Insurance Business Support Service Businesses",
+    "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការផ្តល់អាជ្ញាបណ្ណអាជីវកម្មសេវាគាំទ្រអាជីវកម្មធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2022-12-14",
-    "language": "kh"
+    "release_date": "2022-12-14"
   },
 
   "prakas_16": {
-    "document_name": "Prakas on Approval for Investments by Insurance Companies",
+    "document_name": "ប្រកាសស្តីពីការអនុញ្ញាតលើការវិនិយោគសម្រាប់ក្រុមហ៊ុនធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2022-10-27",
-    "language": "kh"
+    "release_date": "2022-10-27"
   },
 
   "prakas_17": {
-    "document_name": "Prakas on Conditions and Procedures of the Registration in Individual Insurance Agent Register via Automation System",
+    "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការចុះឈ្មោះក្នុងបញ្ជីភ្នាក់ងារធានារ៉ាប់រងជារូបវន្តបុគ្គលតាមប្រព័ន្ធស្វ័យប្រវត្តកម្ម",
     "document_type": "prakas",
-    "release_date": "2022-10-27",
-    "language": "en"
+    "release_date": "2022-10-27"
   },
 
   "prakas_18": {
-    "document_name": "Prakas on Conditions and Procedures of Insurance Business Licensing",
+    "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការផ្តល់អាជ្ញាបណ្ណអាជីវកម្មធានារ៉ាប់រង",
     "document_type": "prakas",
-    "release_date": "2022-06-01",
-    "language": "en"
+    "release_date": "2022-06-01"
   },
 
   "prakas_19": {
-    "document_name": "Prakas on Conditions for Banking and Financial Institutions to Conduct Bancassurance Business",
+    "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌសម្រាប់គ្រឹះស្ថានធនាគារនិងហិរញ្ញវត្ថុក្នុងការធ្វើអាជីវកម្មប៊េងកាសួរេន",
     "document_type": "prakas",
-    "release_date": "2022-05-26",
-    "language": "kh"
+    "release_date": "2022-05-26"
   },
 
   "prakas_20": {
-    "document_name": "Prakas on the Organization and Functioning of Departments and Subordinate Units of the Insurance Regulator of Cambodia",
+    "document_name": "ប្រកាសស្តីពីការរៀបចំនិងការប្រព្រឹត្តទៅនៃនាយកដ្ឋាន និងអង្គភាពក្រោមឱវាទរបស់និយ័តករធានារ៉ាប់រងកម្ពុជា",
     "document_type": "prakas",
-    "release_date": "2022-03-18",
-    "language": "kh"
+    "release_date": "2022-03-18"
   },
 
   "prakas_21": {
-    "document_name": "Prakas on Public Services of the Insurance Regulator of Cambodia",
+    "document_name": "ប្រកាសស្តីពីសេវាសាធារណៈរបស់និយ័តករធានារ៉ាប់រងកម្ពុជា",
     "document_type": "prakas",
-    "release_date": "2022-03-11",
-    "language": "kh"
+    "release_date": "2022-03-11"
   },
 
   "prakas_22": {
-    "document_name": "Prakas on the Issuance of Government Securities",
+    "document_name": "ប្រកាសស្តីពីការបោះផ្សាយមូលបត្ររដ្ឋ",
     "document_type": "prakas",
-    "release_date": "2022-03-09",
-    "language": "kh"
+    "release_date": "2022-03-09"
   },
 
   "prakas_23": {
-    "document_name": "Prakas on Procedure for Receiving and Resolving Insurance Complaints",
+    "document_name": "ប្រកាសស្តីពីនីតិវិធីនៃការទទួលបណ្តឹង និងដោះស្រាយវិវាទ",
     "document_type": "prakas",
-    "release_date": "2022-01-04",
-    "language": "en"
+    "release_date": "2022-01-04"
   },
 
   "prakas_24": {
-    "document_name": "Prakas on Accounting Guidelines",
+    "document_name": "ប្រកាសស្តីពីគោលការណ៍ណែនាំគណនេយ្យ",
     "document_type": "prakas",
-    "release_date": "2021-11-08",
-    "language": "kh"
+    "release_date": "2021-11-08"
   },
 
   "prakas_25": {
-    "document_name": "Prakas on Licensing of Microinsurance Business",
+    "document_name": "ប្រកាសស្តីពីការផ្តល់អាជ្ញាបណ្ណអាជីវកម្មធានារ៉ាប់រងខ្នាតតូច",
     "document_type": "prakas",
-    "release_date": "2021-11-02",
-    "language": "kh"
+    "release_date": "2021-11-02"
   }
 }
