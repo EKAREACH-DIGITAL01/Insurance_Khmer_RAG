@@ -33,13 +33,13 @@ start_time = time.time()
 def clean_law_document(text):
 
     chapter_match = re.search(
-        r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+|Chapter\s+[0-9]+)",
+        r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+",
         text,
         flags=re.IGNORECASE
     )
 
     article_match = re.search(
-        r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+|Article\s+[0-9]+)",
+        r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+",
         text,
         flags=re.IGNORECASE
     )
@@ -111,31 +111,12 @@ def clean_sub_decree_document(text):
             article_match.start():
         ]
 
-    else:
-
-      start_match = re.search(
-          r"HEREBY\s+DECIDES",
-          text,
-          flags=re.IGNORECASE
-      )
-
-      if start_match:
-
-          text = text[
-              start_match.end():
-          ]
-
     signature_markers = [
         r"ថ្ងៃ.*?ព\.ស\.[0-9០១២៣៤៥៦៧៨៩]+",
         r"ធ្វើនៅរាជធានីភ្នំពេញ",
         r"នាយករដ្ឋមន្ត្រី",
         r"បានយកសេចក្តីគោរព",
-        r"កន្លែងទទួល",
-
-        r"Phnom Penh,\s*\d+.*?\d{4}",
-        r"Have Proposed Signature to",
-        r"Royal Gazette",
-        r"Chronological documents",
+        r"កន្លែងទទួល"
     ]
 
     positions = []

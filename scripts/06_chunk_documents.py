@@ -114,8 +114,6 @@ def legal_article_chunking(
         r"^មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
         r"|"
         r"^ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+"
-        r"|"
-        r"^Article\s+[0-9]+"
         r")"
         r")"
     )
@@ -123,7 +121,7 @@ def legal_article_chunking(
     chapter_sections = re.split(
         chapter_pattern,
         text,
-        flags=re.IGNORECASE | re.MULTILINE
+        flags=re.MULTILINE
     )
 
     chunks = []
@@ -136,9 +134,8 @@ def legal_article_chunking(
             continue
 
         chapter_match = re.search(
-            r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+|Chapter\s+[0-9]+)",
-            chapter_text,
-            flags=re.IGNORECASE
+            r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)",
+            chapter_text
         )
 
         chapter_name = None
@@ -152,20 +149,16 @@ def legal_article_chunking(
 
         section_matches = list(
             re.finditer(
-                r"^("
-                r"ផ្នែកទី\s*[0-9០១២៣៤៥៦៧៨៩]+"
-                r"|"
-                r"Part\s+[0-9]+"
-                r")",
+                r"^(ផ្នែកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)",
                 chapter_text,
-                flags=re.IGNORECASE | re.MULTILINE
+                flags=re.MULTILINE
             )
         )
 
         articles = re.split(
             article_pattern,
             chapter_text,
-            flags=re.IGNORECASE | re.MULTILINE
+            flags=re.MULTILINE
         )
 
         for article in articles:
@@ -192,11 +185,9 @@ def legal_article_chunking(
             article_match = re.search(
                 r"^(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+"
                 r"|"
-                r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+"
-                r"|"
-                r"Article\s+[0-9]+)",
+                r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+)",
                 article,
-                flags=re.IGNORECASE | re.MULTILINE
+                flags=re.MULTILINE
             )
 
             if not article_match:
@@ -209,12 +200,11 @@ def legal_article_chunking(
             # Remove trailing next section header
             article = re.sub(
                 r"\n\s*"
-                r"(ផ្នែកទី\s*[0-9០១២៣៤៥៦៧៨៩]+"
-                r"|Part\s+[0-9]+)"
+                r"(ផ្នែកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)"
                 r"\s*\n.*$",
                 "",
                 article,
-                flags=re.IGNORECASE | re.DOTALL
+                flags=re.DOTALL
             ).strip()
 
             chunks.append(
