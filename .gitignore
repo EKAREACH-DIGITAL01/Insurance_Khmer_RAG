@@ -1,24 +1,26 @@
 # Ignore generated page images
-data/page_images/*
-!data/page_images/.gitkeep
+data/02_page_images/*
+!data/02_page_images/.gitkeep
 
-# Ignore cleaned text
-data/extracted_text/cleaned/*
-!data/extracted_text/cleaned/.gitkeep
+# Ignore cleaned pages
+data/04_cleaned_pages/*
+!data/04_cleaned_pages/.gitkeep
 
 # Ignore merged documents
-data/merged_documents/*
-!data/merged_documents/.gitkeep
+data/05_merged_documents/*
+!data/05_merged_documents/.gitkeep
+
+# Ignore cleaned documents
+data/06_cleaned_documents/*
+!data/06_cleaned_documents/.gitkeep
 
 # Ignore chunked documents
-data/chunked_documents/*
-!data/chunked_documents/.gitkeep
+data/07_chunked_documents/*
+!data/07_chunked_documents/.gitkeep
 
-# Ignore merge chunks script
-scripts/08_merge_chunks.py
-
-# Ignore merged_chunks data
-data/merged_chunks/*
+# Ignore merged chunked documents
+data/09_merged_chunked_documents/*
+scripts/09_merge_chunked_documents.py
 
 # Python
 __pycache__/
@@ -28,5 +30,5 @@ __pycache__/
 .env
 .venv/
 
-# macOS, discard and remove this if see
+# macOS
 .DS_Store
