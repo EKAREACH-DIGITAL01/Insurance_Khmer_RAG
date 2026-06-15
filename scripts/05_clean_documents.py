@@ -25,10 +25,72 @@ skipped_files = 0
 
 start_time = time.time()
 
+def clean_guidance_document(text):
 
-# =====================================================
-# LAW DOCUMENT CLEANING
-# =====================================================
+    # Remove kingdom header
+    text = re.sub(
+        r"^\s*ព្រះរាជាណាចក្រកម្ពុជា\s*"
+        r"\n\s*ជាតិ\s+សាសនា\s+ព្រះមហាក្សត្រ\s*"
+        r"\n?(?:[-*—–]+\s*)?",
+        "",
+        text,
+        flags=re.MULTILINE
+    )
+
+    # Remove regulator header
+    text = re.sub(
+        r"(?m)^\s*និយ័តករធានារ៉ាប់រងកម្ពុជា\s*$",
+        "",
+        text
+    )
+
+    text = re.sub(
+        r"(?m)^\s*INSURANCE REGULATOR OF CAMBODIA\s*$",
+        "",
+        text
+    )
+
+    # Remove document number line
+    text = re.sub(
+        r"(?m)^\s*លេខ.*$",
+        "",
+        text
+    )
+
+    # Remove signature section ONLY near document end
+    signature_patterns = [
+        r"\n\s*ចម្លងជូន[:៖]",
+        r"\n\s*អគ្គនាយក\s*\n",
+        r"\n\s*រាជធានីភ្នំពេញ\s*ថ្ងៃទី",
+        r"\n\s*ថ្ងៃ\s*.*?ព\.ស\.",
+    ]
+
+    cut_positions = []
+
+    for pattern in signature_patterns:
+
+        match = re.search(
+            pattern,
+            text,
+            flags=re.IGNORECASE
+        )
+
+        if match:
+
+            # only cut if marker is in last 40% of document
+            if match.start() > len(text) * 0.6:
+
+                cut_positions.append(
+                    match.start()
+                )
+
+    if cut_positions:
+
+        text = text[
+            :min(cut_positions)
+        ]
+
+    return text.strip()
 
 def clean_law_document(text):
 
@@ -299,6 +361,12 @@ for input_path in json_files:
         elif category == "prakas":
 
             text = clean_prakas_document(
+                text
+            )
+
+        elif category == "guidance":
+
+            text = clean_guidance_document(
                 text
             )
 

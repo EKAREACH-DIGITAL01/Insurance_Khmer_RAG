@@ -157,6 +157,54 @@ def clean_laws(text):
 
 def clean_guidance(text):
 
+    text = text.replace("**", "")
+
+    text = re.sub(
+        r"(?m)^[-]{3,}\s*$",
+        "",
+        text
+    )
+
+    # Remove page markers
+    text = re.sub(
+        r"^\s*ទំព័រទី\s*[0-9០១២៣៤៥៦៧៨៩]+(?:\s*នៃ\s*[0-9០១២៣៤៥៦៧៨៩]+)?\s*$",
+        "",
+        text,
+        flags=re.MULTILINE
+    )
+
+    text = re.sub(
+        r"^\s*ទំព័រ\s*[0-9០១២៣៤៥៦៧៨៩]+\s*$",
+        "",
+        text,
+        flags=re.MULTILINE
+    )
+
+    # Remove footer contact information
+    footer_patterns = [
+        r"^.*Building\s*#.*$",
+        r"^.*Khan Russey Keo.*$",
+        r"^.*www\.irc\.gov\.kh.*$",
+        r"^.*@irc\.gov\.kh.*$",
+        r"^071\s*\d+.*$",
+        r"^អគារលេខ.*$",
+    ]
+
+    for pattern in footer_patterns:
+
+        text = re.sub(
+            pattern,
+            "",
+            text,
+            flags=re.MULTILINE
+        )
+
+    # Remove escaped bullets
+    text = text.replace(
+        "\\-",
+        "-"
+    )
+
     return text
 
 
