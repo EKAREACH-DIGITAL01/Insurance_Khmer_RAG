@@ -606,14 +606,28 @@ for input_path in json_files:
 
         elif category == "guidance":
 
-            text = clean_guidance_document(
-                text
-            )
+            text = clean_guidance_document(text)
 
             text = normalize_guidance_headings(
                 text,
                 data["document_id"]
             )
+
+            if data["document_id"] == "guidance_02":
+
+                # remove markdown table rows
+                text = re.sub(
+                    r"(?m)^\|.*\|\s*$",
+                    "",
+                    text
+                )
+
+                # remove empty lines created by deletion
+                text = re.sub(
+                    r"\n{3,}",
+                    "\n\n",
+                    text
+                )
 
         output_data = {
             "document_id": data[
