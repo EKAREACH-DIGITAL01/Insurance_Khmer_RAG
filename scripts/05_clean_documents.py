@@ -44,6 +44,13 @@ def clean_guidance_document(text):
         text
     )
 
+    # Remove date block before title
+    text = re.sub(
+        r"(?s)^.*?(?=\n\s*(?:គោលការណ៍ណែនាំ|សេចក្តីណែនាំ)\s*\n\s*ស្តីពី)",
+        "",
+        text
+    )
+
     text = re.sub(
         r"(?m)^\s*INSURANCE REGULATOR OF CAMBODIA\s*$",
         "",
@@ -64,6 +71,13 @@ def clean_guidance_document(text):
         r"\n\s*រាជធានីភ្នំពេញ\s*ថ្ងៃទី",
         r"\n\s*ថ្ងៃ\s*.*?ព\.ស\.",
     ]
+
+    # Remove appendix and everything after it
+    text = re.sub(
+        r"(?s)\n\s*ឧបសម្ព័ន្ធនៃគោលការណ៍ណែនាំលេខ.*$",
+        "",
+        text
+    )
 
     cut_positions = []
 
