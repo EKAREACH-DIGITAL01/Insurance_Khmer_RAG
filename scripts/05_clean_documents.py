@@ -99,7 +99,7 @@ PATTERN_MAP = {
     "guidance_04": "D",
     "guidance_05": "E",
     "guidance_06": "F",
-    "guidance_07": "A",
+    "guidance_07": "H",
     "guidance_08": "G",
     "guidance_09": "A",
     "guidance_10": "A",
@@ -125,14 +125,14 @@ def normalize_guidance_headings(
         # - level 2: num.num.
 
         text = re.sub(
-            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.",
-            r"<H2> \1.\2",
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$",
+            r"<H2> \3",
             text
         )
 
         text = re.sub(
-            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.",
-            r"<H1> \1",
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$",
+            r"<H1> \2",
             text
         )
 
@@ -152,7 +152,10 @@ def normalize_guidance_headings(
         def replace_h1(match):
             nonlocal counter
             counter += 1
-            return f"<H1> {counter}"
+
+            title = match.group(2)
+
+            return f"<H1> {title}"
 
         text = re.sub(
             r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.",
@@ -315,7 +318,7 @@ def rebuild_guidance_heading_ids(text):
             h3 = 0
             h4 = 0
 
-            heading_id = f"{h1}"
+            heading_id = f"{h1}."
 
         elif level == 2:
 
@@ -323,20 +326,20 @@ def rebuild_guidance_heading_ids(text):
             h3 = 0
             h4 = 0
 
-            heading_id = f"{h1}.{h2}"
+            heading_id = f"{h1}.{h2}."
 
         elif level == 3:
 
             h3 += 1
             h4 = 0
 
-            heading_id = f"{h1}.{h2}.{h3}"
+            heading_id = f"{h1}.{h2}.{h3}."
 
         elif level == 4:
 
             h4 += 1
 
-            heading_id = f"{h1}.{h2}.{h3}.{h4}"
+            heading_id = f"{h1}.{h2}.{h3}.{h4}."
 
         rebuilt_lines.append(
             f"<H{level}> {heading_id} {title}".strip()
