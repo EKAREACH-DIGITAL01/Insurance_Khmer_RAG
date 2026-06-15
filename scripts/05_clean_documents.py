@@ -99,7 +99,7 @@ PATTERN_MAP = {
     "guidance_04": "D",
     "guidance_05": "E",
     "guidance_06": "F",
-    "guidance_07": "H",
+    "guidance_07": "A",
     "guidance_08": "G",
     "guidance_09": "A",
     "guidance_10": "A",
