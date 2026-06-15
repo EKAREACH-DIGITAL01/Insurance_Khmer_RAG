@@ -57,11 +57,11 @@ def extract_guidance_section_title(text):
 
     first_line = lines[0].strip()
 
-    if re.match(
-        r"^(?:"
-        r"[កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ][\.\)]"
+    if re.fullmatch(
+        r"(?:"
+        r"[កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ][\.\)].*"
         r"|"
-        r"[០១២៣៤៥៦៧៨៩]+[\.\)]"
+        r"[០១២៣៤៥៦៧៨៩]+(?:\.[០១២៣៤៥៦៧៨៩]+)*[\.\)]?.*"
         r")",
         first_line
     ):
@@ -69,7 +69,7 @@ def extract_guidance_section_title(text):
 
     return None
 
-def guidance_chunking(text, chunk_size):
+def guidance_chunking(text, chunk_size=None):
 
     text = text.replace("**", "")
 
@@ -78,7 +78,7 @@ def guidance_chunking(text, chunk_size):
         r"(?:"
         r"[កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ][\.\)]"
         r"|"
-        r"[០១២៣៤៥៦៧៨៩]+[\.\)]"
+        r"[០១២៣៤៥៦៧៨៩]+(?:\.[០១២៣៤៥៦៧៨៩]+)*[\.\)]?"
         r")"
         r"\s*"
         r")"
@@ -109,7 +109,27 @@ def guidance_chunking(text, chunk_size):
             }
         )
 
-    return chunks
+    # Remove heading-only chunks
+    filtered_chunks = []
+
+    for chunk in chunks:
+
+        lines = [
+            line.strip()
+            for line in chunk["content"].splitlines()
+            if line.strip()
+        ]
+
+        if (
+            len(lines) == 1
+            and chunk["section_title"] is not None
+            and len(lines[0]) < 120
+        ):
+            continue
+
+        filtered_chunks.append(chunk)
+
+    return filtered_chunks
 
 def legal_article_chunking(
     text,
