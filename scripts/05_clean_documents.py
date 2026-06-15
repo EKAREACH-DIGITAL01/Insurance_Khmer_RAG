@@ -687,6 +687,21 @@ for input_path in json_files:
                     text
                 )
 
+            elif data["document_id"] == "guidance_13":
+
+                pos = text.find(
+                    "\n\nថ្ងៃ អង្គារ ១២ រោច ខែ មិគសិរ ឆ្នាំ ខាល ចត្វាស័ក ព.ស.២៥៦៦"
+                )
+
+                if pos != -1:
+                    text = text[:pos]
+
+                text = re.sub(
+                    r"\n{3,}",
+                    "\n\n",
+                    text
+                )
+
         output_data = {
             "document_id": data[
                 "document_id"
