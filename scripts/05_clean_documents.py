@@ -702,6 +702,20 @@ for input_path in json_files:
                     text
                 )
 
+            elif data["document_id"] == "guidance_15":
+
+                text = re.sub(
+                    r"(?s)(ត្រូវមានរយៈពេល៨ម៉ោង។\n\n).*?(?=\n<H2>\s*1\.2\.)",
+                    r"\1",
+                    text
+                )
+
+                text = re.sub(
+                    r"\n{3,}",
+                    "\n\n",
+                    text
+                )
+
         output_data = {
             "document_id": data[
                 "document_id"
