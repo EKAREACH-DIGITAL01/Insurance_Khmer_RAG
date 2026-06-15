@@ -48,41 +48,9 @@ total_chunks = 0
 
 start_time = time.time()
 
-def extract_guidance_section_title(text):
-
-    lines = text.strip().splitlines()
-
-    if not lines:
-        return None
-
-    first_line = lines[0].strip()
-
-    if re.fullmatch(
-        r"(?:"
-        r"[កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ][\.\)].*"
-        r"|"
-        r"[០១២៣៤៥៦៧៨៩]+(?:\.[០១២៣៤៥៦៧៨៩]+)*[\.\)]?.*"
-        r")",
-        first_line
-    ):
-        return first_line
-
-    return None
-
 def guidance_chunking(text, chunk_size=None):
 
-    text = text.replace("**", "")
-
-    heading_pattern = (
-        r"(?m)(?=^"
-        r"(?:"
-        r"[កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ][\.\)]"
-        r"|"
-        r"[០១២៣៤៥៦៧៨៩]+(?:\.[០១២៣៤៥៦៧៨៩]+)*[\.\)]?"
-        r")"
-        r"\s*"
-        r")"
-    )
+    heading_pattern = r"(?m)(?=^<H[1-4]>\s)"
 
     sections = re.split(
         heading_pattern,
@@ -91,6 +59,8 @@ def guidance_chunking(text, chunk_size=None):
 
     chunks = []
 
+    parent_h1 = None
+
     for section in sections:
 
         section = section.strip()
@@ -98,38 +68,54 @@ def guidance_chunking(text, chunk_size=None):
         if not section:
             continue
 
-        section_title = extract_guidance_section_title(
-            section
+        lines = section.splitlines()
+
+        first_line = lines[0].strip()
+
+        match = re.match(
+            r"^<H([1-4])>\s+([0-9\.]+)\s+(.*)$",
+            first_line
         )
+
+        if not match:
+
+            # intro before first heading
+            chunks.append(
+                {
+                    "content": section.strip(),
+                    "heading_level": 0,
+                    "heading_id": None,
+                    "heading_title": None,
+                    "parent_h1": None
+                }
+            )
+
+            continue
+
+        level = int(match.group(1))
+
+        heading_id = match.group(2)
+
+        heading_title = match.group(3).strip()
+
+        if level == 1:
+            parent_h1 = heading_title
+
+        content = "\n".join(
+            lines[1:]
+        ).strip()
 
         chunks.append(
             {
-                "content": section,
-                "section_title": section_title
+                "content": content,
+                "heading_level": level,
+                "heading_id": heading_id,
+                "heading_title": heading_title,
+                "parent_h1": parent_h1
             }
         )
 
-    # Remove heading-only chunks
-    filtered_chunks = []
-
-    for chunk in chunks:
-
-        lines = [
-            line.strip()
-            for line in chunk["content"].splitlines()
-            if line.strip()
-        ]
-
-        if (
-            len(lines) == 1
-            and chunk["section_title"] is not None
-            and len(lines[0]) < 120
-        ):
-            continue
-
-        filtered_chunks.append(chunk)
-
-    return filtered_chunks
+    return chunks
 
 def legal_article_chunking(
     text,
@@ -425,14 +411,27 @@ for input_path in json_files:
             text = chunk_data["content"]
 
             metadata = {
-                "document_id": data.get(
-                    "document_id"
-                ),
+                "document_id": data["document_id"],
                 "category": category,
-                "section_title": chunk_data.get(
-                    "section_title"
+
+                "heading_level": chunk_data.get(
+                    "heading_level"
                 ),
+
+                "heading_id": chunk_data.get(
+                    "heading_id"
+                ),
+
+                "heading_title": chunk_data.get(
+                    "heading_title"
+                ),
+
+                "parent_h1": chunk_data.get(
+                    "parent_h1"
+                ),
+
                 "chunk_size": len(text),
+
                 "chunking_method": chunking_method
             }
 
