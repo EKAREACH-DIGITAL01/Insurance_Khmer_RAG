@@ -73,11 +73,17 @@ def clean_guidance_document(text):
     ]
 
     # Remove appendix and everything after it
-    text = re.sub(
-        r"(?s)\n\s*ឧបសម្ព័ន្ធនៃគោលការណ៍ណែនាំលេខ.*$",
-        "",
-        text
-    )
+    APPENDIX_MARKERS = [
+        "ឧបសម្ព័ន្ធនៃគោលការណ៍ណែនាំលេខ",
+        "ឧបសម្ព័ន្ធស្តីពី ដំណើរការនៃបរិស្ថានសាកល្បងបច្ចេកវិទ្យាធានារ៉ាប់រង",
+    ]
+
+    for marker in APPENDIX_MARKERS:
+        pos = text.find(marker)
+
+        if pos != -1:
+            text = text[:pos]
+            break
 
     cut_positions = []
 
