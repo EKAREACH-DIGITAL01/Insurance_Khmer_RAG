@@ -105,6 +105,9 @@ def guidance_chunking(text, chunk_size=None):
             lines[1:]
         ).strip()
 
+        if not content:
+            continue
+
         chunks.append(
             {
                 "content": content,
