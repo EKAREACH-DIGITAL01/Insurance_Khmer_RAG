@@ -170,28 +170,21 @@ def normalize_guidance_headings(
     # - level 2: num.
     # - level 3: num.num.
 
-        counter = 0
-
-        def replace_h1(match):
-            nonlocal counter
-            counter += 1
-            return f"<H1> {counter}"
-
         text = re.sub(
-            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.",
-            replace_h1,
+            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$",
+            r"<H1> \2",
             text
         )
 
         text = re.sub(
-            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.",
-            r"<H3> \1.\2",
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$",
+            r"<H3> \3",
             text
         )
 
         text = re.sub(
-            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.",
-            r"<H2> \1",
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$",
+            r"<H2> \2",
             text
         )
 
