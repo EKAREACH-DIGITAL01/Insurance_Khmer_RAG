@@ -217,6 +217,13 @@ def clean_sub_decrees(text):
         text
     )
 
+    # Fix article-reference ranges wrongly looking like article headers
+    text = re.sub(
+        r"\n(មាត្រា\s*[0-9០១២៣៤៥៦៧៨៩]+)\s*-\s*(មាត្រា\s*[0-9០១២៣៤៥៦៧៨៩]+)",
+        r" \1 ដល់ \2",
+        text
+    )
+
     # Add space after numbered legal list markers
     text = re.sub(
         r"(^|\n)([0-9០១២៣៤៥៦៧៨៩]+)[\.\-]\s*",
