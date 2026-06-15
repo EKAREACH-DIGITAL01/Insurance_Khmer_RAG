@@ -103,7 +103,7 @@ PATTERN_MAP = {
     "guidance_08": "G",
     "guidance_09": "A",
     "guidance_10": "A",
-    "guidance_11": "B",
+    "guidance_11": "J",
     "guidance_12": "A",
     "guidance_13": "C",
     "guidance_14": "H",
@@ -140,32 +140,19 @@ def normalize_guidance_headings(
     # - level 1: alphabet.
     # - level 2: num.
 
-        khmer_letters = [
-            "ក","ខ","គ","ឃ","ង","ច","ឆ","ជ","ឈ","ញ",
-            "ដ","ឋ","ឌ","ឍ","ណ","ត","ថ","ទ","ធ","ន",
-            "ប","ផ","ព","ភ","ម","យ","រ","ល","វ","ស",
-            "ហ","ឡ","អ"
-        ]
-
-        counter = 0
-
         def replace_h1(match):
-            nonlocal counter
-            counter += 1
-
             title = match.group(2)
-
             return f"<H1> {title}"
 
         text = re.sub(
-            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.",
+            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$",
             replace_h1,
             text
         )
 
         text = re.sub(
-            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.",
-            r"<H2> \1",
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$",
+            r"<H2> \2",
             text
         )
 
@@ -277,6 +264,22 @@ def normalize_guidance_headings(
         text = re.sub(
             r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.-",
             r"<H1> \1",
+            text
+        )
+
+    elif pattern == "J":
+    # - level 1: num.
+    # - level 2: alphabet.
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$",
+            r"<H1> \2",
+            text
+        )
+
+        text = re.sub(
+            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$",
+            r"<H2> \2",
             text
         )
 
