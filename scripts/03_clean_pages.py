@@ -66,12 +66,6 @@ def general_cleaning(text):
         )
 
     text = re.sub(
-        r"\.\s+",
-        ".",
-        text
-    )
-
-    text = re.sub(
         r"www\.[^\s]+",
         "",
         text
@@ -98,6 +92,12 @@ def general_cleaning(text):
 
 
 def clean_laws(text):
+
+    text = re.sub(
+        r"\.\s+",
+        ".",
+        text
+    )
 
     text = re.sub(
         r"^\d+/\d+$",
@@ -210,6 +210,12 @@ def clean_guidance(text):
 
 def clean_prakas(text):
 
+    text = re.sub(
+        r"\.\s+",
+        ".",
+        text
+    )
+
     # Remove page markers like ទំព័រ ២ នៃទំព័រ ៤
     text = re.sub(
         r"^\s*ទំព័រ\s*[0-9០១២៣៤៥៦៧៨៩]+\s*នៃ\s*(?:ទំព័រ\s*)?[0-9០១២៣៤៥៦៧៨៩]+\s*$",
@@ -319,6 +325,12 @@ def clean_prakas(text):
 
 
 def clean_sub_decrees(text):
+
+    text = re.sub(
+        r"\.\s+",
+        ".",
+        text
+    )
 
     # Remove page markers like 1/16
     text = re.sub(

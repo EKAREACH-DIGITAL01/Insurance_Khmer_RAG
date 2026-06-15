@@ -92,6 +92,258 @@ def clean_guidance_document(text):
 
     return text.strip()
 
+PATTERN_MAP = {
+    "guidance_01": "A",
+    "guidance_02": "B",
+    "guidance_03": "C",
+    "guidance_04": "D",
+    "guidance_05": "E",
+    "guidance_06": "F",
+    "guidance_07": "A",
+    "guidance_08": "G",
+    "guidance_09": "A",
+    "guidance_10": "A",
+    "guidance_11": "B",
+    "guidance_12": "A",
+    "guidance_13": "C",
+    "guidance_14": "H",
+    "guidance_15": "B",
+    "guidance_16": "I",
+}
+
+def normalize_guidance_headings(
+    text,
+    document_id
+):
+
+    pattern = PATTERN_MAP.get(
+        document_id
+    )
+
+    if pattern == "A":
+        # - level 1: num.
+        # - level 2: num.num.
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.",
+            r"<H2> \1.\2",
+            text
+        )
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.",
+            r"<H1> \1",
+            text
+        )
+
+    elif pattern == "B":
+    # - level 1: alphabet.
+    # - level 2: num.
+
+        khmer_letters = [
+            "ក","ខ","គ","ឃ","ង","ច","ឆ","ជ","ឈ","ញ",
+            "ដ","ឋ","ឌ","ឍ","ណ","ត","ថ","ទ","ធ","ន",
+            "ប","ផ","ព","ភ","ម","យ","រ","ល","វ","ស",
+            "ហ","ឡ","អ"
+        ]
+
+        counter = 0
+
+        def replace_h1(match):
+            nonlocal counter
+            counter += 1
+            return f"<H1> {counter}"
+
+        text = re.sub(
+            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.",
+            replace_h1,
+            text
+        )
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.",
+            r"<H2> \1",
+            text
+        )
+
+    elif pattern == "C":
+    #level 1: alphabet.
+
+        counter = 0
+
+        def replace_h1(match):
+
+            nonlocal counter
+
+            counter += 1
+
+            return f"<H1> {counter}"
+
+        text = re.sub(
+            r"(?m)^[កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ]\.",
+            replace_h1,
+            text
+        )
+
+    elif pattern == "D":
+    # - level 1: alphabet.
+    # - level 2: num.
+    # - level 3: num.num.
+
+        counter = 0
+
+        def replace_h1(match):
+            nonlocal counter
+            counter += 1
+            return f"<H1> {counter}"
+
+        text = re.sub(
+            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.",
+            replace_h1,
+            text
+        )
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.",
+            r"<H3> \1.\2",
+            text
+        )
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.",
+            r"<H2> \1",
+            text
+        )
+
+    elif pattern == "E":
+    # - level 1: num.
+    # - level 2: num.num.
+    # - level 3: num.num.num.
+    # - level 4: num.num.num.num.
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.",
+            r"<H4> \1.\2.\3.\4",
+            text
+        )
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.",
+            r"<H3> \1.\2.\3",
+            text
+        )
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.",
+            r"<H2> \1.\2",
+            text
+        )
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.",
+            r"<H1> \1",
+            text
+        )
+
+
+    elif pattern == "F":
+    # - level 1: num)
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\)",
+            r"<H1> \1",
+            text
+        )
+
+    elif pattern == "G":
+    # no heading at all, one page only
+        pass
+
+    elif pattern == "H":
+    # - level 1: num.
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.",
+            r"<H1> \1",
+            text
+        )
+
+    elif pattern == "I":
+    # - level 1: num.-
+
+        text = re.sub(
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.-",
+            r"<H1> \1",
+            text
+        )
+
+    text = rebuild_guidance_heading_ids(text)
+
+    return text
+
+def rebuild_guidance_heading_ids(text):
+
+    lines = text.splitlines()
+
+    h1 = 0
+    h2 = 0
+    h3 = 0
+    h4 = 0
+
+    rebuilt_lines = []
+
+    for line in lines:
+
+        stripped = line.strip()
+
+        match = re.match(
+            r"^<H([1-4])>\s*(.*)$",
+            stripped
+        )
+
+        if not match:
+            rebuilt_lines.append(line)
+            continue
+
+        level = int(match.group(1))
+        title = match.group(2).strip()
+
+        if level == 1:
+
+            h1 += 1
+            h2 = 0
+            h3 = 0
+            h4 = 0
+
+            heading_id = f"{h1}"
+
+        elif level == 2:
+
+            h2 += 1
+            h3 = 0
+            h4 = 0
+
+            heading_id = f"{h1}.{h2}"
+
+        elif level == 3:
+
+            h3 += 1
+            h4 = 0
+
+            heading_id = f"{h1}.{h2}.{h3}"
+
+        elif level == 4:
+
+            h4 += 1
+
+            heading_id = f"{h1}.{h2}.{h3}.{h4}"
+
+        rebuilt_lines.append(
+            f"<H{level}> {heading_id} {title}".strip()
+        )
+
+    return "\n".join(rebuilt_lines)
+
 def clean_law_document(text):
 
     chapter_match = re.search(
@@ -368,6 +620,11 @@ for input_path in json_files:
 
             text = clean_guidance_document(
                 text
+            )
+
+            text = normalize_guidance_headings(
+                text,
+                data["document_id"]
             )
 
         output_data = {
