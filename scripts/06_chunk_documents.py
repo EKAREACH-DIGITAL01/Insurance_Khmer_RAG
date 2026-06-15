@@ -13,10 +13,10 @@ output_root.mkdir(
 
 CATEGORY_CONFIG = {
     "guidance": {
-        "chunk_size": 400,
-        "min_chunk_size": 120,
+        "chunk_size": None,
+        "min_chunk_size": 0,
         "chunking_method": "guidance_section",
-        "merge_small_chunks": True
+        "merge_small_chunks": False
     },
      "laws": {
         "chunk_size": None,
@@ -48,24 +48,44 @@ total_chunks = 0
 
 start_time = time.time()
 
-def guidance_chunking(
-    text,
-    chunk_size
-):
+def extract_guidance_section_title(text):
 
-    text = text.replace(
-        "**",
-        ""
-    )
+    lines = text.strip().splitlines()
 
-    section_pattern = (
-        r"(?m)(?=^[០១២៣៤៥៦៧៨៩]+"
-        r"(?:\.[០១២៣៤៥៦៧៨៩]+)*"
-        r"[\.\)]?\s+)"
+    if not lines:
+        return None
+
+    first_line = lines[0].strip()
+
+    if re.match(
+        r"^(?:"
+        r"[កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ][\.\)]"
+        r"|"
+        r"[០១២៣៤៥៦៧៨៩]+[\.\)]"
+        r")",
+        first_line
+    ):
+        return first_line
+
+    return None
+
+def guidance_chunking(text, chunk_size):
+
+    text = text.replace("**", "")
+
+    heading_pattern = (
+        r"(?m)(?=^"
+        r"(?:"
+        r"[កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ][\.\)]"
+        r"|"
+        r"[០១២៣៤៥៦៧៨៩]+[\.\)]"
+        r")"
+        r"\s*"
+        r")"
     )
 
     sections = re.split(
-        section_pattern,
+        heading_pattern,
         text
     )
 
@@ -78,18 +98,16 @@ def guidance_chunking(
         if not section:
             continue
 
-        if len(section) <= chunk_size:
+        section_title = extract_guidance_section_title(
+            section
+        )
 
-            chunks.append(section)
-
-        else:
-
-            chunks.extend(
-                recursive_split_text(
-                    section,
-                    chunk_size
-                )
-            )
+        chunks.append(
+            {
+                "content": section,
+                "section_title": section_title
+            }
+        )
 
     return chunks
 
@@ -218,118 +236,6 @@ def legal_article_chunking(
 
     return chunks
 
-
-def recursive_split_text(
-    text,
-    chunk_size
-):
-
-    separators = [
-        "\n\n",
-        "។",
-        "\n",
-        " ",
-        ""
-    ]
-
-    return split_with_separators(
-        text,
-        separators,
-        chunk_size
-    )
-
-def split_with_separators(
-    text,
-    separators,
-    chunk_size
-):
-
-    text = text.strip()
-
-    if not text:
-        return []
-
-    if len(text) <= chunk_size:
-        return [text]
-
-    separator = separators[0]
-
-    if separator == "":
-        return [
-            text[i:i + chunk_size]
-            for i in range(
-                0,
-                len(text),
-                chunk_size
-            )
-        ]
-
-    pieces = text.split(separator)
-
-    chunks = []
-    current_chunk = ""
-
-    for piece in pieces:
-
-        piece = piece.strip()
-
-        if not piece:
-            continue
-
-        if separator in ["។", "."]:
-            piece = piece + separator
-
-        if current_chunk:
-
-            if separator in ["\n\n", "\n"]:
-                possible_chunk = (
-                    current_chunk
-                    + separator
-                    + piece
-                )
-            else:
-                possible_chunk = (
-                    current_chunk
-                    + " "
-                    + piece
-                )
-
-        else:
-            possible_chunk = piece
-
-        if len(possible_chunk) <= chunk_size:
-
-            current_chunk = possible_chunk
-
-        else:
-
-            if current_chunk:
-                chunks.append(current_chunk)
-
-            if len(piece) > chunk_size:
-
-                smaller_chunks = (
-                    split_with_separators(
-                        piece,
-                        separators[1:],
-                        chunk_size
-                    )
-                )
-
-                chunks.extend(
-                    smaller_chunks
-                )
-
-                current_chunk = ""
-
-            else:
-                current_chunk = piece
-
-    if current_chunk:
-        chunks.append(current_chunk)
-
-    return chunks
-
 def merge_small_chunks(
     chunks,
     min_size
@@ -375,10 +281,7 @@ def chunk_document(
             chunk_size
         )
 
-    return recursive_split_text(
-        text,
-        chunk_size
-    )
+    return []
 
 
 for input_path in json_files:
@@ -499,13 +402,16 @@ for input_path in json_files:
 
         else:
 
-            text = chunk_data
+            text = chunk_data["content"]
 
             metadata = {
                 "document_id": data.get(
                     "document_id"
                 ),
                 "category": category,
+                "section_title": chunk_data.get(
+                    "section_title"
+                ),
                 "chunk_size": len(text),
                 "chunking_method": chunking_method
             }
@@ -574,5 +480,5 @@ print(
 )
 
 print(
-    "Recursive chunking completed successfully."
+    "Document chunking completed successfully."
 )
