@@ -155,6 +155,20 @@ def clean_sub_decree_document(text):
 
 def clean_prakas_document(text):
 
+    # Remove page markers left after merge
+    text = re.sub(
+        r"(?m)^\s*ទំព័រ\s*[0-9០១២៣៤៥៦៧៨៩]+\s*$",
+        "",
+        text
+    )
+
+    # Remove markdown heading marks
+    text = re.sub(
+        r"(?m)^#+\s*",
+        "",
+        text
+    )
+
     chapter_match = re.search(
         r"ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+",
         text

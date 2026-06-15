@@ -177,6 +177,12 @@ def clean_prakas(text):
         flags=re.MULTILINE
     )
 
+    text = re.sub(
+        r"\n\s*ទំព័រ\s*[0-9០១២៣៤៥៦៧៨៩]+\s*\n",
+        "\n",
+        text
+    )
+
     # Remove OCR markdown headers
     text = re.sub(
         r"(?m)^#\s*",
