@@ -222,8 +222,8 @@ def normalize_guidance_headings(
     # - level 1: num)
 
         text = re.sub(
-            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\)",
-            r"<H1> \1",
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\)\s*(.+)$",
+            r"<H1> \2",
             text
         )
 
@@ -235,8 +235,8 @@ def normalize_guidance_headings(
     # - level 1: num.
 
         text = re.sub(
-            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.",
-            r"<H1> \1",
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$",
+            r"<H1> \2",
             text
         )
 
@@ -244,8 +244,8 @@ def normalize_guidance_headings(
     # - level 1: num.-
 
         text = re.sub(
-            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.-",
-            r"<H1> \1",
+            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.-\s*(.+)$",
+            r"<H1> \2",
             text
         )
 
