@@ -643,6 +643,30 @@ for input_path in json_files:
                     text
                 )
 
+            elif data["document_id"] == "guidance_06":
+
+                text = re.sub(
+                    r"(?s)(<H1>\s*1\..*?)(?=\n<H1>\s*2\.)",
+                    lambda m: re.sub(
+                        r"\s*តាមលក្ខខណ្ឌ\s*ដូចខាងក្រោម៖",
+                        "។",
+                        m.group(1)
+                    ),
+                    text
+                )
+
+                text = re.sub(
+                    r"(?s)(<H1>\s*1\..*?\។\n).*?(?=\n<H1>\s*2\.)",
+                    r"\1",
+                    text
+                )
+
+                text = re.sub(
+                    r"\n{3,}",
+                    "\n\n",
+                    text
+                )
+
         output_data = {
             "document_id": data[
                 "document_id"
