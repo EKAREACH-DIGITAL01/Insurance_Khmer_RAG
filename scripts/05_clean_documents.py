@@ -153,6 +153,75 @@ def clean_sub_decree_document(text):
 
     return text.strip()
 
+def clean_prakas_document(text):
+
+    chapter_match = re.search(
+        r"ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+",
+        text
+    )
+
+    article_match = re.search(
+        r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+",
+        text
+    )
+
+    if chapter_match:
+
+        text = text[
+            chapter_match.start():
+        ]
+
+    elif article_match:
+
+        text = text[
+            article_match.start():
+        ]
+
+    signature_markers = [
+        r"ថ្ងៃ.*?ព\.ស\.[0-9០១២៣៤៥៦៧៨៩]+",
+        r"ធ្វើនៅរាជធានីភ្នំពេញ",
+        r"ឧបនាយករដ្ឋមន្ត្រី",
+        r"កន្លែងទទួល",
+        r"រាជកិច្ច",
+        r"ឯកសារ\s+កាលប្បវត្តិ"
+    ]
+
+    positions = []
+
+    for marker in signature_markers:
+
+        match = re.search(
+            marker,
+            text,
+            flags=re.IGNORECASE
+        )
+
+        if match:
+
+            positions.append(
+                match.start()
+            )
+
+    appendix_match = re.search(
+        r"^\s*ឧបសម្ព័ន្ធ",
+        text,
+        flags=re.MULTILINE
+    )
+
+    if appendix_match:
+
+        positions.append(
+            appendix_match.start()
+        )
+
+    if positions:
+
+        text = text[
+            :min(positions)
+        ]
+
+    return text.strip()
+
 
 # =====================================================
 # PROCESS FILES
@@ -210,6 +279,12 @@ for input_path in json_files:
         elif category == "sub_decrees":
 
             text = clean_sub_decree_document(
+                text
+            )
+
+        elif category == "prakas":
+
+            text = clean_prakas_document(
                 text
             )
 

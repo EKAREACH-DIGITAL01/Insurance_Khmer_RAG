@@ -162,6 +162,105 @@ def clean_guidance(text):
 
 def clean_prakas(text):
 
+    # Remove page markers like ទំព័រ ២ នៃទំព័រ ៤
+    text = re.sub(
+        r"^\s*ទំព័រ\s*[0-9០១២៣៤៥៦៧៨៩]+\s*នៃ\s*(?:ទំព័រ\s*)?[0-9០១២៣៤៥៦៧៨៩]+\s*$",
+        "",
+        text,
+        flags=re.MULTILINE
+    )
+
+    text = re.sub(
+        r"^\s*ទំព័រទី\s*[0-9០១២៣៤៥៦៧៨៩]+\s*នៃ\s*[0-9០១២៣៤៥៦៧៨៩]+\s*$",
+        "",
+        text,
+        flags=re.MULTILINE
+    )
+
+    # Remove OCR markdown headers
+    text = re.sub(
+        r"(?m)^#\s*",
+        "",
+        text
+    )
+
+    # Fix article ranges
+    text = re.sub(
+        r"\n(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\s*-\s*(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)",
+        r" \1 ដល់ \2",
+        text
+    )
+
+    # Fix article references split after "ក្នុង"
+    text = re.sub(
+        r"ក្នុង\s*\n\s*(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\s*-\s*នៃ",
+        r"ក្នុង \1 នៃ",
+        text
+    )
+
+    # Fix referenced articles split across lines
+    text = re.sub(
+        r"(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\n(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\s*-",
+        r"\1 \2",
+        text
+    )
+
+    # Remove appendix page numbers
+    text = re.sub(
+        r"^\s*[0-9០១២៣៤៥៦៧៨៩]+\s*$",
+        "",
+        text,
+        flags=re.MULTILINE
+    )
+
+    # Remove escaped bullets
+    text = text.replace(
+        "\\-",
+        "-"
+    )
+
+    # Normalize article formatting
+    text = re.sub(
+        r"(?m)^ប្រការ\s*([0-9០១២៣៤៥៦៧៨៩]+)\s*(?:\.\-|\. -|\.|\.{2}|-|.-)+\s*",
+        r"ប្រការ \1 - ",
+        text
+    )
+
+    # Fix article references broken across lines
+    text = re.sub(
+        r"(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\n(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\s*-\s*និង",
+        r"\1 \2 និង",
+        text
+    )
+
+    # Normalize chapter formatting
+    text = re.sub(
+        r"ជំពូកទី\s*([0-9០១២៣៤៥៦៧៨៩]+)",
+        r"ជំពូកទី \1",
+        text
+    )
+
+    # Normalize section formatting
+    text = re.sub(
+        r"ផ្នែកទី\s*([0-9០១២៣៤៥៦៧៨៩]+)",
+        r"ផ្នែកទី \1",
+        text
+    )
+
+    # Add space after numbered list markers
+    text = re.sub(
+        r"(^|\n)([0-9០១២៣៤៥៦៧៨៩]+)[\.\-]\s*",
+        r"\1\2. ",
+        text
+    )
+
+    # Add space after Khmer letter list markers
+    text = re.sub(
+        r"(^|\n)([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])[\.\-]\s*",
+        r"\1\2. ",
+        text
+    )
+
     return text
 
 
