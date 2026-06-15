@@ -79,8 +79,7 @@ start_time = time.time()
 def generate_ocr_response(image):
 
     return client.models.generate_content(
-        #model="gemini-3.5-flash",
-        model="gemini-3.1-pro-preview",
+        model="gemini-3.5-flash",
         contents=[prompt, image],
         config={
             "temperature": 0
