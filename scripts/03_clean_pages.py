@@ -227,7 +227,7 @@ def clean_prakas(text):
 
     # Normalize article formatting
     text = re.sub(
-        r"(?m)^ប្រការ\s*([0-9០១២៣៤៥៦៧៨៩]+)\s*(?:\.\-|\. -|\.|\.{2}|-|.-)+\s*",
+        r"(?m)^ប្រការ\s*([0-9០១២៣៤៥៦៧៨៩]+)\s*[\.\-_:]*\s*",
         r"ប្រការ \1 - ",
         text
     )
