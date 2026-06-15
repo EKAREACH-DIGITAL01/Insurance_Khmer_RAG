@@ -159,19 +159,9 @@ def normalize_guidance_headings(
     elif pattern == "C":
     #level 1: alphabet.
 
-        counter = 0
-
-        def replace_h1(match):
-
-            nonlocal counter
-
-            counter += 1
-
-            return f"<H1> {counter}"
-
         text = re.sub(
-            r"(?m)^[កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ]\.",
-            replace_h1,
+            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$",
+            r"<H1> \2",
             text
         )
 
