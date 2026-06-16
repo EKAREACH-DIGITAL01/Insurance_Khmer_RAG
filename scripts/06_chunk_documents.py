@@ -118,13 +118,28 @@ def legal_article_chunking(text):
         if not chapter_text:
             continue
 
-        chapter_match = re.search(r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)", chapter_text)
+        chapter_match = re.search(
+            r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)", chapter_text, flags=re.MULTILINE
+        )
 
         chapter_name = None
+        chapter_title = None
 
         if chapter_match:
 
             chapter_name = chapter_match.group(1)
+
+            lines = chapter_text.splitlines()
+
+            for i, line in enumerate(lines):
+
+                if line.strip() == chapter_name:
+
+                    if i + 1 < len(lines):
+
+                        chapter_title = lines[i + 1].strip()
+
+                    break
 
         section_matches = list(
             re.finditer(
@@ -144,12 +159,19 @@ def legal_article_chunking(text):
             article_start = chapter_text.find(article)
 
             section_name = None
+            section_title = None
 
             for section_match in section_matches:
 
                 if section_match.start() < article_start:
 
                     section_name = section_match.group(1)
+
+                    section_lines = chapter_text[section_match.start() :].splitlines()
+
+                    if len(section_lines) > 1:
+
+                        section_title = section_lines[1].strip()
 
                 else:
 
@@ -178,7 +200,9 @@ def legal_article_chunking(text):
                 {
                     "content": article,
                     "chapter": chapter_name,
+                    "chapter_title": chapter_title,
                     "section": section_name,
+                    "section_title": section_title,
                     "legal_unit": article_name,
                 }
             )
@@ -209,7 +233,7 @@ for input_path in json_files:
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"\nChunking: " f"{relative_path}")
+    print(f"\nChunking: {relative_path}")
 
     with open(input_path, "r", encoding="utf-8") as f:
 
@@ -219,7 +243,7 @@ for input_path in json_files:
 
     if not cleaned_text:
 
-        print(f"No cleaned text found: " f"{relative_path}")
+        print(f"No cleaned text found: {relative_path}")
 
         skipped_files += 1
         continue
@@ -244,7 +268,9 @@ for input_path in json_files:
                 "document_id": data.get("document_id"),
                 "category": category,
                 "chapter": chunk_data.get("chapter"),
+                "chapter_title": chunk_data.get("chapter_title"),
                 "section": chunk_data.get("section"),
+                "section_title": chunk_data.get("section_title"),
                 "legal_unit": chunk_data.get("legal_unit"),
                 "chunk_size": len(text),
                 "chunking_method": chunking_method,
@@ -266,7 +292,7 @@ for input_path in json_files:
             }
 
         chunk = {
-            "chunk_id": (f"{data['document_id']}" f"_chunk_{i}"),
+            "chunk_id": f"{data['document_id']}_chunk_{i}",
             "content": text,
             "metadata": metadata,
         }
@@ -280,7 +306,7 @@ for input_path in json_files:
     processed_files += 1
     total_chunks += len(chunks)
 
-    print(f"Created " f"{len(chunks)} chunks.")
+    print(f"Created {len(chunks)} chunks.")
 
 elapsed_time = time.time() - start_time
 
