@@ -2,13 +2,13 @@ from pdf2image import convert_from_path, pdfinfo_from_path
 from pathlib import Path
 import time
 
-source_root = Path("data/01_source_documents")
+input_root = Path("data/01_source_documents")
 output_root = Path("data/02_page_images")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
 # Find all PDFs recursively
-pdf_files = sorted(source_root.rglob("*.pdf"))
+pdf_files = sorted(input_root.rglob("*.pdf"))
 
 processed_pdfs = 0
 skipped_pdfs = 0

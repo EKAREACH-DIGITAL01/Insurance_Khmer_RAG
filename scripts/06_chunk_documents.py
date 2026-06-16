@@ -8,6 +8,9 @@ output_root = Path("data/07_chunked_documents")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
+# Find all JSONs recursively
+json_files = sorted(input_root.rglob("*.json"))
+
 # Document-level metadata
 with open("data/document_metadata.json", "r", encoding="utf-8") as f:
     DOCUMENT_METADATA = json.load(f)
@@ -20,8 +23,6 @@ CATEGORY_CONFIG = {
 }
 
 LEGAL_CATEGORIES = {"laws", "prakas", "sub_decrees"}
-
-json_files = sorted(input_root.rglob("*.json"))
 
 processed_files = 0
 skipped_files = 0

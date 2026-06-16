@@ -12,6 +12,9 @@ output_root = Path("data/03_raw_pages")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
+# Find all page images recursively
+image_files = sorted(input_root.rglob("*.png"))
+
 # Load Environment Variables
 load_dotenv()
 
@@ -20,9 +23,6 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Prompt used for Gemini OCR extraction
 prompt = "Just read the image and write the text back exactly. Do not change anything."
-
-# Discover all page images
-image_files = sorted(input_root.rglob("*.png"))
 
 MAX_RETRIES = 10
 REQUEST_TIMEOUT = 100

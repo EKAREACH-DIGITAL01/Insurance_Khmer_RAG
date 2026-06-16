@@ -8,7 +8,9 @@ output_root = Path("data/05_merged_documents")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
+# Find all JSONs recursively
 json_files = sorted(input_root.rglob("*.json"))
+
 start_time = time.time()
 documents = defaultdict(list)
 

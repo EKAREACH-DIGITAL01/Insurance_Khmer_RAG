@@ -5,15 +5,16 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 import time
 
-# BGE-M3 provides strong multilingual retrieval performance, including Khmer
-model = SentenceTransformer("BAAI/bge-m3")
-
 input_root = Path("data/07_chunked_documents")
 output_root = Path("vector_db")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
-chunk_files = sorted(input_root.rglob("*_chunks.json"))
+# Find all JSONs recursively
+chunk_files = sorted(input_root.rglob("*.json"))
+
+# BGE-M3 provides strong multilingual retrieval performance, including Khmer
+model = SentenceTransformer("BAAI/bge-m3")
 
 all_chunks = []
 start_time = time.time()

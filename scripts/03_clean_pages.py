@@ -8,6 +8,7 @@ output_root = Path("data/04_cleaned_pages")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
+# Find all JSONs recursively
 json_files = sorted(input_root.rglob("*.json"))
 
 processed_files = 0
