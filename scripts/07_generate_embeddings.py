@@ -107,10 +107,21 @@ print("\nGenerating embeddings...")
 if not texts:
     raise ValueError("No chunks found.")
 
+print(f"Total texts: {len(texts)}")
+print(f"Max text length: {max(len(t) for t in texts)}")
+print(f"Average length: {sum(len(t) for t in texts)/len(texts):.0f}")
+print(f"Device: {model.device}")
+
+print("Starting encode...")
+encode_start = time.time()
+
 # Generate normalized embeddings for cosine similarity search
 embeddings = model.encode(
-    texts, batch_size=32, show_progress_bar=True, normalize_embeddings=True
+    texts, batch_size=16, show_progress_bar=True, normalize_embeddings=True
 )
+
+print(f"Encode time: {time.time() - encode_start:.2f} sec")
+print("Encode finished.")
 
 embeddings = np.asarray(embeddings, dtype="float32")
 
