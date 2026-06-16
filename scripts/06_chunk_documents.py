@@ -1,12 +1,15 @@
+from pathlib import Path
 import re
 import json
-from pathlib import Path
 import time
 
 input_root = Path("data/06_cleaned_documents")
 output_root = Path("data/07_chunked_documents")
 
 output_root.mkdir(parents=True, exist_ok=True)
+
+with open("data/document_metadata.json", "r", encoding="utf-8") as f:
+    DOCUMENT_METADATA = json.load(f)
 
 CATEGORY_CONFIG = {
     "guidance": {"chunking_method": "guidance_section"},
@@ -260,12 +263,18 @@ for input_path in json_files:
 
     for i, chunk_data in enumerate(split_chunks):
 
+        doc_meta = DOCUMENT_METADATA.get(data["document_id"], {})
+        release_date = doc_meta.get("release_date")
+
         if category in LEGAL_CATEGORIES:
 
             text = chunk_data["content"]
 
             metadata = {
-                "document_id": data.get("document_id"),
+                "document_id": data["document_id"],
+                "document_name": doc_meta.get("document_name"),
+                "document_type": doc_meta.get("document_type"),
+                "release_date": release_date,
                 "category": category,
                 "chapter": chunk_data.get("chapter"),
                 "chapter_title": chunk_data.get("chapter_title"),
@@ -282,6 +291,9 @@ for input_path in json_files:
 
             metadata = {
                 "document_id": data["document_id"],
+                "document_name": doc_meta.get("document_name"),
+                "document_type": doc_meta.get("document_type"),
+                "release_date": release_date,
                 "category": category,
                 "heading_level": chunk_data.get("heading_level"),
                 "heading_id": chunk_data.get("heading_id"),
