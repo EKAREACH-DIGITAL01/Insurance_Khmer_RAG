@@ -15,7 +15,8 @@ skipped_files = 0
 
 start_time = time.time()
 
-ABBREVIATIONS = {
+# Maps abbreviation to its meaning
+ABBREVIATION_MAP = {
     "ន.ធ.ក.": "និយ័តករធានារ៉ាប់រងកម្ពុជា",
     "អ.ស.ហ.": "អាជ្ញាធរសេវាហិរញ្ញវត្ថុមិនមែនធនាគារ",
     "ន.គ.ស.": "និយ័តករគណនេយ្យនិងសវនកម្ម",
@@ -27,6 +28,7 @@ ABBREVIATIONS = {
     "ន.ម.ក.": "និយ័តករមូលបត្រកម្ពុជា",
 }
 
+# Maps guidance documents to their heading hierarchy pattern
 PATTERN_MAP = {
     "guidance_01": "A",
     "guidance_02": "B",
@@ -96,18 +98,14 @@ def clean_guidance_document(text):
     cut_positions = []
 
     for pattern in signature_patterns:
-
         match = re.search(pattern, text, flags=re.IGNORECASE)
 
         if match:
-
-            # only cut if marker is in last 40% of document
+            # Only cut if marker is in last 40% of document
             if match.start() > len(text) * 0.6:
-
                 cut_positions.append(match.start())
 
     if cut_positions:
-
         text = text[: min(cut_positions)]
 
     return text.strip()
@@ -117,19 +115,15 @@ def normalize_guidance_headings(text, document_id):
 
     pattern = PATTERN_MAP.get(document_id)
 
+    # Level 1: num. # Level 2: num.num.
     if pattern == "A":
-        # level 1: num.
-        # level 2: num.num.
-
         text = re.sub(
             r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H2> \3", text
         )
-
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H1> \2", text)
 
+    # Level 1: alphabet. # Level 2: num.
     elif pattern == "B":
-        # level 1: alphabet.
-        # level 2: num.
 
         def replace_h1(match):
             title = match.group(2)
@@ -138,80 +132,60 @@ def normalize_guidance_headings(text, document_id):
         text = re.sub(
             r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", replace_h1, text
         )
-
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H2> \2", text)
 
+    # Level 1: alphabet.
     elif pattern == "C":
-        # level 1: alphabet.
-
         text = re.sub(
             r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", r"<H1> \2", text
         )
 
+    # Level 1: alphabet. # Level 2: num. # Level 3: num.num.
     elif pattern == "D":
-        # level 1: alphabet.
-        # level 2: num.
-        # level 3: num.num.
-
         text = re.sub(
             r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", r"<H1> \2", text
         )
-
         text = re.sub(
             r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H3> \3", text
         )
-
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H2> \2", text)
 
+    # Level 1: num. # Level 2: num.num. # Level 3: num.num.num. # Level 4: num.num.num.num.
     elif pattern == "E":
-        # level 1: num.
-        # level 2: num.num.
-        # level 3: num.num.num.
-        # level 4: num.num.num.num.
-
         text = re.sub(
             r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$",
             r"<H4> \5",
             text,
         )
-
         text = re.sub(
             r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$",
             r"<H3> \4",
             text,
         )
-
         text = re.sub(
             r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H2> \3", text
         )
-
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H1> \2", text)
 
+    # Level 1: num)
     elif pattern == "F":
-        # level 1: num)
-
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\)\s*(.+)$", r"<H1> \2", text)
 
+    # No heading structure (single-page document)
     elif pattern == "G":
-        # no heading at all, one page only
         pass
 
+    # Level 1: num.
     elif pattern == "H":
-        # level 1: num.
-
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H1> \2", text)
 
+    # Level 1: num.-
     elif pattern == "I":
-        # level 1: num.-
-
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.-\s*(.+)$", r"<H1> \2", text)
 
+    # Level 1: num. # Level 2: alphabet.
     elif pattern == "J":
-        # level 1: num.
-        # level 2: alphabet.
-
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H1> \2", text)
-
         text = re.sub(
             r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", r"<H2> \2", text
         )
@@ -221,6 +195,7 @@ def normalize_guidance_headings(text, document_id):
     return text
 
 
+# Rebuild sequential heading IDs after heading normalization
 def rebuild_guidance_heading_ids(text):
 
     lines = text.splitlines()
@@ -233,9 +208,7 @@ def rebuild_guidance_heading_ids(text):
     rebuilt_lines = []
 
     for line in lines:
-
         stripped = line.strip()
-
         match = re.match(r"^<H([1-4])>\s*(.*)$", stripped)
 
         if not match:
@@ -246,33 +219,25 @@ def rebuild_guidance_heading_ids(text):
         title = match.group(2).strip()
 
         if level == 1:
-
             h1 += 1
             h2 = 0
             h3 = 0
             h4 = 0
-
             heading_id = f"{h1}."
 
         elif level == 2:
-
             h2 += 1
             h3 = 0
             h4 = 0
-
             heading_id = f"{h1}.{h2}."
 
         elif level == 3:
-
             h3 += 1
             h4 = 0
-
             heading_id = f"{h1}.{h2}.{h3}."
 
         elif level == 4:
-
             h4 += 1
-
             heading_id = f"{h1}.{h2}.{h3}.{h4}."
 
         rebuilt_lines.append(f"<H{level}> {heading_id} {title}".strip())
@@ -289,11 +254,9 @@ def clean_law_document(text):
     article_match = re.search(r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+)", text, flags=re.IGNORECASE)
 
     if chapter_match:
-
         text = text[chapter_match.start() :]
 
     elif article_match:
-
         text = text[article_match.start() :]
 
     signature_markers = [
@@ -305,15 +268,12 @@ def clean_law_document(text):
     positions = []
 
     for marker in signature_markers:
-
         match = re.search(marker, text, flags=re.IGNORECASE)
 
         if match:
-
             positions.append(match.start())
 
     if positions:
-
         text = text[: min(positions)]
 
     return text.strip()
@@ -322,15 +282,12 @@ def clean_law_document(text):
 def clean_sub_decree_document(text):
 
     chapter_match = re.search(r"ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+", text)
-
     article_match = re.search(r"មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+", text)
 
     if chapter_match:
-
         text = text[chapter_match.start() :]
 
     elif article_match:
-
         text = text[article_match.start() :]
 
     signature_markers = [
@@ -344,11 +301,9 @@ def clean_sub_decree_document(text):
     positions = []
 
     for marker in signature_markers:
-
         match = re.search(marker, text, flags=re.IGNORECASE)
 
         if match:
-
             positions.append(match.start())
 
     appendix_match = re.search(
@@ -356,11 +311,9 @@ def clean_sub_decree_document(text):
     )
 
     if appendix_match:
-
         positions.append(appendix_match.start())
 
     if positions:
-
         text = text[: min(positions)]
 
     return text.strip()
@@ -379,11 +332,9 @@ def clean_prakas_document(text):
     article_match = re.search(r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+", text)
 
     if chapter_match:
-
         text = text[chapter_match.start() :]
 
     elif article_match:
-
         text = text[article_match.start() :]
 
     signature_markers = [
@@ -398,107 +349,86 @@ def clean_prakas_document(text):
     positions = []
 
     for marker in signature_markers:
-
         match = re.search(marker, text, flags=re.IGNORECASE)
 
         if match:
-
             positions.append(match.start())
 
     appendix_match = re.search(r"^\s*ឧបសម្ព័ន្ធ", text, flags=re.MULTILINE)
 
     if appendix_match:
-
         positions.append(appendix_match.start())
 
     if positions:
-
         text = text[: min(positions)]
 
     return text.strip()
 
 
+# Expand common regulatory abbreviations to improve retrieval quality
 def expand_abbreviations(text):
 
-    for abbr, full_form in ABBREVIATIONS.items():
-
+    for abbr, full_form in ABBREVIATION_MAP.items():
         text = text.replace(abbr, f"{abbr} ({full_form})")
 
     return text
 
 
-# =====================================================
-# PROCESS FILES
-# =====================================================
-
+# Process and clean every merged document
 for input_path in json_files:
-
     relative_path = input_path.relative_to(input_root)
-
     output_path = output_root / relative_path
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"\nCleaning document: " f"{relative_path}")
+    print(f"\nCleaning document: {relative_path}")
 
     try:
-
         with open(input_path, "r", encoding="utf-8") as f:
-
             data = json.load(f)
 
         text = data.get("merged_text", "")
-
         category = data.get("category", "")
 
         if category == "laws":
-
             text = clean_law_document(text)
 
         elif category == "sub_decrees":
-
             text = clean_sub_decree_document(text)
 
         elif category == "prakas":
-
             text = clean_prakas_document(text)
 
         elif category == "guidance":
-
             text = clean_guidance_document(text)
-
             text = normalize_guidance_headings(text, data["document_id"])
 
             if data["document_id"] == "guidance_02":
-
-                # remove markdown table rows
+                # Remove OCR-extracted markdown table artifacts
                 text = re.sub(r"(?m)^\|.*\|\s*$", "", text)
-
-                # remove empty lines created by deletion
+                # Collapse empty lines left after table removal
                 text = re.sub(r"\n{3,}", "\n\n", text)
 
             elif data["document_id"] == "guidance_03":
-
+                # Remove OCR-extracted markdown table artifacts
                 text = re.sub(r"(?m)^\|.*\|\s*$", "", text)
-
+                # Collapse empty lines left after table removal
                 text = re.sub(r"\n{3,}", "\n\n", text)
 
             elif data["document_id"] == "guidance_06":
-
+                # Remove invalid trailing content inside section 1 to 2
                 text = re.sub(
                     r"(?s)(<H1>\s*1\..*?)(?=\n<H1>\s*2\.)",
                     lambda m: re.sub(r"\s*តាមលក្ខខណ្ឌ\s*ដូចខាងក្រោម៖", "។", m.group(1)),
                     text,
                 )
-
                 text = re.sub(
                     r"(?s)(<H1>\s*1\..*?\។\n).*?(?=\n<H1>\s*2\.)", r"\1", text
                 )
-
+                # Normalize excessive blank lines
                 text = re.sub(r"\n{3,}", "\n\n", text)
 
             elif data["document_id"] == "guidance_13":
-
+                # Remove final page that begins with the signature date block
                 pos = text.find(
                     "\n\nថ្ងៃ អង្គារ ១២ រោច ខែ មិគសិរ ឆ្នាំ ខាល ចត្វាស័ក ព.ស.២៥៦៦"
                 )
@@ -509,11 +439,11 @@ for input_path in json_files:
                 text = re.sub(r"\n{3,}", "\n\n", text)
 
             elif data["document_id"] == "guidance_15":
-
+                # Remove invalid content
                 text = re.sub(
                     r"(?s)(ត្រូវមានរយៈពេល៨ម៉ោង។\n\n).*?(?=\n<H2>\s*1\.2\.)", r"\1", text
                 )
-
+                # Normalize excessive blank lines
                 text = re.sub(r"\n{3,}", "\n\n", text)
 
         text = expand_abbreviations(text)
@@ -526,34 +456,22 @@ for input_path in json_files:
         }
 
         with open(output_path, "w", encoding="utf-8") as f:
-
             json.dump(output_data, f, ensure_ascii=False, indent=2)
 
         processed_files += 1
 
-        print(f"Completed: " f"{relative_path}")
+        print(f"Completed: {relative_path}")
 
     except Exception as e:
-
         skipped_files += 1
 
-        print(f"Failed: " f"{relative_path}")
-
+        print(f"Failed: {relative_path}")
         print(e)
-
-
-# =====================================================
-# SUMMARY
-# =====================================================
 
 elapsed_time = time.time() - start_time
 
 print("\n========== SUMMARY ==========")
-
-print(f"Processed Files : " f"{processed_files}")
-
-print(f"Skipped Files   : " f"{skipped_files}")
-
-print(f"Runtime         : " f"{elapsed_time:.2f} seconds")
-
+print(f"Processed Files : {processed_files}")
+print(f"Skipped Files   : {skipped_files}")
+print(f"Runtime         : {elapsed_time:.2f} seconds")
 print("Document cleaning completed successfully.")
