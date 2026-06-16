@@ -250,7 +250,6 @@ def clean_law_document(text):
     chapter_match = re.search(
         r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)", text, flags=re.IGNORECASE
     )
-
     article_match = re.search(r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+)", text, flags=re.IGNORECASE)
 
     if chapter_match:
@@ -328,7 +327,6 @@ def clean_prakas_document(text):
     text = re.sub(r"(?m)^#+\s*", "", text)
 
     chapter_match = re.search(r"ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+", text)
-
     article_match = re.search(r"ប្រការ\s+[0-9០១២៣៤៥៦៧៨៩]+", text)
 
     if chapter_match:
