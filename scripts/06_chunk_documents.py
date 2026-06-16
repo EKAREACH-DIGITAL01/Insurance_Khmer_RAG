@@ -8,14 +8,15 @@ output_root = Path("data/07_chunked_documents")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
+# Document-level metadata
 with open("data/document_metadata.json", "r", encoding="utf-8") as f:
     DOCUMENT_METADATA = json.load(f)
 
 CATEGORY_CONFIG = {
-    "guidance": {"chunking_method": "guidance_section"},
-    "laws": {"chunking_method": "legal_article"},
-    "prakas": {"chunking_method": "legal_article"},
-    "sub_decrees": {"chunking_method": "legal_article"},
+    "guidance": {"chunking_method": "guidance_heading"},
+    "laws": {"chunking_method": "legal_unit"},
+    "prakas": {"chunking_method": "legal_unit"},
+    "sub_decrees": {"chunking_method": "legal_unit"},
 }
 
 LEGAL_CATEGORIES = {"laws", "prakas", "sub_decrees"}
@@ -29,6 +30,8 @@ total_chunks = 0
 start_time = time.time()
 
 
+# Chunk guidance documents by normalized heading hierarchy (<H1>-<H4>)
+# Each heading becomes one chunk and inherits its parent H1 context
 def guidance_chunking(text):
 
     heading_pattern = r"(?m)(?=^<H[1-4]>\s)"
@@ -54,7 +57,7 @@ def guidance_chunking(text):
 
         if not match:
 
-            # intro before first heading
+            # Preserve document introduction before the first heading
             chunks.append(
                 {
                     "content": section.strip(),
@@ -94,7 +97,9 @@ def guidance_chunking(text):
     return chunks
 
 
-def legal_article_chunking(text):
+# Chunk legal documents at the legal-unit level
+# (មាត្រា for laws/sub-decrees, ប្រការ for prakas)
+def legal_unit_chunking(text):
 
     chapter_pattern = (
         r"(?=" r"(?:" r"^ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+" r"|" r"^Chapter\s+[0-9]+" r")" r")"
@@ -121,6 +126,7 @@ def legal_article_chunking(text):
         if not chapter_text:
             continue
 
+        # Extract chapter identifier and human-readable chapter title
         chapter_match = re.search(
             r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)", chapter_text, flags=re.MULTILINE
         )
@@ -164,6 +170,7 @@ def legal_article_chunking(text):
             section_name = None
             section_title = None
 
+            # Determine which section the current legal unit belongs to
             for section_match in section_matches:
 
                 if section_match.start() < article_start:
@@ -219,9 +226,9 @@ def chunk_document(text, category):
 
         return guidance_chunking(text)
 
-    elif category in LEGAL_CATEGORIES:
+    if category in LEGAL_CATEGORIES:
 
-        return legal_article_chunking(text)
+        return legal_unit_chunking(text)
 
     return []
 
@@ -259,12 +266,13 @@ for input_path in json_files:
 
     split_chunks = chunk_document(cleaned_text, category)
 
+    # Merge document-level metadata into every chunk
+    doc_meta = DOCUMENT_METADATA.get(data["document_id"], {})
+    release_date = doc_meta.get("release_date")
+
     chunks = []
 
     for i, chunk_data in enumerate(split_chunks):
-
-        doc_meta = DOCUMENT_METADATA.get(data["document_id"], {})
-        release_date = doc_meta.get("release_date")
 
         if category in LEGAL_CATEGORIES:
 
@@ -303,6 +311,7 @@ for input_path in json_files:
                 "chunking_method": chunking_method,
             }
 
+        # Final chunk structure stored for embedding and retrieval
         chunk = {
             "chunk_id": f"{data['document_id']}_chunk_{i}",
             "content": text,
@@ -323,13 +332,7 @@ for input_path in json_files:
 elapsed_time = time.time() - start_time
 
 print("\n========== SUMMARY ==========")
-
-print(f"Processed Files : " f"{processed_files}")
-
-print(f"Skipped Files   : " f"{skipped_files}")
-
-print(f"Total Chunks    : " f"{total_chunks}")
-
-print(f"Total Runtime   : " f"{elapsed_time:.2f} seconds")
-
-print("Document chunking completed successfully.")
+print(f"Processed Files : {processed_files:,}")
+print(f"Skipped Files   : {skipped_files:,}")
+print(f"Total Chunks    : {total_chunks:,}")
+print(f"Total Runtime   : {elapsed_time:.2f} seconds")
