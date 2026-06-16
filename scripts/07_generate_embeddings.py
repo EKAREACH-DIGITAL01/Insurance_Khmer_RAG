@@ -13,6 +13,13 @@ output_root.mkdir(parents=True, exist_ok=True)
 # Find all JSONs recursively
 chunk_files = sorted(input_root.rglob("*.json"))
 
+DOCUMENT_TYPE_KH = {
+    "law": "ច្បាប់",
+    "prakas": "ប្រកាស",
+    "guidance": "គោលការណ៍ណែនាំ",
+    "sub_decree": "អនុក្រឹត្យ",
+}
+
 # BGE-M3 provides strong multilingual retrieval performance, including Khmer
 model = SentenceTransformer("BAAI/bge-m3")
 
@@ -50,7 +57,14 @@ embedding_chunks = []
 
 # Convert chunk structure into embedding-ready format
 for chunk in all_chunks:
-    metadata = chunk.get("metadata", {})
+
+    # Get English document type translated into Khmer
+    metadata = chunk.get("metadata", {}).copy()
+    document_type = metadata.get("document_type")
+
+    if document_type:
+        metadata["document_type_kh"] = DOCUMENT_TYPE_KH.get(document_type)
+
     text = chunk.get("text") or chunk.get("content") or ""
     text = text.strip()
 
@@ -63,6 +77,9 @@ for chunk in all_chunks:
 
     if metadata.get("document_name"):
         embedding_parts.append(metadata["document_name"])
+
+    if metadata.get("document_type_kh"):
+        embedding_parts.append(metadata["document_type_kh"])
 
     if metadata.get("parent_h1"):
         embedding_parts.append(metadata["parent_h1"])
