@@ -5,30 +5,22 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 import time
 
-# LOAD EMBEDDING MODEL
+# BGE-M3 provides strong multilingual retrieval performance, including Khmer
 model = SentenceTransformer("BAAI/bge-m3")
 
-# ROOT CHUNK FOLDER
 input_root = Path("data/07_chunked_documents")
-
-# OUTPUT VECTOR DB FOLDER
 output_root = Path("vector_db")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
-# FIND ALL CHUNK FILES RECURSIVELY
 chunk_files = sorted(input_root.rglob("*_chunks.json"))
 
-# STORE ALL CHUNKS
 all_chunks = []
-
-# TOTAL RUNTIME
 start_time = time.time()
 
 print("Loading chunk files...")
 
 
-# LOAD ALL CHUNK FILES
 for chunk_path in chunk_files:
 
     print(f"Loading: {chunk_path.relative_to(input_root)}")
@@ -49,11 +41,11 @@ for chunk_path in chunk_files:
 
         continue
 
-# TOTAL CHUNKS
+
 print(f"\nTotal chunks loaded: " f"{len(all_chunks)}")
 
-# NORMALIZE CHUNK FORMAT
-normalized_chunks = []
+# Build embedding text by combining metadata context with chunk content
+embedding_chunks = []
 
 for chunk in all_chunks:
 
@@ -66,59 +58,87 @@ for chunk in all_chunks:
     if not text:
         continue
 
-    normalized_chunk = {
+    # Embed structural metadata together with content to improve retrieval recall
+    embedding_parts = []
+
+    if metadata.get("document_name"):
+        embedding_parts.append(metadata["document_name"])
+
+    if metadata.get("parent_h1"):
+        embedding_parts.append(metadata["parent_h1"])
+
+    if metadata.get("chapter"):
+        embedding_parts.append(metadata["chapter"])
+
+    if metadata.get("chapter_title"):
+        embedding_parts.append(metadata["chapter_title"])
+
+    if metadata.get("section"):
+        embedding_parts.append(metadata["section"])
+
+    if metadata.get("section_title"):
+        embedding_parts.append(metadata["section_title"])
+
+    if metadata.get("legal_unit"):
+        embedding_parts.append(metadata["legal_unit"])
+
+    if metadata.get("heading_title"):
+        embedding_parts.append(metadata["heading_title"])
+
+    embedding_parts.append(text)
+
+    embedding_text = "\n".join(embedding_parts)
+
+    embedding_chunk = {
         "chunk_id": chunk["chunk_id"],
         "text": text,
+        "embedding_text": embedding_text,
         "metadata": metadata,
     }
 
-    normalized_chunks.append(normalized_chunk)
+    embedding_chunks.append(embedding_chunk)
 
-all_chunks = normalized_chunks
+all_chunks = embedding_chunks
 
-# EXTRACT TEXT ONLY
-texts = [chunk["text"] for chunk in all_chunks]
+# Use enriched text for embedding generation
+texts = [chunk["embedding_text"] for chunk in all_chunks]
 
 print("\nGenerating embeddings...")
 
-# GENERATE EMBEDDINGS
+if not texts:
+    raise ValueError("No chunks found.")
+
 embeddings = model.encode(
-    texts, batch_size=8, show_progress_bar=True, normalize_embeddings=True
+    texts, batch_size=32, show_progress_bar=True, normalize_embeddings=True
 )
 
-# CONVERT TO NUMPY FLOAT32
-embeddings = np.array(embeddings).astype("float32")
+embeddings = np.asarray(embeddings, dtype="float32")
 
-# CREATE FAISS INDEX
 dimension = embeddings.shape[1]
 
+# Use cosine similarity via normalized vectors + inner product index
 index = faiss.IndexFlatIP(dimension)
-
-# ADD EMBEDDINGS TO INDEX
 index.add(embeddings)
 
 print(f"\nFAISS index size: {index.ntotal}")
 
-# SAVE VECTOR DATABASE
+
 faiss_output = output_root / "khmer_insurance.index"
 
 faiss.write_index(index, str(faiss_output))
 
-# SAVE METADATA
+# Preserve original chunk metadata for retrieval and citation generation
 metadata_output = output_root / "khmer_insurance_metadata.json"
 
 with open(metadata_output, "w", encoding="utf-8") as f:
-
     json.dump(all_chunks, f, ensure_ascii=False, indent=2)
 
-# TOTAL RUNTIME
 elapsed_time = time.time() - start_time
 
-
 print("\n========== SUMMARY ==========")
-print(f"Chunk Files Loaded : " f"{len(chunk_files)}")
-print(f"Total Chunks       : " f"{len(all_chunks)}")
-print(f"Embedding Dimension: " f"{dimension}")
-print(f"Vector Count       : " f"{index.ntotal}")
-print(f"Total Runtime      : " f"{elapsed_time:.2f} seconds")
+print(f"Chunk Files Loaded : {len(chunk_files)}")
+print(f"Total Chunks       : {len(all_chunks)}")
+print(f"Embedding Dimension: {dimension}")
+print(f"Vector Count       : {index.ntotal}")
+print(f"Total Runtime      : {elapsed_time:.2f} seconds")
 print("\nEmbeddings and FAISS " "index created successfully.")
