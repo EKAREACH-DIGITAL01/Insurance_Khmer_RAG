@@ -20,7 +20,7 @@ start_time = time.time()
 
 print("Loading chunk files...")
 
-
+# Load all chunk files generated from the chunking pipeline
 for chunk_path in chunk_files:
 
     print(f"Loading: {chunk_path.relative_to(input_root)}")
@@ -47,18 +47,17 @@ print(f"\nTotal chunks loaded: " f"{len(all_chunks)}")
 # Build embedding text by combining metadata context with chunk content
 embedding_chunks = []
 
+# Convert chunk structure into embedding-ready format
 for chunk in all_chunks:
-
     metadata = chunk.get("metadata", {})
-
     text = chunk.get("text") or chunk.get("content") or ""
-
     text = text.strip()
 
     if not text:
         continue
 
-    # Embed structural metadata together with content to improve retrieval recall
+    # Include document, chapter, section, and heading context in the embedding text
+    # so retrieval can match both content and document structure
     embedding_parts = []
 
     if metadata.get("document_name"):
@@ -108,6 +107,7 @@ print("\nGenerating embeddings...")
 if not texts:
     raise ValueError("No chunks found.")
 
+# Generate normalized embeddings for cosine similarity search
 embeddings = model.encode(
     texts, batch_size=32, show_progress_bar=True, normalize_embeddings=True
 )
@@ -122,9 +122,9 @@ index.add(embeddings)
 
 print(f"\nFAISS index size: {index.ntotal}")
 
-
 faiss_output = output_root / "khmer_insurance.index"
 
+# Save vector index to disk
 faiss.write_index(index, str(faiss_output))
 
 # Preserve original chunk metadata for retrieval and citation generation
