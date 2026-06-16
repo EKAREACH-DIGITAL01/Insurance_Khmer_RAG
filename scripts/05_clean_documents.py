@@ -27,6 +27,25 @@ ABBREVIATIONS = {
     "ន.ម.ក.": "និយ័តករមូលបត្រកម្ពុជា",
 }
 
+PATTERN_MAP = {
+    "guidance_01": "A",
+    "guidance_02": "B",
+    "guidance_03": "C",
+    "guidance_04": "D",
+    "guidance_05": "E",
+    "guidance_06": "F",
+    "guidance_07": "A",
+    "guidance_08": "G",
+    "guidance_09": "A",
+    "guidance_10": "A",
+    "guidance_11": "J",
+    "guidance_12": "A",
+    "guidance_13": "C",
+    "guidance_14": "H",
+    "guidance_15": "B",
+    "guidance_16": "I",
+}
+
 
 def clean_guidance_document(text):
 
@@ -94,33 +113,13 @@ def clean_guidance_document(text):
     return text.strip()
 
 
-PATTERN_MAP = {
-    "guidance_01": "A",
-    "guidance_02": "B",
-    "guidance_03": "C",
-    "guidance_04": "D",
-    "guidance_05": "E",
-    "guidance_06": "F",
-    "guidance_07": "A",
-    "guidance_08": "G",
-    "guidance_09": "A",
-    "guidance_10": "A",
-    "guidance_11": "J",
-    "guidance_12": "A",
-    "guidance_13": "C",
-    "guidance_14": "H",
-    "guidance_15": "B",
-    "guidance_16": "I",
-}
-
-
 def normalize_guidance_headings(text, document_id):
 
     pattern = PATTERN_MAP.get(document_id)
 
     if pattern == "A":
-        # - level 1: num.
-        # - level 2: num.num.
+        # level 1: num.
+        # level 2: num.num.
 
         text = re.sub(
             r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H2> \3", text
@@ -129,8 +128,8 @@ def normalize_guidance_headings(text, document_id):
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H1> \2", text)
 
     elif pattern == "B":
-        # - level 1: alphabet.
-        # - level 2: num.
+        # level 1: alphabet.
+        # level 2: num.
 
         def replace_h1(match):
             title = match.group(2)
@@ -150,9 +149,9 @@ def normalize_guidance_headings(text, document_id):
         )
 
     elif pattern == "D":
-        # - level 1: alphabet.
-        # - level 2: num.
-        # - level 3: num.num.
+        # level 1: alphabet.
+        # level 2: num.
+        # level 3: num.num.
 
         text = re.sub(
             r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", r"<H1> \2", text
@@ -165,10 +164,10 @@ def normalize_guidance_headings(text, document_id):
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H2> \2", text)
 
     elif pattern == "E":
-        # - level 1: num.
-        # - level 2: num.num.
-        # - level 3: num.num.num.
-        # - level 4: num.num.num.num.
+        # level 1: num.
+        # level 2: num.num.
+        # level 3: num.num.num.
+        # level 4: num.num.num.num.
 
         text = re.sub(
             r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$",
@@ -189,7 +188,7 @@ def normalize_guidance_headings(text, document_id):
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H1> \2", text)
 
     elif pattern == "F":
-        # - level 1: num)
+        # level 1: num)
 
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\)\s*(.+)$", r"<H1> \2", text)
 
@@ -198,18 +197,18 @@ def normalize_guidance_headings(text, document_id):
         pass
 
     elif pattern == "H":
-        # - level 1: num.
+        # level 1: num.
 
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H1> \2", text)
 
     elif pattern == "I":
-        # - level 1: num.-
+        # level 1: num.-
 
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.-\s*(.+)$", r"<H1> \2", text)
 
     elif pattern == "J":
-        # - level 1: num.
-        # - level 2: alphabet.
+        # level 1: num.
+        # level 2: alphabet.
 
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H1> \2", text)
 
