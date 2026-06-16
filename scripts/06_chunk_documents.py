@@ -13,29 +13,23 @@ output_root.mkdir(
 
 CATEGORY_CONFIG = {
     "guidance": {
-        "chunk_size": None,
-        "min_chunk_size": 0,
-        "chunking_method": "guidance_section",
-        "merge_small_chunks": False
+        "chunking_method": "guidance_section"
     },
-     "laws": {
-        "chunk_size": None,
-        "min_chunk_size": 0,
-        "chunking_method": "legal_article",
-        "merge_small_chunks": False
+    "laws": {
+        "chunking_method": "legal_article"
     },
     "prakas": {
-        "chunk_size": None,
-        "min_chunk_size": 0,
-        "chunking_method": "legal_article",
-        "merge_small_chunks": False
+        "chunking_method": "legal_article"
     },
     "sub_decrees": {
-        "chunk_size": None,
-        "min_chunk_size": 0,
-        "chunking_method": "legal_article",
-        "merge_small_chunks": False
+        "chunking_method": "legal_article"
     }
+}
+
+LEGAL_CATEGORIES = {
+    "laws",
+    "prakas",
+    "sub_decrees"
 }
 
 json_files = sorted(
@@ -48,7 +42,7 @@ total_chunks = 0
 
 start_time = time.time()
 
-def guidance_chunking(text, chunk_size=None):
+def guidance_chunking(text):
 
     heading_pattern = r"(?m)(?=^<H[1-4]>\s)"
 
@@ -120,10 +114,7 @@ def guidance_chunking(text, chunk_size=None):
 
     return chunks
 
-def legal_article_chunking(
-    text,
-    chunk_size=None
-):
+def legal_article_chunking(text):
 
     chapter_pattern = (
         r"(?="
@@ -166,7 +157,6 @@ def legal_article_chunking(
         )
 
         chapter_name = None
-        section_name = None
 
         if chapter_match:
 
@@ -245,50 +235,19 @@ def legal_article_chunking(
 
     return chunks
 
-def merge_small_chunks(
-    chunks,
-    min_size
-):
-
-    if not chunks:
-        return chunks
-
-    merged = []
-
-    for chunk in chunks:
-
-        if (
-            merged
-            and len(chunk) < min_size
-        ):
-
-            merged[-1] += "\n" + chunk
-
-        else:
-
-            merged.append(chunk)
-
-    return merged
 
 def chunk_document(
     text,
-    category,
-    chunk_size
+    category
 ):
 
     if category == "guidance":
 
-        return guidance_chunking(
-            text,
-            chunk_size
-        )
+        return guidance_chunking(text)
 
-    elif category in ["laws", "sub_decrees", "prakas"]:
+    elif category in LEGAL_CATEGORIES:
 
-        return legal_article_chunking(
-            text,
-            chunk_size
-        )
+        return legal_article_chunking(text)
 
     return []
 
@@ -355,31 +314,16 @@ for input_path in json_files:
         category
     ]
 
-    chunk_size = config["chunk_size"]
-    min_chunk_size = config["min_chunk_size"]
-
     chunking_method = config[
         "chunking_method"
-    ]
-
-    merge_small = config[
-        "merge_small_chunks"
     ]
 
     split_chunks = (
         chunk_document(
             cleaned_text,
-            category,
-            chunk_size
+            category
         )
     )
-
-    if merge_small:
-
-        split_chunks = merge_small_chunks(
-            split_chunks,
-            min_chunk_size
-        )
 
     chunks = []
 
@@ -387,7 +331,7 @@ for input_path in json_files:
         split_chunks
     ):
 
-        if category in ["laws", "sub_decrees", "prakas"]:
+        if category in LEGAL_CATEGORIES:
 
             text = chunk_data["content"]
 
