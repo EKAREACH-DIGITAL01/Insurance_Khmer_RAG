@@ -12,7 +12,7 @@ output_root = Path("data/03_raw_pages")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
-# LOAD ENVIRONMENT VARIABLES
+# Load Environment Variables
 load_dotenv()
 
 # GEMINI client
@@ -36,7 +36,6 @@ start_time = time.time()
 
 # Send image to Gemini OCR model
 def generate_ocr_response(image):
-
     return client.models.generate_content(
         model="gemini-3.5-flash", contents=[prompt, image], config={"temperature": 0}
     )
@@ -46,7 +45,6 @@ print(f"Total images found: {len(image_files)}")
 
 # Process all page images
 for image_path in image_files:
-
     relative_path = image_path.relative_to(input_root)
 
     category = relative_path.parts[0]
@@ -63,9 +61,7 @@ for image_path in image_files:
 
     # Skip existing files
     if output_path.exists():
-
         print(f"Skipping already processed: {document_id} - {page_name}")
-
         skipped_pages += 1
         continue
 
@@ -75,7 +71,6 @@ for image_path in image_files:
     page_start_time = time.time()
 
     with Image.open(image_path) as image:
-
         retry_count = 0
         success = False
 
@@ -121,24 +116,20 @@ for image_path in image_files:
                 success = True
                 break
 
+            # Increase retry delay to reduce repeated API failures
             except Exception as e:
                 retry_count += 1
-
-                # Increase retry delay to reduce repeated API failures
                 wait_time = min(15 * retry_count, 120)
-
                 print(f"Error processing {document_id} - {page_name}: {e}")
                 print(
                     f"Retry {retry_count}/{MAX_RETRIES} "
                     f"after waiting {wait_time} seconds...\n"
                 )
-
                 time.sleep(wait_time)
 
     # Record all failed pages
     if not success:
         print(f"Failed permanently: {document_id} - {page_name}")
-
         failed_pages += 1
         continue
 
