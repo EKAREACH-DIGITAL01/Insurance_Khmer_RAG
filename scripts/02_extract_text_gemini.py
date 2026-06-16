@@ -7,356 +7,155 @@ import os
 import json
 import time
 
-# =====================================================
-# LOAD ENVIRONMENT VARIABLES
-# =====================================================
+input_root = Path("data/02_page_images")
+output_root = Path("data/03_raw_pages")
 
+output_root.mkdir(parents=True, exist_ok=True)
+
+# LOAD ENVIRONMENT VARIABLES
 load_dotenv()
 
-# =====================================================
-# GEMINI CLIENT
-# =====================================================
+# GEMINI client
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
-)
+# Prompt used for Gemini OCR extraction
+prompt = "Just read the image and write the text back exactly. Do not change anything."
 
-# =====================================================
-# ROOT INPUT FOLDER
-# =====================================================
+# Discover all page images
+image_files = sorted(input_root.rglob("*.png"))
 
-input_root = Path(
-    "data/02_page_images"
-)
-
-# =====================================================
-# ROOT OUTPUT FOLDER
-# =====================================================
-
-output_root = Path(
-    "data/03_raw_pages"
-)
-
-output_root.mkdir(
-    parents=True,
-    exist_ok=True
-)
-
-# =====================================================
-# OCR PROMPT
-# =====================================================
-
-prompt = """
-Just read the image and write the text back exactly. Do not change anything.
-"""
-
-# =====================================================
-# FIND ALL PNG FILES RECURSIVELY
-# =====================================================
-
-image_files = sorted(
-    input_root.rglob("*.png")
-)
-
-# =====================================================
-# COUNTERS
-# =====================================================
+MAX_RETRIES = 10
+REQUEST_TIMEOUT = 100
 
 processed_pages = 0
 skipped_pages = 0
 failed_pages = 0
 
-# =====================================================
-# TOTAL RUNTIME
-# =====================================================
-
 start_time = time.time()
 
-# =====================================================
-# GEMINI OCR FUNCTION
-# =====================================================
 
+# Send image to Gemini OCR model
 def generate_ocr_response(image):
 
     return client.models.generate_content(
-        model="gemini-3.5-flash",
-        contents=[prompt, image],
-        config={
-            "temperature": 0
-        }
+        model="gemini-3.5-flash", contents=[prompt, image], config={"temperature": 0}
     )
 
-# =====================================================
-# PROCESS ALL PAGES
-# =====================================================
 
+print(f"Total images found: {len(image_files)}")
+
+# Process all page images
 for image_path in image_files:
 
-    relative_path = image_path.relative_to(
-        input_root
-    )
+    relative_path = image_path.relative_to(input_root)
 
-    # Category:
-    # laws
     category = relative_path.parts[0]
-
-    # Folder:
-    # law_01
     document_id = relative_path.parts[1]
-
-    # Filename:
-    # page_001
     page_name = image_path.stem
 
     # Extract page number
-    page_number = int(
-        page_name.split("_")[1]
-    )
+    page_number = int(page_name.split("_")[1])
 
-    # =====================================================
-    # OUTPUT PATH
-    # =====================================================
+    # Output path
+    output_folder = output_root / category
+    output_folder.mkdir(parents=True, exist_ok=True)
+    output_path = output_folder / f"{document_id}_{page_name}.json"
 
-    output_folder = (
-        output_root / category
-    )
-
-    output_folder.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    output_path = (
-        output_folder /
-        f"{document_id}_{page_name}.json"
-    )
-
-    # =====================================================
-    # SKIP EXISTING FILES
-    # =====================================================
-
+    # Skip existing files
     if output_path.exists():
 
-        # print(
-        #     f"Skipping already processed: "
-        #     f"{document_id} - {page_name}"
-        # )
+        print(f"Skipping already processed: {document_id} - {page_name}")
 
         skipped_pages += 1
         continue
 
-    # =====================================================
-    # PROCESS PAGE
-    # =====================================================
-
-    print(
-        f"\nProcessing: "
-        f"{document_id} - {page_name}"
-    )
+    # Process each page image
+    print(f"\nProcessing: {document_id} - {page_name}")
 
     page_start_time = time.time()
 
-    # Open image
-    image = Image.open(image_path)
+    with Image.open(image_path) as image:
 
-    # Retry settings
-    max_retries = 10
-    retry_count = 0
+        retry_count = 0
+        success = False
 
-    success = False
-
-    # =====================================================
-    # RETRY SAME PAGE UNTIL SUCCESS
-    # =====================================================
-
-    while retry_count < max_retries:
-
-        try:
-
-            # =====================================================
-            # GEMINI OCR
-            # =====================================================
-
-            print("Sending Gemini request...")
-
-            executor = concurrent.futures.ThreadPoolExecutor()
-
-            future = executor.submit(
-                generate_ocr_response,
-                image
-            )
-
+        while retry_count < MAX_RETRIES:
             try:
+                print("Sending Gemini request...")
 
-                response = future.result(
-                    timeout=100
-                )
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(generate_ocr_response, image)
 
-            except concurrent.futures.TimeoutError:
+                    try:
+                        response = future.result(timeout=REQUEST_TIMEOUT)
 
-                print(
-                    f"Timeout after 100 seconds: "
-                    f"{document_id} - {page_name}"
-                )
+                    except concurrent.futures.TimeoutError:
+                        print(
+                            f"Timeout after {REQUEST_TIMEOUT} seconds: {document_id} - {page_name}"
+                        )
+                        print("Skipping page...")
 
-                print(
-                    "Skipping page..."
-                )
+                        success = False
+                        break
 
-                future.cancel()
-                executor.shutdown(wait=False)
+                # Log Gemini token usage for monitoring and cost tracking
+                print("\nUsage Metadata:")
+                print(response.usage_metadata)
+                print()
 
-                executor._threads.clear()
-                concurrent.futures.thread._threads_queues.clear()
+                extracted_text = response.text
 
-                success = False
+                # Save JSON immediately to avoid losing progress
+                with open(output_path, "w", encoding="utf-8") as f:
+                    json.dump(
+                        {
+                            "document_id": document_id,
+                            "page": page_number,
+                            "raw_text": extracted_text,
+                        },
+                        f,
+                        ensure_ascii=False,
+                        indent=2,
+                    )
 
+                success = True
                 break
 
-            # =====================================================
-            # USAGE METADATA
-            # =====================================================
+            except Exception as e:
+                retry_count += 1
 
-            print("\nUsage Metadata:")
-            print(response.usage_metadata)
-            print()
+                # Increase retry delay to reduce repeated API failures
+                wait_time = min(15 * retry_count, 120)
 
-            extracted_text = response.text
-
-            # =====================================================
-            # SAVE JSON IMMEDIATELY
-            # =====================================================
-
-            with open(
-                output_path,
-                "w",
-                encoding="utf-8"
-            ) as f:
-
-                json.dump(
-                    {
-                        "document_id": document_id,
-                        "page": page_number,
-                        "raw_text": extracted_text
-                    },
-                    f,
-                    ensure_ascii=False,
-                    indent=2
+                print(f"Error processing {document_id} - {page_name}: {e}")
+                print(
+                    f"Retry {retry_count}/{MAX_RETRIES} "
+                    f"after waiting {wait_time} seconds...\n"
                 )
 
-            success = True
-            break
+                time.sleep(wait_time)
 
-        except Exception as e:
-
-            retry_count += 1
-
-            # =====================================================
-            # EXPONENTIAL BACKOFF
-            # =====================================================
-
-            wait_time = min(
-                15 * retry_count,
-                120
-            )
-
-            print(
-                f"Error processing "
-                f"{document_id} - "
-                f"{page_name}: {e}"
-            )
-
-            print(
-                f"Retry "
-                f"{retry_count}/{max_retries} "
-                f"after waiting "
-                f"{wait_time} seconds...\n"
-            )
-
-            time.sleep(wait_time)
-
-    # =====================================================
-    # PAGE FAILED
-    # =====================================================
-
+    # Record all failed pages
     if not success:
-
-        print(
-            f"Failed permanently: "
-            f"{document_id} - "
-            f"{page_name}"
-        )
+        print(f"Failed permanently: {document_id} - {page_name}")
 
         failed_pages += 1
         continue
 
     processed_pages += 1
 
-    # =====================================================
-    # PAGE RUNTIME
-    # =====================================================
+    # Measure processing time for the current page
+    page_elapsed = time.time() - page_start_time
+    print(f"Completed: {document_id} - {page_name} ({page_elapsed:.2f}s)")
 
-    page_elapsed = (
-        time.time() - page_start_time
-    )
-
-    print(
-        f"Completed: "
-        f"{document_id} - "
-        f"{page_name} "
-        f"({page_elapsed:.2f}s)"
-    )
-
-    # =====================================================
-    # OPTIONAL RATE LIMIT SAFETY
-    # =====================================================
-
-    # WARNING:
-    # Uncomment this only if requests become
-    # too fast and start hitting RPM limits.
-    #
-    # Current OCR processing is already slow
-    # enough naturally (~30–60s per page),
-    # so extra sleeping is usually unnecessary.
-    #
-    # time.sleep(5)
-
-# =====================================================
-# TOTAL RUNTIME
-# =====================================================
-
-elapsed_time = (
-    time.time() - start_time
-)
-
-# =====================================================
-# SUMMARY
-# =====================================================
+elapsed_time = time.time() - start_time
 
 print("\n========== SUMMARY ==========")
+print(f"Processed Pages : {processed_pages}")
+print(f"Skipped Pages   : {skipped_pages}")
+print(f"Failed Pages    : {failed_pages}")
+print(f"Total Runtime   : {elapsed_time:.2f} seconds")
+print("OCR extraction completed successfully.")
 
-print(
-    f"Processed Pages : "
-    f"{processed_pages}"
-)
-
-print(
-    f"Skipped Pages   : "
-    f"{skipped_pages}"
-)
-
-print(
-    f"Failed Pages    : "
-    f"{failed_pages}"
-)
-
-print(
-    f"Total Runtime   : "
-    f"{elapsed_time:.2f} seconds"
-)
-
-print(
-    "OCR extraction completed successfully."
-)
-
+# Force process termination if Python does not exit cleanly
 os._exit(0)

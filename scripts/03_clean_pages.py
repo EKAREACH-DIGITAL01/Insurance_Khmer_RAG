@@ -7,6 +7,7 @@ input_root = Path("data/03_raw_pages")
 output_root = Path("data/04_cleaned_pages")
 
 output_root.mkdir(parents=True, exist_ok=True)
+
 json_files = sorted(input_root.rglob("*.json"))
 
 processed_files = 0
