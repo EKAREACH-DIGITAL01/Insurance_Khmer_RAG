@@ -7,6 +7,7 @@ import streamlit as st
 from sentence_transformers import SentenceTransformer
 
 LLAMA_SERVER_URL = "http://localhost:8080/v1"
+MODEL_NAME = "SeaLLMs-v3-7B-Chat-Q6_K.gguf"
 
 client = OpenAI(
     base_url=LLAMA_SERVER_URL,
@@ -54,23 +55,34 @@ embedding_model = load_embedding_model()
 index = load_index()
 chunks = load_metadata()
 
+print("=" * 80)
+print(f"Embedding Device: {embedding_model.device}")
+print("=" * 80)
+
 
 # RETRIEVAL
 def retrieve(query):
+    embed_start = time.time()
+
     query_embedding = embedding_model.encode(
         [query],
         normalize_embeddings=True,
     )
 
-    query_embedding = np.asarray(
-        query_embedding,
-        dtype="float32",
-    )
+    embed_time = time.time() - embed_start
+
+    search_start = time.time()
 
     scores, indices = index.search(
         query_embedding,
         k=TOP_K,
     )
+
+    search_time = time.time() - search_start
+
+    print(f"Embedding Time : {embed_time:.2f}s")
+    print(f"FAISS Time     : {search_time:.4f}s")
+    print(f"Embedding Device: {embedding_model.device}")
 
     results = []
 
@@ -126,7 +138,6 @@ Content:
 
 
 def generate_answer(question, context):
-
     prompt = f"""
 You are a Khmer legal assistant.
 
@@ -149,10 +160,13 @@ Question:
 
 Answer:
 """
+    print("=" * 80)
+    print(f"Prompt Length: {len(prompt):,} chars")
+    print("=" * 80)
 
     try:
         response = client.chat.completions.create(
-            model="SeaLLM",
+            model=MODEL_NAME,
             messages=[
                 {
                     "role": "user",
@@ -192,6 +206,11 @@ if st.button("Ask") and question.strip():
         retrieval_time = time.time() - retrieval_start
 
         context = build_context(results)
+        print("=" * 80)
+        print(f"Context Length: {len(context):,} chars")
+        print("=" * 80)
+
+        st.write(f"Context Length: {len(context):,} chars")
 
         generation_start = time.time()
 

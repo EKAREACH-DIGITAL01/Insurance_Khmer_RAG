@@ -1,12 +1,6 @@
 from pathlib import Path
 import os
 
-from huggingface_hub import hf_hub_download
-from sentence_transformers import SentenceTransformer
-
-# ============================================================
-# CONFIG
-# ============================================================
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 MODELS_DIR = PROJECT_ROOT / "models"
@@ -20,15 +14,23 @@ HF_CACHE_DIR.mkdir(
 
 os.environ["HF_HOME"] = str(HF_CACHE_DIR)
 
+from huggingface_hub import hf_hub_download
+from sentence_transformers import SentenceTransformer
+
 EMBEDDING_DIR = MODELS_DIR / "retriever" / "BAAI-BGE-M3"
 
 LLM_DIR = MODELS_DIR / "generator"
 
-HF_LLM_FILENAME = "SeaLLM3-7B-Chat.Q8_0.gguf"
-
-LOCAL_LLM_FILENAME = "SeaLLMs-v3-7B-Chat-Q8_0.gguf"
-
-LLM_FILE = LLM_DIR / LOCAL_LLM_FILENAME
+LLM_MODELS = [
+    {
+        "hf_filename": "SeaLLM3-7B-Chat.Q8_0.gguf",
+        "local_filename": "SeaLLMs-v3-7B-Chat-Q8_0.gguf",
+    },
+    {
+        "hf_filename": "SeaLLM3-7B-Chat.Q6_K.gguf",
+        "local_filename": "SeaLLMs-v3-7B-Chat-Q6_K.gguf",
+    },
+]
 
 # ============================================================
 # CREATE DIRECTORIES
@@ -72,28 +74,37 @@ else:
 
 print("\n========== SeaLLM ==========")
 
-if LLM_FILE.exists():
+for model_info in LLM_MODELS:
 
-    print("SeaLLM already installed.")
-    print(f"Location: {LLM_FILE}")
+    hf_filename = model_info["hf_filename"]
+    local_filename = model_info["local_filename"]
 
-else:
+    llm_file = LLM_DIR / local_filename
 
-    print("Downloading SeaLLM GGUF...")
+    print(f"\nChecking: {local_filename}")
+
+    if llm_file.exists():
+
+        print("Already installed.")
+        print(f"Location: {llm_file}")
+
+        continue
+
+    print("Downloading...")
 
     downloaded_file = hf_hub_download(
         repo_id="mradermacher/SeaLLM3-7B-Chat-GGUF",
-        filename=HF_LLM_FILENAME,
+        filename=hf_filename,
         local_dir=str(LLM_DIR),
     )
 
     downloaded_path = Path(downloaded_file)
 
-    if downloaded_path.name != LOCAL_LLM_FILENAME:
-        downloaded_path.rename(LLM_FILE)
+    if downloaded_path.name != local_filename:
+        downloaded_path.rename(llm_file)
 
-    print("SeaLLM installed successfully.")
-    print(f"Location: {LLM_FILE}")
+    print("Installed successfully.")
+    print(f"Location: {llm_file}")
 
 # ============================================================
 # COMPLETE
@@ -105,15 +116,25 @@ print("Installed models:")
 
 print(f"- Embedding Model : {EMBEDDING_DIR}")
 
-if LLM_FILE.exists():
-    print(f"- LLM Model       : {LLM_FILE}")
-else:
-    print("- LLM Model       : NOT INSTALLED")
+print("\nInstalled LLMs:")
+
+for model_info in LLM_MODELS:
+
+    llm_file = LLM_DIR / model_info["local_filename"]
+
+    if llm_file.exists():
+        print(f"- {llm_file}")
+    else:
+        print(f"- MISSING: {llm_file}")
 
 if not (EMBEDDING_DIR / "modules.json").exists():
     raise SystemExit("\nBGE-M3 installation failed.")
 
-if not LLM_FILE.exists():
-    raise SystemExit("\nSeaLLM installation failed.")
+for model_info in LLM_MODELS:
+
+    llm_file = LLM_DIR / model_info["local_filename"]
+
+    if not llm_file.exists():
+        raise SystemExit(f"\nSeaLLM installation failed: {llm_file.name}")
 
 print("\nSetup completed successfully.")
