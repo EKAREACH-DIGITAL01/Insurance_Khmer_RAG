@@ -2,6 +2,28 @@ from pathlib import Path
 import subprocess
 import time
 import requests
+import platform
+import shutil
+
+OS_NAME = platform.system()
+
+print(f"Detected OS: {OS_NAME}")
+
+LLAMA_SERVER = shutil.which("llama-server")
+
+if LLAMA_SERVER is None:
+
+    if OS_NAME == "Windows":
+        raise SystemExit(
+            "llama-server.exe not found. "
+            "Please install llama.cpp and add it to PATH."
+        )
+
+    raise SystemExit(
+        "llama-server not found. " "Please install llama.cpp and add it to PATH."
+    )
+
+print(f"llama-server: {LLAMA_SERVER}")
 
 MODELS = {
     "1": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
@@ -40,7 +62,7 @@ print(f"\nStarting {model}...")
 
 llama_process = subprocess.Popen(
     [
-        "llama-server",
+        LLAMA_SERVER,
         "-m",
         str(MODEL_PATH),
         "-ngl",
@@ -54,7 +76,14 @@ llama_process = subprocess.Popen(
 
 print("Waiting for llama-server...")
 
+start_time = time.time()
+
 while True:
+
+    if time.time() - start_time > 120:
+        llama_process.kill()
+        raise SystemExit("llama-server failed to start within 120 seconds.")
+
     try:
         response = requests.get(
             "http://localhost:8080/v1/models",
