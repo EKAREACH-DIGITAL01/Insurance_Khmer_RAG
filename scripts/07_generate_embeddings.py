@@ -10,13 +10,26 @@ output_root = Path("vector_db")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
+# FAISS vector index used for similarity search retrieval
+faiss_output = output_root / "khmer_insurance.index"
+# Metadata used to map retrieved vectors back to chunks and citations
+metadata_output = output_root / "khmer_insurance_metadata.json"
+
+if faiss_output.exists() and metadata_output.exists():
+
+    print("\n========== EXISTING VECTOR DATABASE ==========")
+    print(f"FAISS Index : {faiss_output}")
+    print(f"Metadata    : {metadata_output}")
+
+    raise SystemExit("\nDelete the existing files and run the script again if you want to regenerate embeddings.")
+
 # Find all JSONs recursively
 chunk_files = sorted(input_root.rglob("*.json"))
 
 DOCUMENT_TYPE_KH = {
-    "law": "ច្បាប់",
-    "prakas": "ប្រកាស",
-    "guidance": "គោលការណ៍ណែនាំ",
+    "law"       : "ច្បាប់",
+    "prakas"    : "ប្រកាស",
+    "guidance"  : "គោលការណ៍ណែនាំ",
     "sub_decree": "អនុក្រឹត្យ",
 }
 
@@ -30,23 +43,16 @@ print("Loading chunk files...")
 
 # Load all chunk files generated from the chunking pipeline
 for chunk_path in chunk_files:
-
     print(f"Loading: {chunk_path.relative_to(input_root)}")
 
     try:
-
         with open(chunk_path, "r", encoding="utf-8") as f:
-
             chunks = json.load(f)
-
             all_chunks.extend(chunks)
 
     except Exception as e:
-
         print(f"Skipping broken chunk file: " f"{chunk_path.name}")
-
         print(e)
-
         continue
 
 
@@ -120,25 +126,30 @@ all_chunks = embedding_chunks
 # Use enriched text for embedding generation
 texts = [chunk["embedding_text"] for chunk in all_chunks]
 
-print("\nGenerating embeddings...")
-
 if not texts:
     raise ValueError("No chunks found.")
 
-print(f"Total texts: {len(texts)}")
-print(f"Max text length: {max(len(t) for t in texts)}")
-print(f"Average length: {sum(len(t) for t in texts)/len(texts):.0f}")
-print(f"Device: {model.device}")
+document_count = len(set(chunk["metadata"]["document_id"] for chunk in all_chunks))
+chunk_lengths = [len(t) for t in texts]
 
+print("\n========== DATASET INFO ==========")
+print(f"Total Documents     : {document_count}")
+print(f"Total Chunks        : {len(texts)}")
+print(f"Largest Chunk Size  : {max(chunk_lengths)} chars")
+print(f"Smallest Chunk Size : {min(chunk_lengths)} chars")
+print(f"Average Chunk Size  : {sum(chunk_lengths) / len(texts):.0f} chars")
+print(f"Device              : {model.device}")
+
+print("\nGenerating embeddings...")
 print("Starting encode...")
 encode_start = time.time()
 
 # Generate normalized embeddings for cosine similarity search
-embeddings = model.encode(
-    texts, batch_size=16, show_progress_bar=True, normalize_embeddings=True
-)
+embeddings = model.encode(texts, batch_size=16, show_progress_bar=True, normalize_embeddings=True)
 
-print(f"Encode time: {time.time() - encode_start:.2f} sec")
+encode_time = time.time() - encode_start
+
+print(f"Encode time         : {encode_time:.2f} sec")
 print("Encode finished.")
 
 embeddings = np.asarray(embeddings, dtype="float32")
@@ -149,25 +160,38 @@ dimension = embeddings.shape[1]
 index = faiss.IndexFlatIP(dimension)
 index.add(embeddings)
 
-print(f"\nFAISS index size: {index.ntotal}")
-
-faiss_output = output_root / "khmer_insurance.index"
-
 # Save vector index to disk
 faiss.write_index(index, str(faiss_output))
-
-# Preserve original chunk metadata for retrieval and citation generation
-metadata_output = output_root / "khmer_insurance_metadata.json"
 
 with open(metadata_output, "w", encoding="utf-8") as f:
     json.dump(all_chunks, f, ensure_ascii=False, indent=2)
 
 elapsed_time = time.time() - start_time
 
-print("\n========== SUMMARY ==========")
-print(f"Chunk Files Loaded : {len(chunk_files)}")
-print(f"Total Chunks       : {len(all_chunks)}")
-print(f"Embedding Dimension: {dimension}")
-print(f"Vector Count       : {index.ntotal}")
-print(f"Total Runtime      : {elapsed_time:.2f} seconds")
-print("\nEmbeddings and FAISS " "index created successfully.")
+metadata_size_mb = metadata_output.stat().st_size / (1024 * 1024)
+faiss_size_mb = faiss_output.stat().st_size / (1024 * 1024)
+embedding_size_mb = embeddings.nbytes / (1024 * 1024)
+
+print("\n========== EMBEDDING INFO ==========")
+print(f"Model               : BAAI/bge-m3")
+print(f"Device              : {model.device}")
+print(f"Embedding Shape     : {embeddings.shape}")
+print(f"Embedding Dtype     : {embeddings.dtype}")
+print(f"Embedding Dimension : {index.d}")
+print(f"Min Value           : {embeddings.min():.6f}")
+print(f"Max Value           : {embeddings.max():.6f}")
+print(f"Mean Value          : {embeddings.mean():.6f}")
+print(f"First Vector Norm   : {np.linalg.norm(embeddings[0]):.6f}")
+
+print("\n========== FAISS INFO ==========")
+print(f"Index Type          : {type(index).__name__}")
+print(f"Vector Count        : {index.ntotal}")
+print(f"Metadata File Size  : {metadata_size_mb:.2f} MB")
+print(f"FAISS File Size     : {faiss_size_mb:.2f} MB")
+print(f"Embedding RAM Size  : {embedding_size_mb:.2f} MB")
+
+print("\n========== RUNTIME ==========")
+print(f"Encode Time         : {encode_time:.2f} sec")
+print(f"Total Runtime       : {elapsed_time:.2f} sec")
+
+print("\nEmbeddings and FAISS index created successfully.")
