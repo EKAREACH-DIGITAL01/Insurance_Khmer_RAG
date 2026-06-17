@@ -7,7 +7,9 @@ import streamlit as st
 from sentence_transformers import SentenceTransformer
 
 LLAMA_SERVER_URL = "http://localhost:8080/v1"
-MODEL_NAME = "SeaLLMs-v3-7B-Chat-Q6_K.gguf"
+
+# Put the correct downloaded model
+MODEL_NAME = "SeaLLM3-7B-Chat.Q5_K_M.gguf"
 
 client = OpenAI(
     base_url=LLAMA_SERVER_URL,

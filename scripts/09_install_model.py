@@ -30,6 +30,14 @@ LLM_MODELS = [
         "hf_filename": "SeaLLM3-7B-Chat.Q6_K.gguf",
         "local_filename": "SeaLLMs-v3-7B-Chat-Q6_K.gguf",
     },
+    {
+        "hf_filename": "SeaLLM3-7B-Chat.Q5_K_M.gguf",
+        "local_filename": "SeaLLMs-v3-7B-Chat-Q5_K_M.gguf",
+    },
+    {
+        "hf_filename": "SeaLLM3-7B-Chat.Q4_K_M.gguf",
+        "local_filename": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
+    },
 ]
 
 # ============================================================
