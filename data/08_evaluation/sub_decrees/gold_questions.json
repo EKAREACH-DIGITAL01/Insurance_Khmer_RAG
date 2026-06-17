@@ -1,348 +1,302 @@
 [
     {
         "question": "សកម្មភាពអាជីវកម្មធានារ៉ាប់រងខ្នាតតូចនៅកម្ពុជាស្ថិតក្រោមការគ្រប់គ្រង និងត្រួតពិនិត្យរបស់ស្ថាប័នណា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_3"
         ]
     },
     {
         "question": "អ្នកដែលចង់ចុះកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូច ត្រូវធ្វើជាមួយក្រុមហ៊ុនប្រភេទណា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_4"
         ]
     },
     {
         "question": "កិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូចត្រូវមានលក្ខណៈបែបណា និងត្រូវបញ្ជាក់អ្វីខ្លះអំពីកម្មវត្ថុនៃការធានារ៉ាប់រង?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_5"
         ]
     },
     {
         "question": "បណ្ណសន្យារ៉ាប់រងមានតួនាទីអ្វីក្នុងការបញ្ជាក់អំពីកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូច?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_7"
         ]
     },
     {
         "question": "នរណាជាអ្នកកំណត់និទ្ទេសអប្បបរមានៃបណ្ណសន្យារ៉ាប់រង?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_8"
         ]
     },
     {
         "question": "កំណត់សំអាងអាចត្រូវបានប្រើនៅក្នុងករណីណា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_9"
         ]
     },
     {
         "question": "បើអន្តរការីធានារ៉ាប់រងចុះហត្ថលេខាលើកំណត់សំអាងជួសមុខឱ្យក្រុមហ៊ុនធានារ៉ាប់រង អានុភាពនៃកិច្ចសន្យាមានចំពោះអ្នកណាខ្លះ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_10"
         ]
     },
     {
         "question": "អ្នកណាខ្លះអាចក្លាយជាម្ចាស់បណ្ណសន្យារ៉ាប់រង ឬអ្នកត្រូវបានធានារ៉ាប់រងក្នុងកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូច?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_12"
         ]
     },
     {
         "question": "ការចុះកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូចត្រូវផ្អែកលើគោលការណ៍អ្វីខ្លះទាក់ទងនឹងឆន្ទៈរបស់ភាគី?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_13"
         ]
     },
     {
         "question": "ការអនុវត្តកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូចតាមប្រព័ន្ធអេឡិចត្រូនិច ត្រូវទទួលបានការអនុញ្ញាតពីអ្នកណាជាមុន?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_15"
         ]
     },
     {
         "question": "បើអ្នកទទួលផលទាំងអស់បាត់បង់សិទ្ធិទទួលសំណង ហើយគ្មានអ្នកទទួលផលនៅសល់ ទឹកប្រាក់ធានារ៉ាប់រងត្រូវចាត់ទុកដូចម្តេច?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_17"
         ]
     },
     {
         "question": "ភាគីនៃកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូចមានសិទ្ធិស្នើសុំកែប្រែកិច្ចសន្យាដែរឬទេ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_20"
         ]
     },
     {
         "question": "ការកែប្រែកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូចអាចធ្វើឡើងដោយផ្អែកលើអ្វី?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_21"
         ]
     },
     {
         "question": "ក្នុងករណីអ្នកត្រូវបានធានារ៉ាប់រងសុំបញ្ចប់កិច្ចសន្យាមុនកាលកំណត់ ហើយក្រុមហ៊ុនយល់ព្រម តើត្រូវបង្វិលសងបុព្វលាភប៉ុន្មានភាគរយ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_25"
         ]
     },
     {
         "question": "មូលហេតុណាខ្លះអាចនាំឱ្យកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូចត្រូវបានលុបចោល?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_26"
         ]
     },
     {
         "question": "ផលិតផលធានារ៉ាប់រងខ្នាតតូចទាំងអស់ ត្រូវទទួលបានការអនុញ្ញាតពីស្ថាប័នណាមុននឹងលក់លើទីផ្សារ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_31"
         ]
     },
     {
         "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចអាចផ្ទេរហានិភ័យតាមរយៈការធានារ៉ាប់រងបន្តទៅឱ្យអ្នកណា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_34"
         ]
     },
     {
         "question": "ដើមទុនអប្បបរមារបស់ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចមិនត្រូវទាបជាងប៉ុន្មាន?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_43"
         ]
     },
     {
         "question": "អ្នករងការប្តឹងក្នុងវិវាទធានារ៉ាប់រង ត្រូវឆ្លើយតបក្នុងរយៈពេលប៉ុន្មានថ្ងៃធ្វើការ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_52"
         ]
     },
     {
         "question": "ទណ្ឌកម្មដែលកំណត់ក្នុងអនុក្រឹត្យនេះមានប្រភេទអ្វី?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_56"
         ]
     },
     {
         "question": "បើបុគ្គលម្នាក់ចង់ទិញធានារ៉ាប់រងខ្នាតតូច តើគាត់ត្រូវដាក់ពាក្យស្នើសុំតាមរបៀបណា ហើយបន្ទាប់មកក្រុមហ៊ុនត្រូវធ្វើអ្វីខ្លះ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_14",
             "sub_decree_01_chunk_4"
         ]
     },
     {
         "question": "ក្នុងករណីបណ្ណសន្យារ៉ាប់រងមិនទាន់អាចចេញបាន តើអាចប្រើឯកសារអ្វីជាបណ្តោះអាសន្ន ហើយឯកសារនោះប្រើនៅកាលៈទេសៈណា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_14",
             "sub_decree_01_chunk_9"
         ]
     },
     {
         "question": "តើលក្ខខណ្ឌទូទៅ និងលក្ខខណ្ឌពិសេសនៅក្នុងបណ្ណសន្យារ៉ាប់រងខ្នាតតូចខុសគ្នាយ៉ាងដូចម្តេច?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_8",
             "sub_decree_01_chunk_2"
         ]
     },
     {
         "question": "បើកិច្ចសន្យាមិនបានកំណត់ថ្ងៃចាប់ផ្តើមអានុភាព និងថ្ងៃបង់បុព្វលាភ តើថ្ងៃណាត្រូវចាត់ទុកជាថ្ងៃអានុភាពនៃការធានារ៉ាប់រង ហើយអាចយកឯកសារអ្វីជាភស្តុតាង?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_16",
             "sub_decree_01_chunk_19"
         ]
     },
     {
         "question": "អ្នកត្រូវបានធានារ៉ាប់រងត្រូវធ្វើអ្វីខ្លះនៅពេលហានិភ័យធានារ៉ាប់រងកើតឡើង?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_18",
             "sub_decree_01_chunk_19"
         ]
     },
     {
         "question": "ក្រុមហ៊ុនធានារ៉ាប់រងមានកាតព្វកិច្ចអ្វីខ្លះក្នុងការដោះស្រាយសំណងបន្ទាប់ពីទទួលបានការទាមទារ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_19",
             "sub_decree_01_chunk_18"
         ]
     },
     {
         "question": "ការកែប្រែកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូចចាប់ផ្តើមមានសុពលភាពនៅពេលណា និងផ្អែកលើលក្ខខណ្ឌអ្វី?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_21",
             "sub_decree_01_chunk_22"
         ]
     },
     {
         "question": "បន្ទាប់ពីកិច្ចសន្យាផុតសុពលភាព ភាគីអាចបន្តកិច្ចសន្យាបានដែរឬទេ ហើយការបន្តមានន័យដូចម្តេច?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_23",
             "sub_decree_01_chunk_16"
         ]
     },
     {
         "question": "ការផ្អាកកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូចត្រូវធ្វើក្រោមលក្ខខណ្ឌអ្វី ហើយមានផលប៉ះពាល់ដូចម្តេចចំពោះលក្ខខណ្ឌនៃកិច្ចសន្យា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_24",
             "sub_decree_01_chunk_23"
         ]
     },
     {
         "question": "បើការធានារ៉ាប់រងត្រូវបានបញ្ចប់ក្រោយពេលក្រុមហ៊ុនបានទូទាត់សំណងរួច តើក្រុមហ៊ុននៅមានកាតព្វកិច្ចបង្វិលសងបុព្វលាភសម្រាប់រយៈពេលនៅសល់ដែរឬទេ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_25",
             "sub_decree_01_chunk_19"
         ]
     },
     {
         "question": "ក្នុងករណីវិការៈនៃការបង្ហាញឆន្ទៈនាំឱ្យកិច្ចសន្យាត្រូវលុបចោល តើភាគីមានសិទ្ធិអ្វីខ្លះបន្ថែមទៀត?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_26",
             "sub_decree_01_chunk_27"
         ]
     },
     {
         "question": "បើអ្នកត្រូវបានធានារ៉ាប់រងមិនបានដឹងពីហានិភ័យដែលបានកើតឡើងក្នុងអំឡុងសុពលភាពកិច្ចសន្យា តើរយៈពេលទាមទារសំណងក្រោយផុតសុពលភាពត្រូវមានយ៉ាងតិចប៉ុន្មានឆ្នាំ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_28",
             "sub_decree_01_chunk_17"
         ]
     },
     {
         "question": "បើក្រុមហ៊ុនរកមិនឃើញអ្នកត្រូវបានធានារ៉ាប់រងដើម្បីទូទាត់សំណង តើត្រូវស្វែងរកក្នុងរយៈពេលប៉ុន្មានឆ្នាំ ហើយបន្ទាប់មកត្រូវធ្វើអ្វីជាមួយប្រាក់សំណង?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_29",
             "sub_decree_01_chunk_30"
         ]
     },
     {
         "question": "ផលិតផលធានារ៉ាប់រងខ្នាតតូចត្រូវមានលក្ខណៈអ្វីទាក់ទងនឹងចំនួនទឹកប្រាក់ធានារ៉ាប់រង ហើយអ្នកណាជាអ្នកកំណត់កម្រិតនោះ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_32",
             "sub_decree_01_chunk_31"
         ]
     },
     {
         "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចត្រូវស្នើសុំការអនុញ្ញាតពី ន.ធ.ក. មុនពេលធ្វើអ្វីពាក់ព័ន្ធនឹងការធានារ៉ាប់រងបន្ត?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_34",
             "sub_decree_01_chunk_35"
         ]
     },
     {
         "question": "បុគ្គលដែលចង់បង្កើតក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច ត្រូវបំពេញលក្ខខណ្ឌគោលអ្វីខ្លះដើម្បីស្នើសុំអាជ្ញាបណ្ណ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_36",
             "sub_decree_01_chunk_43"
         ]
     },
     {
         "question": "នីតិបុគ្គលផ្សេងទៀតដែលចង់ចែកចាយផលិតផលធានារ៉ាប់រងខ្នាតតូច ត្រូវធ្វើអ្វីជាមុន?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_37",
             "sub_decree_01_chunk_38"
         ]
     },
     {
         "question": "ការចែកចាយផលិតផលធានារ៉ាប់រងខ្នាតតូចតាមប្រព័ន្ធអេឡិចត្រូនិក ឬទូរគមនាគមន៍ ត្រូវមានការអនុញ្ញាតពីអ្នកណា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_39",
             "sub_decree_01_chunk_38"
         ]
     },
     {
         "question": "រាល់ការតែងតាំង ឬផ្លាស់ប្តូរសមាសភាពក្រុមប្រឹក្សាភិបាល និងគណៈគ្រប់គ្រង ត្រូវអនុវត្តតាមតម្រូវការអ្វី?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_40",
             "sub_decree_01_chunk_42"
         ]
     },
     {
         "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចត្រូវជ្រើសរើសសវនករយ៉ាងដូចម្តេច និងត្រូវស្នើសុំការអនុញ្ញាតមុនរយៈពេលប៉ុន្មានថ្ងៃ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_45",
             "sub_decree_01_chunk_3"
         ]
     },
     {
         "question": "ក្រោយបញ្ចប់ឆ្នាំហិរញ្ញវត្ថុ ក្រុមហ៊ុនត្រូវដាក់របាយការណ៍អ្វីទៅ ន.ធ.ក. ហើយក្នុងរយៈពេលប៉ុន្មាន?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_46",
             "sub_decree_01_chunk_45"
         ]
     },
     {
         "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចមានកាតព្វកិច្ចអ្វីខ្លះទាក់ទងនឹងការផ្សព្វផ្សាយ និងការផ្តល់របាយការណ៍ជូន ន.ធ.ក.?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_47",
             "sub_decree_01_chunk_48"
         ]
     },
     {
         "question": "ប្រសិនបើមានវិវាទធានារ៉ាប់រង ភាគីអាចដាក់ពាក្យទៅកាន់ស្ថាប័នណាខ្លះសម្រាប់ដោះស្រាយ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_49",
             "sub_decree_01_chunk_50"
         ]
     },
     {
         "question": "ន.ធ.ក. ត្រូវរៀបចំយន្តការអ្វីសម្រាប់ទទួលពាក្យបណ្តឹងវិវាទធានារ៉ាប់រង ហើយការសាកសួរព័ត៌មានត្រូវធ្វើនៅទីណា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_51",
             "sub_decree_01_chunk_53"
         ]
     },
     {
         "question": "តើនីតិវិធីដោះស្រាយវិវាទរបស់ ន.ធ.ក. ត្រូវបញ្ចប់ក្នុងរយៈពេលប៉ុន្មានថ្ងៃធ្វើការ ហើយមានអ្វីកើតឡើងបើភាគីមិនសះជា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_54",
             "sub_decree_01_chunk_49"
         ]
     },
     {
         "question": "ដើម្បីឱ្យការធានារ៉ាប់រងខ្នាតតូចមានអានុភាព តើអ្នកត្រូវបានធានារ៉ាប់រងត្រូវបំពេញកាតព្វកិច្ចអ្វី ហើយអាចប្រើឯកសារអ្វីជាភស្តុតាងបញ្ជាក់ថ្ងៃអានុភាព?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_16",
             "sub_decree_01_chunk_18",
             "sub_decree_01_chunk_19"
@@ -350,8 +304,7 @@
     },
     {
         "question": "សម្រាប់ការចុះកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូចតាមប្រព័ន្ធអេឡិចត្រូនិក តើត្រូវមានការអនុញ្ញាតពី ន.ធ.ក. ដូចម្តេច ហើយអ្នកស្នើសុំត្រូវដាក់ពាក្យតាមរបៀបណា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_14",
             "sub_decree_01_chunk_15",
             "sub_decree_01_chunk_3"
@@ -359,8 +312,7 @@
     },
     {
         "question": "តើអ្នកត្រូវបានធានារ៉ាប់រងមានកាតព្វកិច្ចអ្វីខ្លះក្នុងការផ្តល់ព័ត៌មាន និងភស្តុតាង ហើយក្រុមហ៊ុនមានកាតព្វកិច្ចអ្វីខ្លះក្នុងការជួយប្រមូលព័ត៌មាន និងដោះស្រាយសំណង?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_18",
             "sub_decree_01_chunk_19",
             "sub_decree_01_chunk_16"
@@ -368,8 +320,7 @@
     },
     {
         "question": "បើមានការស្នើសុំលក់ផលិតផលធានារ៉ាប់រងខ្នាតតូចលើទីផ្សារ និងចែកចាយតាមប្រព័ន្ធអេឡិចត្រូនិក តើការអនុញ្ញាតណាខ្លះត្រូវទទួលបានជាមុន?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_31",
             "sub_decree_01_chunk_39",
             "sub_decree_01_chunk_3"
@@ -377,8 +328,7 @@
     },
     {
         "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចដែលចង់ធ្វើធានារ៉ាប់រងបន្ត ត្រូវបំពេញតម្រូវការអ្វីខ្លះទាក់ទងនឹងការអនុញ្ញាត និងភាគីដែលអាចទទួលផ្ទេរហានិភ័យ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_34",
             "sub_decree_01_chunk_35",
             "sub_decree_01_chunk_3"
@@ -386,8 +336,7 @@
     },
     {
         "question": "សម្រាប់ការបង្កើតក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច តើមានលក្ខខណ្ឌអ្វីខ្លះទាក់ទងនឹងទម្រង់ក្រុមហ៊ុន ម្ចាស់ភាគហ៊ុន និងដើមទុនអប្បបរមា?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_36",
             "sub_decree_01_chunk_43",
             "sub_decree_01_chunk_44"
@@ -395,8 +344,7 @@
     },
     {
         "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចត្រូវបំពេញកាតព្វកិច្ចអ្វីខ្លះពាក់ព័ន្ធនឹងសវនកម្ម របាយការណ៍ហិរញ្ញវត្ថុ និងរបាយការណ៍ប្រចាំ?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_45",
             "sub_decree_01_chunk_46",
             "sub_decree_01_chunk_48"
@@ -404,8 +352,7 @@
     },
     {
         "question": "នៅពេលមានវិវាទធានារ៉ាប់រង តើដំណើរការដោះស្រាយនៅ ន.ធ.ក. មានជំហាន និងកាលកំណត់សំខាន់ៗអ្វីខ្លះ ចាប់ពីការទទួលពាក្យបណ្តឹងរហូតដល់ការបញ្ចប់នីតិវិធី?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_51",
             "sub_decree_01_chunk_52",
             "sub_decree_01_chunk_54"
@@ -413,8 +360,7 @@
     },
     {
         "question": "ក្រុមហ៊ុនធានារ៉ាប់រងអាចប្រឈមនឹងទណ្ឌកម្មរដ្ឋបាលក្នុងករណីមិនគោរពកាតព្វកិច្ចស្នើសុំការអនុញ្ញាតជាមុនសម្រាប់សកម្មភាពណាខ្លះដែលអនុក្រឹត្យបានកំណត់?",
-        "relevant_chunk_ids":
-        [
+        "relevant_chunk_ids": [
             "sub_decree_01_chunk_15",
             "sub_decree_01_chunk_31",
             "sub_decree_01_chunk_35",
