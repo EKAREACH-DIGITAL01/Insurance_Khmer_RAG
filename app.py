@@ -110,9 +110,6 @@ def retrieve(query):
     results = []
 
     for score, idx in zip(scores[0], indices[0]):
-        if score < MIN_SCORE:
-            continue
-
         results.append(
             (
                 score,
@@ -129,15 +126,39 @@ def retrieve(query):
 
 
 def build_context(results):
+
     context_parts = []
 
     for rank, (score, chunk) in enumerate(results, start=1):
+
+        metadata = chunk.get("metadata", {})
+
         context_parts.append(f"""
-
 [Source {rank}]
-Chunk ID: {chunk['chunk_id']}
 
-{chunk['text']}
+Document Name:
+{metadata.get("document_name", "N/A")}
+
+Document Type:
+{metadata.get("document_type_kh", metadata.get("document_type", "N/A"))}
+
+Release Date:
+{metadata.get("release_date", "N/A")}
+
+Chapter:
+{metadata.get("chapter_title", metadata.get("chapter", "N/A"))}
+
+Section:
+{metadata.get("section_title", metadata.get("section", "N/A"))}
+
+Legal Unit:
+{metadata.get("legal_unit", "N/A")}
+
+Chunk ID:
+{chunk["chunk_id"]}
+
+Content:
+{chunk["text"]}
 """)
 
     return "\n\n".join(context_parts)
@@ -224,6 +245,11 @@ if st.button("Ask") and question.strip():
 
         results = retrieve(question)
 
+        best_score = results[0][0]
+
+        if best_score < MIN_SCORE:
+            st.warning(f"Low confidence retrieval (best score = {best_score:.4f})")
+
         retrieval_time = time.time() - retrieval_start
 
         if not results:
@@ -244,6 +270,17 @@ if st.button("Ask") and question.strip():
     st.subheader("Answer")
     st.write(answer)
 
+    st.markdown("### Sources Used")
+
+    for rank, (score, chunk) in enumerate(results, start=1):
+
+        metadata = chunk.get("metadata", {})
+
+        st.markdown(f"""
+    {rank}. **{metadata.get('document_name', 'Unknown Document')}**
+    - Score: {score:.4f}
+    - Chunk: {chunk['chunk_id']}
+    """)
     st.subheader("Performance")
 
     st.write(f"Retrieval Time: {retrieval_time:.2f}s")
@@ -252,13 +289,34 @@ if st.button("Ask") and question.strip():
 
     st.write(f"Total Time: {time.time() - total_start:.2f}s")
 
-    st.subheader("Sources")
+    st.subheader("Source Details")
 
     for rank, (score, chunk) in enumerate(
         results,
         start=1,
     ):
         with st.expander(f"Rank {rank} | Score {score:.4f}"):
-            st.write(f"Chunk ID: {chunk['chunk_id']}")
+
+            metadata = chunk.get("metadata", {})
+
+            st.write(
+                {
+                    "similarity_score": round(score, 4),
+                    "document_name": metadata.get("document_name"),
+                    "document_type": metadata.get(
+                        "document_type_kh",
+                        metadata.get("document_type"),
+                    ),
+                    "release_date": metadata.get("release_date"),
+                    "chapter": metadata.get("chapter"),
+                    "chapter_title": metadata.get("chapter_title"),
+                    "section": metadata.get("section"),
+                    "section_title": metadata.get("section_title"),
+                    "legal_unit": metadata.get("legal_unit"),
+                    "chunk_id": chunk["chunk_id"],
+                }
+            )
+
+            st.markdown("---")
 
             st.write(chunk["text"])
