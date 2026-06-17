@@ -1,13 +1,310 @@
 # Khmer Insurance RAG Chatbot
 
-Khmer legal and insurance Retrieval-Augmented Generation (RAG) chatbot using:
+A Retrieval-Augmented Generation (RAG) chatbot for Khmer insurance and legal documents.
 
-* Gemini Vision OCR
-* Khmer semantic retrieval
+The system retrieves relevant information from insurance-related laws, sub-decrees, prakas, and guidance documents, then generates grounded answers in Khmer using SeaLLM-v3.
+
+---
+
+## Features
+
+* Khmer-language question answering
+* Retrieval-Augmented Generation (RAG)
+* Local embedding generation using BGE-M3
 * FAISS vector search
-* Streamlit frontend
+* SeaLLM-v3-7B local inference via llama.cpp
+* Structured legal document chunking
+* Retrieval evaluation framework
+* Source-aware answer generation
+* Retrieval inspection and debugging
+* Local inference using SeaLLM-v3
 
-This project processes Khmer legal PDFs into a searchable AI knowledge system.
+---
+
+## System Architecture (Will be replaced by Image here)
+
+User Question
+
+↓
+
+BGE-M3 Query Embedding
+
+↓
+
+FAISS Similarity Search
+
+↓
+
+Top-K Relevant Chunks
+
+↓
+
+Context Construction
+
+↓
+
+SeaLLM-v3-7B
+
+↓
+
+Khmer Answer + Sources
+
+---
+
+## Dataset
+
+The knowledge base contains Khmer insurance-related documents collected from official sources.
+
+Document categories:
+
+* Laws
+* Prakas
+* Sub-Decrees
+* Guidance Documents
+
+Total Dataset Statistics:
+
+* Documents: 49
+* Chunks: 1,435
+* Embedding Model: BAAI/bge-m3
+* Vector Store: FAISS IndexFlatIP
+
+---
+
+## Project Structure
+
+├── data
+│   ├── 01_source_documents
+│   │   ├── guidance
+│   │   ├── laws
+│   │   ├── prakas
+│   │   └── sub_decrees
+│   ├── 02_page_images
+│   │   ├── guidance
+│   │   ├── laws
+│   │   ├── prakas
+│   │   └── sub_decrees
+│   ├── 03_raw_pages
+│   │   ├── guidance
+│   │   ├── laws
+│   │   ├── prakas
+│   │   └── sub_decrees
+│   ├── 04_cleaned_pages
+│   │   ├── guidance
+│   │   ├── laws
+│   │   ├── prakas
+│   │   └── sub_decrees
+│   ├── 05_merged_documents
+│   │   ├── guidance
+│   │   ├── laws
+│   │   ├── prakas
+│   │   └── sub_decrees
+│   ├── 06_cleaned_documents
+│   │   ├── guidance
+│   │   ├── laws
+│   │   ├── prakas
+│   │   └── sub_decrees
+│   ├── 07_chunked_documents
+│   │   ├── guidance
+│   │   ├── laws
+│   │   ├── prakas
+│   │   └── sub_decrees
+│   ├── 08_evaluation
+│   │   ├── guidance
+│   │   ├── laws
+│   │   ├── prakas
+│   │   └── sub_decrees
+│   ├── 09_merged_chunked_documents
+│   │   ├── guidance_chunks.json
+│   │   ├── laws_chunks.json
+│   │   ├── prakas_chunks.json
+│   │   └── sub_decrees_chunks.json
+│   └── document_metadata.json
+├── models
+│   ├──.hf_cache
+│   ├── retriever
+│       └── BAAI-BGE-M3
+│   └── generator
+│       └── SeaLLMs-v3-7B-Chat
+├── requirements.txt
+├── scripts
+│   ├── 01_convert_pdf_to_png.py
+│   ├── 02_extract_text_gemini.py
+│   ├── 03_clean_pages.py
+│   ├── 04_merge_documents.py
+│   ├── 05_clean_documents.py
+│   ├── 06_chunk_documents.py
+│   ├── 07_generate_embeddings.py
+│   ├── 08_evaluate_retrieval.py
+│   ├── 09_install_model.py
+│   ├── 10_merge_chunked_documents.py
+│   └── utils.py
+└── vector_db
+    ├── khmer_insurance.index
+    └── khmer_insurance_metadata.json
+├── .env
+├── README.md
+├── app.py
+└── requirements.txt
+
+---
+
+## Retrieval Pipeline
+
+### Chunking
+### Guidance Documents
+
+Chunking Strategy:
+
+- Heading hierarchy (H1–H4)
+- Parent heading inheritance
+- Section-level retrieval
+### Legal Documents
+
+Chunking Strategy:
+
+- មាត្រា (Articles)
+- ប្រការ (Regulations)
+- Chapter context
+- Section context
+
+### Embedding
+
+Model:
+
+BAAI/bge-m3
+
+Embedding text includes:
+
+* Document Name
+* Document Type
+* Chapter
+* Section
+* Legal Unit
+* Heading Context
+* Chunk Content
+
+### Vector Search
+
+FAISS IndexFlatIP
+
+Cosine similarity is implemented using:
+
+* Normalized embeddings
+* Inner product search
+
+---
+
+## Retrieval Evaluation
+
+Retriever performance was evaluated using manually curated gold questions.
+
+Metrics:
+
+- Hit Rate@K
+- Recall@K
+- MRR@K
+- File Hit Rate@K
+
+Evaluation Range:
+
+K = 1–10
+
+Results showed strong retrieval performance across all document categories, with several categories achieving over 90% Hit Rate@1 and over 96% Hit Rate@5.
+
+---
+
+## Models
+
+### Retriever
+
+BAAI/bge-m3
+
+Purpose:
+
+- Query embedding
+- Chunk embedding
+- Semantic retrieval
+
+### Generator
+
+SeaLLMs-v3-7B-Chat
+
+Purpose:
+
+- Khmer answer generation
+- Context-grounded response generation
+
+Inference Engine:
+
+- llama.cpp
+
+Quantization:
+
+- GGUF
+
+---
+
+## Installation
+
+Create environment:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Install local models:
+
+```bash
+python scripts/09_install_model.py
+```
+
+---
+
+## Run Application
+
+Start llama.cpp server:
+
+```bash
+llama-server \
+-m models/generator/SeaLLMs-v3-7B-Chat-Q8_0.gguf \
+--host 0.0.0.0 \
+--port 8080
+```
+
+Launch Streamlit:
+
+```bash
+streamlit run app.py
+```
+
+Open:
+
+http://localhost:8501
+
+---
+
+## Technologies
+
+* Python
+* Streamlit
+* Sentence Transformers
+* BGE-M3
+* FAISS
+* llama.cpp
+* SeaLLM-v3
+* NumPy
+* llama.cpp
+* SeaLLMs-v3
+* Hugging Face
+* OpenAI-Compatible API
 
 ---
 
@@ -47,70 +344,6 @@ Python 3.11 is recommended for:
 
 ---
 
-# Project Structure
-
-```text
-Khmer-Rag-Insurance-Chatbot/
-│
-├── scripts/
-│   ├── 01_convert_pdf_to_images.py
-│   ├── 02_extract_text_gemini.py
-│   ├── 03_clean_text.py
-│   ├── 04_chunk_documents.py
-│   ├── 05_generate_embeddings.py
-│   └── utils.py
-│
-├── data/
-│   │
-│   ├── source_documents/
-│   │   ├── guidance/
-│   │   ├── laws/
-│   │   ├── prakas/
-│   │   └── sub_decrees/
-│   │
-│   ├── page_images/
-│   │   ├── guidance/
-│   │   ├── laws/
-│   │   ├── prakas/
-│   │   └── sub_decrees/
-│   │
-│   ├── evaluation/
-│   │
-│   ├── extracted_text/
-│   │   │
-│   │   ├── raw/
-│   │   │   ├── guidance/
-│   │   │   ├── laws/
-│   │   │   ├── prakas/
-│   │   │   └── sub_decrees/
-│   │   │
-│   │   └── cleaned/
-│   │       ├── guidance/
-│   │       ├── laws/
-│   │       ├── prakas/
-│   │       └── sub_decrees/
-│   │
-│   ├── chunked_documents/
-│   │   ├── guidance/
-│   │   ├── laws/
-│   │   ├── prakas/
-│   │   └── sub_decrees/
-│   │
-│   └── document_metadata.json
-│
-├── vector_db/
-│   ├── *.index
-│   └── *_metadata.json
-│
-├── app.py
-├── requirements.txt
-├── .gitignore
-├── .env
-└── README.md
-```
-
----
-
 # Metadata System
 
 The project uses a centralized metadata registry:
@@ -122,8 +355,7 @@ data/document_metadata.json
 This file stores document-level metadata such as:
 - document name
 - document type
-- document release date
-- document language
+- release date
 
 Example:
 
@@ -133,245 +365,11 @@ Example:
     "document_name": "ច្បាប់ស្តីពីពាណិជ្ជកម្មតាមប្រព័ន្ធអេឡិចត្រូនិក",
     "document_type": "law",
     "release_date": "2019-11-02",
-    "language": "kh-en"
   }
 }
 ```
 
-Metadata is later attached to chunked documents for:
-- retrieval context
-- source attribution
-- citations
-- future filtering support
 
----
-
-# Folder Explanations
-
-## `scripts/`
-
-Contains the complete data processing pipeline.
-
----
-
-## `01_convert_pdf_to_images.py`
-
-Converts PDFs into page images (`.png`) for OCR processing.
-
-Uses:
-
-* `pdf2image`
-* 400 DPI rendering for better Khmer OCR quality
-
----
-
-## `02_extract_text_gemini.py`
-
-Performs OCR extraction using Gemini Vision.
-
-Features:
-
-* Khmer + English extraction
-* retry logic
-* resumable processing
-* automatic skip for completed pages
-* strict OCR prompting
-
-Output:
-
-* raw JSON OCR files
-
----
-
-## `03_clean_text.py`
-
-Cleans OCR text while preserving Khmer legal structure.
-
-Cleaning includes:
-
-* whitespace normalization
-* line break cleanup
-* formatting cleanup
-
-Minimal cleaning is intentionally used to avoid damaging Khmer legal text.
-
----
-
-## `04_chunk_documents.py`
-
-Splits cleaned text into smaller RAG chunks.
-
-Features:
-
-* Khmer-safe chunking
-* paragraph-based splitting
-* metadata preservation
-
-Each chunk contains:
-
-* document ID
-* page number
-* chunk ID
-* text
-
----
-
-## `05_generate_embeddings.py`
-
-Generates multilingual embeddings and creates FAISS vector databases.
-
-Uses:
-
-* `paraphrase-multilingual-MiniLM-L12-v2`
-* FAISS vector indexing
-
-Output:
-
-* `.index`
-* metadata JSON
-
----
-
-## `utils.py`
-
-Stores shared helper functions used across multiple scripts.
-
-This file is reserved for reusable utilities such as:
-
-* retry handling
-* JSON save/load helpers
-* folder creation helpers
-* runtime formatting
-* OCR helper functions
-* logging utilities
-
-Utilities are added gradually as the project grows to avoid unnecessary early abstraction.
-
-The goal of `utils.py` is to improve:
-
-* code reusability
-* maintainability
-* cleaner pipeline scripts
-
----
-
-# `data/`
-
-Main project data directory.
-
----
-
-## `data/source_documents/`
-
-Stores original Khmer legal PDFs.
-
-Categories:
-
-* laws
-* sub_decrees
-* prakas
-* guidance
-
-These files should never be modified.
-
----
-
-## `data/page_images/`
-
-Stores generated page images.
-
-Example:
-
-```text
-page_images/laws/law_01/page_001.png
-```
-
-Used for:
-
-* OCR extraction
-* debugging
-* manual verification
-
----
-
-## `data/evaluation/`
-
-Stores evaluation datasets, testing logs, and quality validation files.
-
-### Purpose
-
-- OCR quality validation
-- retrieval quality testing
-- hallucination detection
-- RAG answer evaluation
-- semantic search benchmarking
-
-This folder is used to systematically improve:
-
-- OCR accuracy
-- retrieval precision
-- grounded answer quality
-
-### Example Evaluation Areas
-
-- Khmer OCR comparison
-- expected retrieval results
-- chatbot answer validation
-- hallucination analysis
-
-The evaluation system is expanded gradually as the project matures.
-
----
-
-## `data/extracted_text/raw/`
-
-Stores raw OCR output from Gemini.
-
-No cleaning is applied here.
-
-Purpose:
-
-* preserve original OCR
-* OCR debugging
-* reprocessing
-
----
-
-## `data/extracted_text/cleaned/`
-
-Stores cleaned OCR text.
-
-This version is used for chunking and embeddings.
-
----
-
-## `data/chunked_documents/`
-
-Stores chunked RAG-ready documents.
-
-Each file contains structured chunks with metadata.
-
----
-
-# `vector_db/`
-
-Stores FAISS vector databases and metadata.
-
-Example:
-
-```text
-vector_db/
-├── law_01.index
-└── law_01_metadata.json
-```
-
-Used for:
-
-* semantic retrieval
-* RAG search
-* chatbot grounding
-
----
 
 # Environment Setup
 
@@ -473,159 +471,22 @@ Current dependencies:
 streamlit
 google-genai
 python-dotenv
-Pillow
+pillow
+pdf2image
 sentence-transformers
+transformers
+huggingface-hub
+sentencepiece
+accelerate
 faiss-cpu
 numpy
 torch
-transformers
-huggingface-hub
-pdf2image
+torchvision
+tabulate
+openai
 ```
 
----
-
-# Pipeline Workflow
-
-```text
-PDF Documents
-      ↓
-Convert PDF Pages → Images
-      ↓
-Gemini OCR Extraction
-      ↓
-Clean Khmer Text
-      ↓
-Chunk Documents
-      ↓
-Generate Embeddings
-      ↓
-Store in FAISS Vector Database
-      ↓
-RAG Chatbot Retrieval
-```
-
----
-
-# Pipeline Execution Order
-
-Run scripts in this exact order.
-
----
-
-## Step 1 — Convert PDFs to Images
-
-```bash
-python scripts/01_convert_pdf_to_images.py
-```
-
----
-
-## Step 2 — OCR Extraction
-
-```bash
-python scripts/02_extract_text_gemini.py
-```
-
-This is the slowest stage because it uses Gemini Vision OCR.
-
-Features:
-
-* retry logic
-* resumable processing
-* skip completed pages
-
----
-
-## Step 3 — Clean OCR Text
-
-```bash
-python scripts/03_clean_text.py
-```
-
----
-
-## Step 4 — Chunk Documents
-
-```bash
-python scripts/04_chunk_documents.py
-```
-
----
-
-## Step 5 — Generate Embeddings
-
-```bash
-python scripts/05_generate_embeddings.py
-```
-
----
-
-# Run Chatbot UI
-
-Start the Streamlit frontend:
-
-```bash
-streamlit run app.py
-```
-
-Open:
-
-```text
-http://localhost:8501
-```
-
-Features:
-
-* Khmer question answering
-* semantic retrieval
-* retrieved source inspection
-* grounded AI responses
-* RAG debugging
-
----
-
-# Current Scope
-
-This project currently focuses only on:
-
-* Khmer legal documents
-* insurance regulations
-* image-based PDFs
-* Khmer semantic retrieval
-* Gemini OCR pipeline
-
-Document categories:
-
-* Laws
-* Sub Decrees
-* Prakas
-* Guidance
-
----
-
-# Notes
-
-* OCR quality depends heavily on PDF quality.
-* 400 DPI is currently used for better Khmer OCR performance.
-* Gemini Vision OCR is the primary bottleneck of the pipeline.
-* Streamlit frontend replaces terminal-based retrieval testing.
-
----
-
-# Future Improvements
-
-Planned improvements:
-
-* multi-document retrieval
-* citation highlighting
-* article-level chunking
-* chat memory
-* reranking
-* OCR evaluation tools
-* better Khmer embeddings
-* production deployment
-
+Note
 IF the yellow line appear under package even after installed successfully
 
 Cmd + Shift + P
@@ -634,3 +495,41 @@ Run
 Python: Restart Language Server
 Pylance: Restart Language Server
 Developer: Reload Window
+
+---
+
+
+# Pipeline Execution Order
+
+Run scripts in this exact order.
+
+---
+
+## Step 1
+
+```bash
+python scripts/01
+```
+
+---
+
+## Step 2
+
+```bash
+python scripts/02
+```
+---
+
+## Step 3 —
+
+```bash
+python scripts/03_
+```
+
+---
+
+## Author
+
+Sorphea
+
+Khmer Insurance Retrieval-Augmented Generation Chatbot
