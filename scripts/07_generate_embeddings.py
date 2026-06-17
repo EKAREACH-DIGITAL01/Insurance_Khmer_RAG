@@ -35,11 +35,11 @@ if faiss_output.exists() and metadata_output.exists():
     )
 
 print("Loading embedding model...")
-MODEL_PATH = Path("models/embeddings/bge-m3")
+MODEL_PATH = Path("models/retriever/BAAI-BGE-M3")
 
 if not MODEL_PATH.exists():
     raise FileNotFoundError(
-        "BGE-M3 not found.\n" "Run: python scripts/09_install_models.py"
+        "BAAI/BGE-M3 not found.\n" "Run: python scripts/09_install_models.py"
     )
 
 model = SentenceTransformer(str(MODEL_PATH))

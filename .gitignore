@@ -22,6 +22,9 @@ data/07_chunked_documents/*
 data/09_merged_chunked_documents/*
 scripts/09_merge_chunked_documents.py
 
+# Local models
+models/
+
 # Python
 __pycache__/
 *.pyc

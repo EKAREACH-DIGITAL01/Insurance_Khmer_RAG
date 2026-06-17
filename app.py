@@ -30,7 +30,7 @@ st.title("Khmer Legal Chatbot")
 st.caption("RAG + SeaLLM-v3-7B GGUF")
 
 
-EMBEDDING_MODEL_PATH = "models/embeddings/bge-m3"
+EMBEDDING_MODEL_PATH = "models/retriever/BAAI-BGE-M3"
 
 
 @st.cache_resource
