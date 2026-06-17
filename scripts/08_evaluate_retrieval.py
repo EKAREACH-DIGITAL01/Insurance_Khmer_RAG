@@ -1,7 +1,9 @@
 import json
+import time
+from pathlib import Path
+
 import faiss
 import numpy as np
-from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from tabulate import tabulate
 
@@ -9,190 +11,244 @@ INDEX_PATH = "vector_db/khmer_insurance.index"
 METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
 EVALUATION_ROOT = Path("data/08_evaluation")
 
-TOP_K = 5
+EVAL_KS = list(range(1, 11))
+MAX_K = max(EVAL_KS)
 
-# LOAD MODEL
 print("Loading embedding model...")
-
 embedding_model = SentenceTransformer("BAAI/bge-m3")
 
-# LOAD FAISS
 print("Loading FAISS index...")
-
 index = faiss.read_index(INDEX_PATH)
 
-# LOAD METADATA
 print("Loading metadata...")
-
 with open(METADATA_PATH, "r", encoding="utf-8") as f:
     chunks = json.load(f)
 
-# FIND GOLD FILES
+chunk_lookup = {chunk["chunk_id"]: chunk for chunk in chunks}
+metadata_chunk_ids = set(chunk_lookup.keys())
+
 gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
 
 if not gold_files:
     raise ValueError("No gold_questions.json files found.")
 
-summary = []
+start_time = time.time()
 
-# EVALUATE EACH CATEGORY
+summary_table = []
+hit_table = []
+recall_table = []
+mrr_table = []
+file_hit_table = []
+
+
+def retrieve(question):
+    query_embedding = embedding_model.encode(
+        [question],
+        normalize_embeddings=True,
+    )
+
+    query_embedding = np.asarray(
+        query_embedding,
+        dtype="float32",
+    )
+
+    scores, indices = index.search(
+        query_embedding,
+        k=MAX_K,
+    )
+
+    results = []
+
+    for idx, score in zip(indices[0], scores[0]):
+
+        if idx < 0 or idx >= len(chunks):
+            continue
+
+        chunk = chunks[idx]
+
+        results.append(
+            {
+                "chunk_id": chunk["chunk_id"],
+                "document_id": chunk["metadata"].get("document_id"),
+                "score": float(score),
+            }
+        )
+
+    return results
+
+
 for gold_file in gold_files:
-    category = gold_file.parent.name
 
-    print("\n================================")
-    print(f"CATEGORY: {category}")
-    print("================================")
+    category = gold_file.parent.name
 
     with open(gold_file, "r", encoding="utf-8") as f:
         gold_questions = json.load(f)
 
-    total_questions = len(gold_questions)
-
-    if total_questions == 0:
+    if not gold_questions:
         raise ValueError(f"{gold_file} is empty.")
 
-    valid_questions = 0
-    hit_count = 0
-    recall_sum = 0
-    precision_sum = 0
-    mrr_sum = 0
+    # Validate gold chunk ids
 
-    # EVALUATION LOOP
+    missing_chunk_ids = set()
+
     for item in gold_questions:
+
+        for chunk_id in item["relevant_chunk_ids"]:
+
+            if chunk_id not in metadata_chunk_ids:
+                missing_chunk_ids.add(chunk_id)
+
+    missing_questions = 0
+    valid_questions = 0
+
+    hit_sums = {k: 0 for k in EVAL_KS}
+    recall_sums = {k: 0 for k in EVAL_KS}
+    mrr_sums = {k: 0 for k in EVAL_KS}
+    file_hit_sums = {k: 0 for k in EVAL_KS}
+
+    for item in gold_questions:
+
         question = item["question"]
         relevant_chunk_ids = set(item["relevant_chunk_ids"])
 
         if not relevant_chunk_ids:
-            print("\nSkipping question with no " "relevant_chunk_ids:")
+            print("\nSkipping question with no relevant_chunk_ids:")
             print(question)
+            continue
+
+        relevant_document_ids = set()
+
+        for chunk_id in relevant_chunk_ids:
+
+            chunk = chunk_lookup.get(chunk_id)
+
+            if chunk:
+                document_id = chunk["metadata"].get("document_id")
+
+                if document_id:
+                    relevant_document_ids.add(document_id)
+
+        if not relevant_document_ids:
+            missing_questions += 1
             continue
 
         valid_questions += 1
 
-        # EMBED QUESTION
-        query_embedding = embedding_model.encode([question], normalize_embeddings=True)
-        query_embedding = np.array(query_embedding).astype("float32")
+        retrieved_results = retrieve(question)
 
-        # SEARCH FAISS
-        distances, indices = index.search(query_embedding, k=TOP_K)
-        retrieved_chunk_ids = []
-        retrieved_results = []
+        retrieved_chunk_ids = [result["chunk_id"] for result in retrieved_results]
 
-        for idx, score in zip(indices[0], distances[0]):
-            if idx < 0 or idx >= len(chunks):
-                continue
+        retrieved_document_ids = [result["document_id"] for result in retrieved_results]
 
-            chunk = chunks[idx]
-            chunk_id = chunk["chunk_id"]
-            retrieved_chunk_ids.append(chunk_id)
-            retrieved_results.append({"chunk_id": chunk_id, "score": float(score)})
+        for k in EVAL_KS:
 
-        retrieved_set = set(retrieved_chunk_ids)
+            top_k_chunks = retrieved_chunk_ids[:k]
+            top_k_documents = retrieved_document_ids[:k]
 
-        # MATCH RELEVANT CHUNKS
-        found_relevant = retrieved_set.intersection(relevant_chunk_ids)
+            found_chunks = set(top_k_chunks).intersection(relevant_chunk_ids)
 
-        # HIT RATE
-        if found_relevant:
-            hit_count += 1
+            # Hit Rate@K: at least one relevant chunk retrieved
+            if found_chunks:
+                hit_sums[k] += 1
 
-        # RECALL@K
-        recall = len(found_relevant) / len(relevant_chunk_ids)
-        recall_sum += recall
+            # Recall@K: fraction of relevant chunks retrieved
+            recall_sums[k] += len(found_chunks) / len(relevant_chunk_ids)
 
-        # PRECISION@K
-        retrieved_count = len(retrieved_chunk_ids)
+            # MRR@K: reciprocal rank of first relevant chunk within top K
+            reciprocal_rank = 0
 
-        if retrieved_count == 0:
-            precision = 0
-        else:
-            precision = len(found_relevant) / retrieved_count
+            for rank, chunk_id in enumerate(top_k_chunks, start=1):
 
-        precision_sum += precision
+                if chunk_id in relevant_chunk_ids:
+                    reciprocal_rank = 1 / rank
+                    break
 
-        # MRR
-        reciprocal_rank = 0
+            mrr_sums[k] += reciprocal_rank
 
-        for rank, chunk_id in enumerate(retrieved_chunk_ids, start=1):
-            if chunk_id in relevant_chunk_ids:
-                reciprocal_rank = 1 / rank
-                break
+            # File Hit Rate@K: at least one retrieved chunk comes from the correct source document
+            found_documents = set(top_k_documents).intersection(relevant_document_ids)
 
-        mrr_sum += reciprocal_rank
+            if found_documents:
+                file_hit_sums[k] += 1
 
-        # PRINT RESULT
-        print("\n--------------------------------")
-        print("Question:")
-        print(question)
-
-        print("\nExpected Chunks:")
-        for chunk_id in sorted(relevant_chunk_ids):
-            print(f"- {chunk_id}")
-
-        print("\nRetrieved Chunks:")
-        for rank, result in enumerate(retrieved_results, start=1):
-            print(f"{rank}. " f"{result['chunk_id']} " f"(score={result['score']:.4f})")
-
-        print("\nFound:")
-        print(bool(found_relevant))
-
-        print(f"Recall@{TOP_K}: " f"{recall:.4f}")
-        print(f"Precision@{TOP_K}: " f"{precision:.4f}")
-        print(f"Reciprocal Rank: " f"{reciprocal_rank:.4f}")
-
-    # FINAL METRICS FOR CATEGORY
     if valid_questions == 0:
-        raise ValueError(f"No valid evaluation questions found in {gold_file}.")
+        raise ValueError(f"No valid questions found in {gold_file}.")
 
-    hit_rate = hit_count / valid_questions
-    recall_at_k = recall_sum / valid_questions
-    precision_at_k = precision_sum / valid_questions
-    mrr = mrr_sum / valid_questions
-
-    summary.append(
-        {
-            "category": category,
-            "hit_rate": hit_rate,
-            "recall": recall_at_k,
-            "precision": precision_at_k,
-            "mrr": mrr,
-        }
+    summary_table.append(
+        [
+            category,
+            len(gold_questions),
+            valid_questions,
+            missing_questions,
+            len(missing_chunk_ids),
+            ", ".join(sorted(missing_chunk_ids)) if missing_chunk_ids else "-",
+        ]
     )
 
-    print("\nFINAL RESULTS")
-    print(f"Total Questions: " f"{total_questions}")
-    print(f"Valid Questions: " f"{valid_questions}")
-    print(f"Hit Rate: " f"{hit_rate:.4f}")
-    print(f"Recall@{TOP_K}: " f"{recall_at_k:.4f}")
-    print(f"Precision@{TOP_K}: " f"{precision_at_k:.4f}")
-    print(f"MRR: " f"{mrr:.4f}")
+    if missing_chunk_ids:
+        print("Missing chunk ids : " + ", ".join(sorted(missing_chunk_ids)))
 
-# ALL CATEGORIES SUMMARY
-summary.sort(key=lambda x: x["hit_rate"], reverse=True)
+    hit_row = [category]
+    recall_row = [category]
+    mrr_row = [category]
+    file_hit_row = [category]
 
-table = []
+    for k in EVAL_KS:
 
-for row in summary:
+        hit_row.append(hit_sums[k] / valid_questions)
+        recall_row.append(recall_sums[k] / valid_questions)
+        mrr_row.append(mrr_sums[k] / valid_questions)
+        file_hit_row.append(file_hit_sums[k] / valid_questions)
 
-    table.append(
-        [row["category"], row["hit_rate"], row["recall"], row["precision"], row["mrr"]]
-    )
+    hit_table.append(hit_row)
+    recall_table.append(recall_row)
+    mrr_table.append(mrr_row)
+    file_hit_table.append(file_hit_row)
 
-print("\n==================================================================")
-print("\t\t\tALL CATEGORIES SUMMARY")
-print("==================================================================")
+print("\n====================")
+print("DATASET SUMMARY")
+print("====================")
 
 print(
     tabulate(
-        table,
+        summary_table,
         headers=[
             "Category",
-            "Hit Rate",
-            f"Recall@{TOP_K}",
-            f"Precision@{TOP_K}",
-            "MRR",
+            "Gold",
+            "Valid",
+            "Skipped",
+            "Missing IDs",
+            "Missing Chunk IDs",
         ],
         tablefmt="grid",
-        floatfmt=".4f",
     )
 )
+
+headers = ["Category"] + [f"@{k}" for k in EVAL_KS]
+
+print("\n====================")
+print("CHUNK HIT RATE")
+print("====================")
+print(tabulate(hit_table, headers=headers, tablefmt="grid", floatfmt=".4f"))
+
+print("\n====================")
+print("RECALL")
+print("====================")
+print(tabulate(recall_table, headers=headers, tablefmt="grid", floatfmt=".4f"))
+
+print("\n====================")
+print("MRR")
+print("====================")
+print(tabulate(mrr_table, headers=headers, tablefmt="grid", floatfmt=".4f"))
+
+print("\n====================")
+print("FILE HIT RATE")
+print("====================")
+print(tabulate(file_hit_table, headers=headers, tablefmt="grid", floatfmt=".4f"))
+
+elapsed_time = time.time() - start_time
+
+print("\n========== SUMMARY ==========")
+print(f"Categories Evaluated : {len(gold_files)}")
+print(f"Total Runtime        : {elapsed_time:.2f} seconds")
+print("Retriever evaluation completed successfully.")
