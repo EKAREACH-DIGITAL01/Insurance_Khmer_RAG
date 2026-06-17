@@ -1,7 +1,7 @@
 import json
 import re
-from pathlib import Path
 import time
+from pathlib import Path
 
 input_root = Path("data/05_merged_documents")
 output_root = Path("data/06_cleaned_documents")
@@ -66,9 +66,7 @@ def clean_guidance_document(text):
     text = re.sub(r"(?m)^\s*និយ័តករធានារ៉ាប់រងកម្ពុជា\s*$", "", text)
 
     # Remove date block before title
-    text = re.sub(
-        r"(?s)^.*?(?=\n\s*(?:គោលការណ៍ណែនាំ|សេចក្តីណែនាំ)\s*\n\s*ស្តីពី)", "", text
-    )
+    text = re.sub(r"(?s)^.*?(?=\n\s*(?:គោលការណ៍ណែនាំ|សេចក្តីណែនាំ)\s*\n\s*ស្តីពី)", "", text)
 
     text = re.sub(r"(?m)^\s*INSURANCE REGULATOR OF CAMBODIA\s*$", "", text)
 
@@ -118,9 +116,7 @@ def normalize_guidance_headings(text, document_id):
 
     # Level 1: num. # Level 2: num.num.
     if pattern == "A":
-        text = re.sub(
-            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H2> \3", text
-        )
+        text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H2> \3", text)
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H1> \2", text)
 
     # Level 1: alphabet. # Level 2: num.
@@ -130,25 +126,17 @@ def normalize_guidance_headings(text, document_id):
             title = match.group(2)
             return f"<H1> {title}"
 
-        text = re.sub(
-            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", replace_h1, text
-        )
+        text = re.sub(r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", replace_h1, text)
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H2> \2", text)
 
     # Level 1: alphabet.
     elif pattern == "C":
-        text = re.sub(
-            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", r"<H1> \2", text
-        )
+        text = re.sub(r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", r"<H1> \2", text)
 
     # Level 1: alphabet. # Level 2: num. # Level 3: num.num.
     elif pattern == "D":
-        text = re.sub(
-            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", r"<H1> \2", text
-        )
-        text = re.sub(
-            r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H3> \3", text
-        )
+        text = re.sub(r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", r"<H1> \2", text)
+        text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H3> \3", text)
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H2> \2", text)
 
     # Level 1: num. # Level 2: num.num. # Level 3: num.num.num. # Level 4: num.num.num.num.
@@ -187,9 +175,7 @@ def normalize_guidance_headings(text, document_id):
     # Level 1: num. # Level 2: alphabet.
     elif pattern == "J":
         text = re.sub(r"(?m)^([០១២៣៤៥៦៧៨៩]+)\.\s*(.+)$", r"<H1> \2", text)
-        text = re.sub(
-            r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", r"<H2> \2", text
-        )
+        text = re.sub(r"(?m)^([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])\.\s*(.+)$", r"<H2> \2", text)
 
     text = rebuild_guidance_heading_ids(text)
 
@@ -248,9 +234,7 @@ def rebuild_guidance_heading_ids(text):
 
 def clean_law_document(text):
 
-    chapter_match = re.search(
-        r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)", text, flags=re.IGNORECASE
-    )
+    chapter_match = re.search(r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)", text, flags=re.IGNORECASE)
     article_match = re.search(r"(មាត្រា\s+[0-9០១២៣៤៥៦៧៨៩]+)", text, flags=re.IGNORECASE)
 
     if chapter_match:
@@ -428,9 +412,7 @@ for input_path in json_files:
 
             elif data["document_id"] == "guidance_13":
                 # Remove final page that begins with the signature date block
-                pos = text.find(
-                    "\n\nថ្ងៃ អង្គារ ១២ រោច ខែ មិគសិរ ឆ្នាំ ខាល ចត្វាស័ក ព.ស.២៥៦៦"
-                )
+                pos = text.find("\n\nថ្ងៃ អង្គារ ១២ រោច ខែ មិគសិរ ឆ្នាំ ខាល ចត្វាស័ក ព.ស.២៥៦៦")
 
                 if pos != -1:
                     text = text[:pos]

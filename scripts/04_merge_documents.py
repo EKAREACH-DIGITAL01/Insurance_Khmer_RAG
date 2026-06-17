@@ -1,7 +1,7 @@
 import json
+import time
 from pathlib import Path
 from collections import defaultdict
-import time
 
 input_root = Path("data/04_cleaned_pages")
 output_root = Path("data/05_merged_documents")

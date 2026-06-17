@@ -1,7 +1,7 @@
 import json
 import re
-from pathlib import Path
 import time
+from pathlib import Path
 
 input_root = Path("data/03_raw_pages")
 output_root = Path("data/04_cleaned_pages")
@@ -53,17 +53,13 @@ def clean_laws(text):
     text = re.sub(r"ROYAUME DU CAMBODGE", "", text)
     text = re.sub(r"LE MINISTRE DU PALAIS ROYAL", "", text)
     text = re.sub(r"\(Seal text:.*?\)", "", text, flags=re.DOTALL)
-    text = re.sub(
-        r"(?m)^មាត្រា\s*([0-9០១២៣៤៥៦៧៨៩]+)\s*(?:\.\.|\.|-)+\s*", r"មាត្រា \1 - ", text
-    )
+    text = re.sub(r"(?m)^មាត្រា\s*([0-9០១២៣៤៥៦៧៨៩]+)\s*(?:\.\.|\.|-)+\s*", r"មាត្រា \1 - ", text)
 
     # Add space after numbered legal list markers
     text = re.sub(r"(^|\n)([0-9០១២៣៤៥៦៧៨៩]+)[\.\-]\s*", r"\1\2. ", text)
 
     # Add space after Khmer letter list markers
-    text = re.sub(
-        r"(^|\n)([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])[\.\-]\s*", r"\1\2. ", text
-    )
+    text = re.sub(r"(^|\n)([កខគឃងចឆជឈញដឋឌឍណតថទធនបផពភមយរលវសហឡអ])[\.\-]\s*", r"\1\2. ", text)
 
     return text
 
@@ -132,14 +128,10 @@ def clean_prakas(text):
     )
 
     # Fix article references split after "ក្នុង"
-    text = re.sub(
-        r"ក្នុង\s*\n\s*(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\s*-\s*នៃ", r"ក្នុង \1 នៃ", text
-    )
+    text = re.sub(r"ក្នុង\s*\n\s*(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\s*-\s*នៃ", r"ក្នុង \1 នៃ", text)
 
     # Fix referenced articles split across lines
-    text = re.sub(
-        r"(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\n(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\s*-", r"\1 \2", text
-    )
+    text = re.sub(r"(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\n(ប្រការ\s*[0-9០១២៣៤៥៦៧៨៩]+)\s*-", r"\1 \2", text)
 
     # Remove appendix page numbers
     text = re.sub(r"^\s*[0-9០១២៣៤៥៦៧៨៩]+\s*$", "", text, flags=re.MULTILINE)
@@ -148,9 +140,7 @@ def clean_prakas(text):
     text = text.replace("\\-", "-")
 
     # Normalize article formatting
-    text = re.sub(
-        r"(?m)^ប្រការ\s*([0-9០១២៣៤៥៦៧៨៩]+)\s*[\.\-_:]*\s*", r"ប្រការ \1 - ", text
-    )
+    text = re.sub(r"(?m)^ប្រការ\s*([0-9០១២៣៤៥៦៧៨៩]+)\s*[\.\-_:]*\s*", r"ប្រការ \1 - ", text)
 
     # Fix article references broken across lines
     text = re.sub(

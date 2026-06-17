@@ -1,7 +1,7 @@
-from pathlib import Path
 import re
 import json
 import time
+from pathlib import Path
 
 input_root = Path("data/06_cleaned_documents")
 output_root = Path("data/07_chunked_documents")
@@ -36,28 +36,21 @@ start_time = time.time()
 def guidance_chunking(text):
 
     heading_pattern = r"(?m)(?=^<H[1-4]>\s)"
-
     sections = re.split(heading_pattern, text)
-
     chunks = []
-
     parent_h1 = None
 
     for section in sections:
-
         section = section.strip()
 
         if not section:
             continue
 
         lines = section.splitlines()
-
         first_line = lines[0].strip()
-
         match = re.match(r"^<H([1-4])>\s+([0-9\.]+)\s+(.*)$", first_line)
 
         if not match:
-
             # Preserve document introduction before the first heading
             chunks.append(
                 {
@@ -68,13 +61,10 @@ def guidance_chunking(text):
                     "parent_h1": None,
                 }
             )
-
             continue
 
         level = int(match.group(1))
-
         heading_id = match.group(2)
-
         heading_title = match.group(3).strip()
 
         if level == 1:
@@ -121,46 +111,33 @@ def legal_unit_chunking(text):
     chunks = []
 
     for chapter_text in chapter_sections:
-
         chapter_text = chapter_text.strip()
 
         if not chapter_text:
             continue
 
         # Extract chapter identifier and human-readable chapter title
-        chapter_match = re.search(
-            r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)", chapter_text, flags=re.MULTILINE
-        )
+        chapter_match = re.search(r"(ជំពូកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)", chapter_text, flags=re.MULTILINE)
 
         chapter_name = None
         chapter_title = None
 
         if chapter_match:
-
             chapter_name = chapter_match.group(1)
-
             lines = chapter_text.splitlines()
 
             for i, line in enumerate(lines):
-
                 if line.strip() == chapter_name:
-
                     if i + 1 < len(lines):
-
                         chapter_title = lines[i + 1].strip()
 
                     break
 
-        section_matches = list(
-            re.finditer(
-                r"^(ផ្នែកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)", chapter_text, flags=re.MULTILINE
-            )
-        )
+        section_matches = list(re.finditer(r"^(ផ្នែកទី\s*[0-9០១២៣៤៥៦៧៨៩]+)", chapter_text, flags=re.MULTILINE))
 
         articles = re.split(article_pattern, chapter_text, flags=re.MULTILINE)
 
         for article in articles:
-
             article = article.strip()
 
             if not article:
@@ -173,19 +150,14 @@ def legal_unit_chunking(text):
 
             # Determine which section the current legal unit belongs to
             for section_match in section_matches:
-
                 if section_match.start() < article_start:
-
                     section_name = section_match.group(1)
-
                     section_lines = chapter_text[section_match.start() :].splitlines()
 
                     if len(section_lines) > 1:
-
                         section_title = section_lines[1].strip()
 
                 else:
-
                     break
 
             article_match = re.search(
@@ -224,47 +196,35 @@ def legal_unit_chunking(text):
 def chunk_document(text, category):
 
     if category == "guidance":
-
         return guidance_chunking(text)
 
     if category in LEGAL_CATEGORIES:
-
         return legal_unit_chunking(text)
 
     return []
 
 
 for input_path in json_files:
-
     relative_path = input_path.relative_to(input_root)
-
     output_filename = input_path.stem + "_chunks.json"
-
     output_path = output_root / relative_path.parent / output_filename
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"\nChunking: {relative_path}")
 
     with open(input_path, "r", encoding="utf-8") as f:
-
         data = json.load(f)
 
     cleaned_text = data.get("cleaned_text", "").strip()
 
     if not cleaned_text:
-
         print(f"No cleaned text found: {relative_path}")
-
         skipped_files += 1
         continue
 
     category = relative_path.parts[0]
-
     config = CATEGORY_CONFIG[category]
-
     chunking_method = config["chunking_method"]
-
     split_chunks = chunk_document(cleaned_text, category)
 
     # Merge document-level metadata into every chunk
@@ -274,11 +234,8 @@ for input_path in json_files:
     chunks = []
 
     for i, chunk_data in enumerate(split_chunks):
-
         if category in LEGAL_CATEGORIES:
-
             text = chunk_data["content"]
-
             metadata = {
                 "document_id": data["document_id"],
                 "document_name": doc_meta.get("document_name"),
@@ -295,9 +252,7 @@ for input_path in json_files:
             }
 
         else:
-
             text = chunk_data["content"]
-
             metadata = {
                 "document_id": data["document_id"],
                 "document_name": doc_meta.get("document_name"),
@@ -322,7 +277,6 @@ for input_path in json_files:
         chunks.append(chunk)
 
     with open(output_path, "w", encoding="utf-8") as f:
-
         json.dump(chunks, f, ensure_ascii=False, indent=2)
 
     processed_files += 1

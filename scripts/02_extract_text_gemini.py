@@ -1,11 +1,11 @@
+import os
+import json
+import time
+import concurrent.futures
 from google import genai
 from PIL import Image
 from pathlib import Path
 from dotenv import load_dotenv
-import concurrent.futures
-import os
-import json
-import time
 
 input_root = Path("data/02_page_images")
 output_root = Path("data/03_raw_pages")

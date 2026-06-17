@@ -1,6 +1,6 @@
+import time
 from pdf2image import convert_from_path, pdfinfo_from_path
 from pathlib import Path
-import time
 
 input_root = Path("data/01_source_documents")
 output_root = Path("data/02_page_images")
@@ -46,9 +46,7 @@ for pdf_path in pdf_files:
 
         try:
             # Convert one page at a time to keep memory usage predictable
-            pages = convert_from_path(
-                pdf_path, dpi=400, first_page=i + 1, last_page=i + 1
-            )
+            pages = convert_from_path(pdf_path, dpi=400, first_page=i + 1, last_page=i + 1)
             page = pages[0]
 
             # Save converted page as PNG
