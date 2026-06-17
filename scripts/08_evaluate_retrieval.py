@@ -10,6 +10,7 @@ INDEX_PATH = "vector_db/khmer_insurance.index"
 METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
 EVALUATION_ROOT = Path("data/08_evaluation")
 
+# Evaluate retrieval performance across multiple top-K cutoffs
 EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
 
@@ -23,6 +24,7 @@ print("Loading metadata...")
 with open(METADATA_PATH, "r", encoding="utf-8") as f:
     chunks = json.load(f)
 
+# Fast lookup table used to map chunk IDs back to metadata
 chunk_lookup = {chunk["chunk_id"]: chunk for chunk in chunks}
 metadata_chunk_ids = set(chunk_lookup.keys())
 
@@ -33,13 +35,15 @@ if not gold_files:
 
 start_time = time.time()
 
+# Store category-level results for final reporting
 summary_table = []
 hit_table = []
 recall_table = []
 mrr_table = []
 file_hit_table = []
 
-
+# Run the production retrieval pipeline:
+# question -> BGE-M3 embedding -> FAISS similarity search
 def retrieve(question):
     query_embedding = embedding_model.encode(
         [question],
@@ -84,8 +88,7 @@ for gold_file in gold_files:
     if not gold_questions:
         raise ValueError(f"{gold_file} is empty.")
 
-    # Validate gold chunk ids
-
+    # Verify that all gold chunk IDs exist in the current metadata
     missing_chunk_ids = set()
 
     for item in gold_questions:
@@ -110,6 +113,7 @@ for gold_file in gold_files:
             print(question)
             continue
 
+        # Derive expected source documents from the gold chunk IDs
         relevant_document_ids = set()
 
         for chunk_id in relevant_chunk_ids:
@@ -131,6 +135,7 @@ for gold_file in gold_files:
         retrieved_chunk_ids = [result["chunk_id"] for result in retrieved_results]
         retrieved_document_ids = [result["document_id"] for result in retrieved_results]
 
+        # Compute retrieval metrics for every evaluation cutoff
         for k in EVAL_KS:
 
             top_k_chunks = retrieved_chunk_ids[:k]
@@ -138,14 +143,14 @@ for gold_file in gold_files:
 
             found_chunks = set(top_k_chunks).intersection(relevant_chunk_ids)
 
-            # Hit Rate@K: at least one relevant chunk retrieved
+            # Hit Rate@K: At least one relevant chunk was retrieved.
             if found_chunks:
                 hit_sums[k] += 1
 
-            # Recall@K: fraction of relevant chunks retrieved
+            # Recall@K: Proportion of relevant chunks retrieved.
             recall_sums[k] += len(found_chunks) / len(relevant_chunk_ids)
 
-            # MRR@K: reciprocal rank of first relevant chunk within top K
+            # MRR@K: Ranking position of the first relevant chunk.
             reciprocal_rank = 0
 
             for rank, chunk_id in enumerate(top_k_chunks, start=1):
@@ -156,7 +161,7 @@ for gold_file in gold_files:
 
             mrr_sums[k] += reciprocal_rank
 
-            # File Hit Rate@K: at least one retrieved chunk comes from the correct source document
+            # File Hit Rate@K: At least one chunk from the correct document was retrieved.
             found_documents = set(top_k_documents).intersection(relevant_document_ids)
 
             if found_documents:
@@ -176,6 +181,7 @@ for gold_file in gold_files:
         ]
     )
 
+    # Convert aggregated metric sums into category-level results
     hit_row = [category]
     recall_row = [category]
     mrr_row = [category]
@@ -193,6 +199,7 @@ for gold_file in gold_files:
     mrr_table.append(mrr_row)
     file_hit_table.append(file_hit_row)
 
+# Final retrieval evaluation report
 metric_headers = ["Category"] + [f"@{k}" for k in EVAL_KS]
 summary_headers = ["Category","Gold Questions","Valid Questions","Skipped Questions","Missing Chunks","Missing Chunk IDs",]
 
@@ -205,22 +212,22 @@ SEPARATOR_WIDTH = 105
 SEPARATOR = "=" * SEPARATOR_WIDTH
 
 print(f"\n{SEPARATOR}")
-print(f"\t\t\t{BOLD}HIT RATE @ K{RESET} - Found at least one correct chunk.")
+print(f"\t\t\t{BOLD}HIT RATE @ K{RESET} - At least one relevant chunk was retrieved.")
 print(SEPARATOR)
 print(tabulate(hit_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
 print(f"\n{SEPARATOR}")
-print(f"\t\t\t{BOLD}RECALL @ K{RESET} - Amount of correct chunks retrieved.")
+print(f"\t\t\t{BOLD}RECALL @ K{RESET} - Proportion of relevant chunks retrieved.")
 print(SEPARATOR)
 print(tabulate(recall_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
 print(f"\n{SEPARATOR}")
-print(f"\t\t\t{BOLD}MRR @ K{RESET} - How highly the first correct chunk was ranked.")
+print(f"\t\t\t{BOLD}MRR @ K{RESET} - Ranking position of the first relevant chunk.")
 print(SEPARATOR)
 print(tabulate(mrr_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
 print(f"\n{SEPARATOR}")
-print(f"\t\t\t{BOLD}FILE HIT RATE @ K{RESET} - Found the correct source document.")
+print(f"\t\t{BOLD}FILE HIT RATE @ K{RESET} - At least one chunk from the correct document was retrieved.")
 print(SEPARATOR)
 print(tabulate(file_hit_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
