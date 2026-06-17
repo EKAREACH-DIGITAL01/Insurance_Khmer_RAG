@@ -1,37 +1,58 @@
 import json
 import time
 import faiss
-from openai import OpenAI
+import requests
 import numpy as np
 import streamlit as st
+from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 
 LLAMA_SERVER_URL = "http://localhost:8080/v1"
 
-# Put the correct downloaded model
-MODEL_NAME = "SeaLLM3-7B-Chat.Q5_K_M.gguf"
+
+# Get the model that user input
+def get_loaded_model():
+    try:
+        response = requests.get(
+            f"{LLAMA_SERVER_URL}/models",
+            timeout=5,
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        return data["data"][0]["id"]
+
+    except Exception:
+        return "No Model Loaded"
+
+
+st.set_page_config(
+    page_title="Khmer Legal Chatbot",
+    layout="wide",
+)
+
+MODEL_NAME = get_loaded_model()
+
+if MODEL_NAME == "No Model Loaded":
+    st.error("llama-server is not running.")
+    st.stop()
+
+st.title("Khmer Legal Chatbot")
+st.caption(f"RAG + {MODEL_NAME}")
+
 
 client = OpenAI(
     base_url=LLAMA_SERVER_URL,
     api_key="not-needed",
 )
 
-
 TOP_K = 5
 MIN_SCORE = 0.50
 
 FAISS_PATH = "vector_db/khmer_insurance.index"
 METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
-
-# STREAMLIT
-st.set_page_config(
-    page_title="Khmer Legal Chatbot",
-    layout="wide",
-)
-
-st.title("Khmer Legal Chatbot")
-st.caption("RAG + SeaLLM-v3-7B GGUF")
-
 
 EMBEDDING_MODEL_PATH = "models/retriever/BAAI-BGE-M3"
 
