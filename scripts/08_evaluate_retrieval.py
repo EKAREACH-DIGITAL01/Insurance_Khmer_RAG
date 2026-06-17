@@ -1,11 +1,10 @@
 import json
 import time
-from pathlib import Path
-
 import faiss
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from pathlib import Path
 from tabulate import tabulate
+from sentence_transformers import SentenceTransformer
 
 INDEX_PATH = "vector_db/khmer_insurance.index"
 METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
@@ -60,7 +59,6 @@ def retrieve(question):
     results = []
 
     for idx, score in zip(indices[0], scores[0]):
-
         if idx < 0 or idx >= len(chunks):
             continue
 
@@ -78,7 +76,6 @@ def retrieve(question):
 
 
 for gold_file in gold_files:
-
     category = gold_file.parent.name
 
     with open(gold_file, "r", encoding="utf-8") as f:
@@ -92,9 +89,7 @@ for gold_file in gold_files:
     missing_chunk_ids = set()
 
     for item in gold_questions:
-
         for chunk_id in item["relevant_chunk_ids"]:
-
             if chunk_id not in metadata_chunk_ids:
                 missing_chunk_ids.add(chunk_id)
 
@@ -107,7 +102,6 @@ for gold_file in gold_files:
     file_hit_sums = {k: 0 for k in EVAL_KS}
 
     for item in gold_questions:
-
         question = item["question"]
         relevant_chunk_ids = set(item["relevant_chunk_ids"])
 
@@ -119,7 +113,6 @@ for gold_file in gold_files:
         relevant_document_ids = set()
 
         for chunk_id in relevant_chunk_ids:
-
             chunk = chunk_lookup.get(chunk_id)
 
             if chunk:
@@ -135,9 +128,7 @@ for gold_file in gold_files:
         valid_questions += 1
 
         retrieved_results = retrieve(question)
-
         retrieved_chunk_ids = [result["chunk_id"] for result in retrieved_results]
-
         retrieved_document_ids = [result["document_id"] for result in retrieved_results]
 
         for k in EVAL_KS:
@@ -208,33 +199,37 @@ summary_headers = ["Category","Gold Questions","Valid Questions","Skipped Questi
 metric_colalign = ("center",) * len(metric_headers)
 summary_colalign = ("center",) * len(summary_headers)
 
-print("\n====================")
-print("CHUNK HIT RATE")
-print("====================")
+BOLD = "\033[1m"
+RESET = "\033[0m"
+SEPARATOR_WIDTH = 105
+SEPARATOR = "=" * SEPARATOR_WIDTH
+
+print(f"\n{SEPARATOR}")
+print(f"\t\t\t{BOLD}HIT RATE @ K{RESET} - Found at least one correct chunk.")
+print(SEPARATOR)
 print(tabulate(hit_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
-print("\n====================")
-print("RECALL")
-print("====================")
+print(f"\n{SEPARATOR}")
+print(f"\t\t\t{BOLD}RECALL @ K{RESET} - Amount of correct chunks retrieved.")
+print(SEPARATOR)
 print(tabulate(recall_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
-print("\n====================")
-print("MRR")
-print("====================")
+print(f"\n{SEPARATOR}")
+print(f"\t\t\t{BOLD}MRR @ K{RESET} - How highly the first correct chunk was ranked.")
+print(SEPARATOR)
 print(tabulate(mrr_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
-print("\n====================")
-print("FILE HIT RATE")
-print("====================")
+print(f"\n{SEPARATOR}")
+print(f"\t\t\t{BOLD}FILE HIT RATE @ K{RESET} - Found the correct source document.")
+print(SEPARATOR)
 print(tabulate(file_hit_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
-print("\n====================")
-print("DATASET SUMMARY")
-print("====================")
-
+print(f"\n{SEPARATOR}============")
+print(f"\t\t\t\t\t\t{BOLD}DATASET SUMMARY{RESET}")
+print(f"{SEPARATOR}============")
 print(tabulate(summary_table, headers=summary_headers, tablefmt="grid", colalign=summary_colalign,))
 
 elapsed_time = time.time() - start_time
 
-print(f"Total Runtime        : {elapsed_time:.2f} seconds")
+print(f"Total Runtime : {elapsed_time:.2f} seconds")
 print("Retriever evaluation completed successfully.")
