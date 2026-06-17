@@ -15,7 +15,14 @@ EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
 
 print("Loading embedding model...")
-embedding_model = SentenceTransformer("BAAI/bge-m3")
+MODEL_PATH = Path("models/embeddings/bge-m3")
+
+if not MODEL_PATH.exists():
+    raise FileNotFoundError(
+        "BGE-M3 not found.\n" "Run: python scripts/09_install_models.py"
+    )
+
+embedding_model = SentenceTransformer(str(MODEL_PATH))
 
 print("Loading FAISS index...")
 index = faiss.read_index(INDEX_PATH)
@@ -41,6 +48,7 @@ hit_table = []
 recall_table = []
 mrr_table = []
 file_hit_table = []
+
 
 # Run the production retrieval pipeline:
 # question -> BGE-M3 embedding -> FAISS similarity search
@@ -70,9 +78,9 @@ def retrieve(question):
 
         results.append(
             {
-                "chunk_id"      : chunk["chunk_id"],
-                "document_id"   : chunk["metadata"].get("document_id"),
-                "score"         : float(score),
+                "chunk_id": chunk["chunk_id"],
+                "document_id": chunk["metadata"].get("document_id"),
+                "score": float(score),
             }
         )
 
@@ -201,7 +209,14 @@ for gold_file in gold_files:
 
 # Final retrieval evaluation report
 metric_headers = ["Category"] + [f"@{k}" for k in EVAL_KS]
-summary_headers = ["Category","Gold Questions","Valid Questions","Skipped Questions","Missing Chunks","Missing Chunk IDs",]
+summary_headers = [
+    "Category",
+    "Gold Questions",
+    "Valid Questions",
+    "Skipped Questions",
+    "Missing Chunks",
+    "Missing Chunk IDs",
+]
 
 metric_colalign = ("center",) * len(metric_headers)
 summary_colalign = ("center",) * len(summary_headers)
@@ -214,27 +229,68 @@ SEPARATOR = "=" * SEPARATOR_WIDTH
 print(f"\n{SEPARATOR}")
 print(f"\t\t\t{BOLD}HIT RATE @ K{RESET} - At least one relevant chunk was retrieved.")
 print(SEPARATOR)
-print(tabulate(hit_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
+print(
+    tabulate(
+        hit_table,
+        headers=metric_headers,
+        tablefmt="grid",
+        floatfmt=".4f",
+        colalign=metric_colalign,
+    )
+)
 
 print(f"\n{SEPARATOR}")
 print(f"\t\t\t{BOLD}RECALL @ K{RESET} - Proportion of relevant chunks retrieved.")
 print(SEPARATOR)
-print(tabulate(recall_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
+print(
+    tabulate(
+        recall_table,
+        headers=metric_headers,
+        tablefmt="grid",
+        floatfmt=".4f",
+        colalign=metric_colalign,
+    )
+)
 
 print(f"\n{SEPARATOR}")
 print(f"\t\t\t{BOLD}MRR @ K{RESET} - Ranking position of the first relevant chunk.")
 print(SEPARATOR)
-print(tabulate(mrr_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
+print(
+    tabulate(
+        mrr_table,
+        headers=metric_headers,
+        tablefmt="grid",
+        floatfmt=".4f",
+        colalign=metric_colalign,
+    )
+)
 
 print(f"\n{SEPARATOR}")
-print(f"\t\t{BOLD}FILE HIT RATE @ K{RESET} - At least one chunk from the correct document was retrieved.")
+print(
+    f"\t\t{BOLD}FILE HIT RATE @ K{RESET} - At least one chunk from the correct document was retrieved."
+)
 print(SEPARATOR)
-print(tabulate(file_hit_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
+print(
+    tabulate(
+        file_hit_table,
+        headers=metric_headers,
+        tablefmt="grid",
+        floatfmt=".4f",
+        colalign=metric_colalign,
+    )
+)
 
 print(f"\n{SEPARATOR}============")
 print(f"\t\t\t\t\t\t{BOLD}DATASET SUMMARY{RESET}")
 print(f"{SEPARATOR}============")
-print(tabulate(summary_table, headers=summary_headers, tablefmt="grid", colalign=summary_colalign,))
+print(
+    tabulate(
+        summary_table,
+        headers=summary_headers,
+        tablefmt="grid",
+        colalign=summary_colalign,
+    )
+)
 
 elapsed_time = time.time() - start_time
 

@@ -11,9 +11,9 @@ output_root = Path("vector_db")
 output_root.mkdir(parents=True, exist_ok=True)
 
 DOCUMENT_TYPE_KH = {
-    "law"       : "ច្បាប់",
-    "prakas"    : "ប្រកាស",
-    "guidance"  : "គោលការណ៍ណែនាំ",
+    "law": "ច្បាប់",
+    "prakas": "ប្រកាស",
+    "guidance": "គោលការណ៍ណែនាំ",
     "sub_decree": "អនុក្រឹត្យ",
 }
 
@@ -34,8 +34,15 @@ if faiss_output.exists() and metadata_output.exists():
         "Delete the existing files and run the script again if you want to regenerate them."
     )
 
-# BGE-M3 provides strong multilingual retrieval performance, including Khmer
-model = SentenceTransformer("BAAI/bge-m3")
+print("Loading embedding model...")
+MODEL_PATH = Path("models/embeddings/bge-m3")
+
+if not MODEL_PATH.exists():
+    raise FileNotFoundError(
+        "BGE-M3 not found.\n" "Run: python scripts/09_install_models.py"
+    )
+
+model = SentenceTransformer(str(MODEL_PATH))
 
 # Find all JSONs recursively
 chunk_files = sorted(input_root.rglob("*.json"))
@@ -148,7 +155,9 @@ print("Starting encode...")
 encode_start = time.time()
 
 # Generate normalized embeddings for cosine similarity search
-embeddings = model.encode(texts, batch_size=16, show_progress_bar=True, normalize_embeddings=True)
+embeddings = model.encode(
+    texts, batch_size=16, show_progress_bar=True, normalize_embeddings=True
+)
 
 encode_time = time.time() - encode_start
 
@@ -176,7 +185,7 @@ faiss_size_mb = faiss_output.stat().st_size / (1024 * 1024)
 embedding_size_mb = embeddings.nbytes / (1024 * 1024)
 
 print("\n========== EMBEDDING INFO ==========")
-print(f"Model               : BAAI/bge-m3")
+print(f"Model               : {MODEL_PATH}")
 print(f"Device              : {model.device}")
 print(f"Embedding Shape     : {embeddings.shape}")
 print(f"Embedding Dtype     : {embeddings.dtype}")

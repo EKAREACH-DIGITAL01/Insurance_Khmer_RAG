@@ -13,3 +13,4 @@ numpy
 torch
 torchvision
 tabulate
+openai
