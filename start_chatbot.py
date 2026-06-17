@@ -3,8 +3,6 @@ import subprocess
 import time
 import requests
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
 MODELS = {
     "1": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
     "2": "SeaLLMs-v3-7B-Chat-Q5_K_M.gguf",
@@ -32,7 +30,11 @@ if choice not in MODELS:
 
 model = MODELS[choice]
 
+PROJECT_ROOT = Path(__file__).resolve().parent
 MODEL_PATH = PROJECT_ROOT / "models" / "generator" / model
+
+if not MODEL_PATH.exists():
+    raise SystemExit(f"Model not found:\n{MODEL_PATH}")
 
 print(f"\nStarting {model}...")
 
@@ -54,10 +56,18 @@ print("Waiting for llama-server...")
 
 while True:
     try:
-        requests.get("http://localhost:8080/v1/models")
-        break
-    except:
-        time.sleep(1)
+        response = requests.get(
+            "http://localhost:8080/v1/models",
+            timeout=5,
+        )
+
+        if response.status_code == 200:
+            break
+
+    except Exception:
+        pass
+
+    time.sleep(1)
 
 print("Model loaded.")
 print("Launching Streamlit...")
