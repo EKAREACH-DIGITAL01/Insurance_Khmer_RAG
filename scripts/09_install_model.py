@@ -1,5 +1,5 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -40,10 +40,7 @@ LLM_MODELS = {
     },
 }
 
-# ============================================================
 # CREATE DIRECTORIES
-# ============================================================
-
 EMBEDDING_DIR.mkdir(
     parents=True,
     exist_ok=True,
@@ -54,25 +51,22 @@ LLM_DIR.mkdir(
     exist_ok=True,
 )
 
-# ============================================================
 # MODEL SELECTION
-# ============================================================
-
 print("""
-========================================
-Khmer Legal Chatbot Model Installer
-========================================
+        ========================================
+        Khmer Legal Chatbot Model Installer
+        ========================================
 
-Retriever Model: BAAI/BGE-M3 (~2.1 GB)
+        Retriever Model: BAAI/BGE-M3 (~2.1 GB)
 
-Choose a Generator Model:
+        Choose a Generator Model:
 
-1. SeaLLMs-v3-7B Q4_K_M (~4.8 GB) - Fast / Recommended
-2. SeaLLMs-v3-7B Q5_K_M (~5.5 GB) - Best Balance
-3. SeaLLMs-v3-7B Q6_K   (~6.3 GB) - Higher Quality
-4. SeaLLMs-v3-7B Q8_0   (~8.1 GB) - Highest Quality / Slower
+        1. SeaLLMs-v3-7B Q4_K_M (~4.8 GB) - Fast / Recommended
+        2. SeaLLMs-v3-7B Q5_K_M (~5.5 GB) - Best Balance
+        3. SeaLLMs-v3-7B Q6_K   (~6.3 GB) - Higher Quality
+        4. SeaLLMs-v3-7B Q8_0   (~8.1 GB) - Highest Quality / Slower
 
-""")
+        """)
 
 choice = input("Enter choice: ").strip()
 
@@ -89,10 +83,7 @@ selected_llm = LLM_DIR / local_filename
 print(f"\nSelected model: {local_filename}")
 print("\nStarting installation...")
 
-# ============================================================
 # INSTALL BGE-M3
-# ============================================================
-
 print("\n========== BGE-M3 ==========")
 
 if (EMBEDDING_DIR / "modules.json").exists():
@@ -111,10 +102,8 @@ else:
     print("BGE-M3 installed successfully.")
     print(f"Location: {EMBEDDING_DIR}")
 
-# ============================================================
-# INSTALL SEALLM
-# ============================================================
 
+# INSTALL SEALLM
 print("\n========== SeaLLM ==========")
 
 llm_file = selected_llm
@@ -142,10 +131,7 @@ else:
     print("SeaLLM installed successfully.")
     print(f"Location: {llm_file}")
 
-# ============================================================
 # COMPLETE
-# ============================================================
-
 print("\n========== COMPLETE ==========")
 
 print("Installed models:")

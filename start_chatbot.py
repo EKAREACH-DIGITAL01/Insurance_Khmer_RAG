@@ -1,9 +1,9 @@
-from pathlib import Path
 import subprocess
 import time
 import requests
 import platform
 import shutil
+from pathlib import Path
 
 OS_NAME = platform.system()
 
