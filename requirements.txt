@@ -2,12 +2,14 @@ streamlit
 google-genai
 python-dotenv
 pillow
+pdf2image
 sentence-transformers
+transformers
+huggingface-hub
+sentencepiece
+accelerate
 faiss-cpu
 numpy
 torch
 torchvision
 tabulate
-transformers
-huggingface-hub
-pdf2image

@@ -625,3 +625,12 @@ Planned improvements:
 * OCR evaluation tools
 * better Khmer embeddings
 * production deployment
+
+IF the yellow line appear under package even after installed successfully
+
+Cmd + Shift + P
+
+Run
+Python: Restart Language Server
+Pylance: Restart Language Server
+Developer: Reload Window
