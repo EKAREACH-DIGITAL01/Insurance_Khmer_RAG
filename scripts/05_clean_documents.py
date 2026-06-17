@@ -430,10 +430,10 @@ for input_path in json_files:
         text = expand_abbreviations(text)
 
         output_data = {
-            "document_id": data["document_id"],
-            "category": category,
-            "total_pages": data.get("total_pages", 0),
-            "cleaned_text": text,
+            "document_id"   : data["document_id"],
+            "category"      : category,
+            "total_pages"   : data.get("total_pages", 0),
+            "cleaned_text"  : text,
         }
 
         with open(output_path, "w", encoding="utf-8") as f:

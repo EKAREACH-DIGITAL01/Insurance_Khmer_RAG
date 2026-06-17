@@ -66,9 +66,9 @@ def retrieve(question):
 
         results.append(
             {
-                "chunk_id": chunk["chunk_id"],
-                "document_id": chunk["metadata"].get("document_id"),
-                "score": float(score),
+                "chunk_id"      : chunk["chunk_id"],
+                "document_id"   : chunk["metadata"].get("document_id"),
+                "score"         : float(score),
             }
         )
 

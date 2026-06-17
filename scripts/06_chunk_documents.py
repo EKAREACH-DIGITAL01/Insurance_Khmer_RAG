@@ -16,10 +16,10 @@ with open("data/document_metadata.json", "r", encoding="utf-8") as f:
     DOCUMENT_METADATA = json.load(f)
 
 CATEGORY_CONFIG = {
-    "guidance": {"chunking_method": "guidance_heading"},
-    "laws": {"chunking_method": "legal_unit"},
-    "prakas": {"chunking_method": "legal_unit"},
-    "sub_decrees": {"chunking_method": "legal_unit"},
+    "guidance":     {"chunking_method": "guidance_heading"},
+    "laws":         {"chunking_method": "legal_unit"},
+    "prakas":       {"chunking_method": "legal_unit"},
+    "sub_decrees":  {"chunking_method": "legal_unit"},
 }
 
 LEGAL_CATEGORIES = {"laws", "prakas", "sub_decrees"}
@@ -54,11 +54,11 @@ def guidance_chunking(text):
             # Preserve document introduction before the first heading
             chunks.append(
                 {
-                    "content": section.strip(),
-                    "heading_level": 0,
-                    "heading_id": None,
-                    "heading_title": None,
-                    "parent_h1": None,
+                    "content"       : section.strip(),
+                    "heading_level" : 0,
+                    "heading_id"    : None,
+                    "heading_title" : None,
+                    "parent_h1"     : None,
                 }
             )
             continue
@@ -77,11 +77,11 @@ def guidance_chunking(text):
 
         chunks.append(
             {
-                "content": content,
-                "heading_level": level,
-                "heading_id": heading_id,
-                "heading_title": heading_title,
-                "parent_h1": parent_h1,
+                "content"       : content,
+                "heading_level" : level,
+                "heading_id"    : heading_id,
+                "heading_title" : heading_title,
+                "parent_h1"     : parent_h1,
             }
         )
 
@@ -181,12 +181,12 @@ def legal_unit_chunking(text):
 
             chunks.append(
                 {
-                    "content": article,
-                    "chapter": chapter_name,
-                    "chapter_title": chapter_title,
-                    "section": section_name,
-                    "section_title": section_title,
-                    "legal_unit": article_name,
+                    "content"       : article,
+                    "chapter"       : chapter_name,
+                    "chapter_title" : chapter_title,
+                    "section"       : section_name,
+                    "section_title" : section_title,
+                    "legal_unit"    : article_name,
                 }
             )
 
@@ -237,34 +237,34 @@ for input_path in json_files:
         if category in LEGAL_CATEGORIES:
             text = chunk_data["content"]
             metadata = {
-                "document_id": data["document_id"],
-                "document_name": doc_meta.get("document_name"),
-                "document_type": doc_meta.get("document_type"),
-                "release_date": release_date,
-                "category": category,
-                "chapter": chunk_data.get("chapter"),
-                "chapter_title": chunk_data.get("chapter_title"),
-                "section": chunk_data.get("section"),
-                "section_title": chunk_data.get("section_title"),
-                "legal_unit": chunk_data.get("legal_unit"),
-                "chunk_size": len(text),
-                "chunking_method": chunking_method,
+                "document_id"       : data["document_id"],
+                "document_name"     : doc_meta.get("document_name"),
+                "document_type"     : doc_meta.get("document_type"),
+                "release_date"      : release_date,
+                "category"          : category,
+                "chapter"           : chunk_data.get("chapter"),
+                "chapter_title"     : chunk_data.get("chapter_title"),
+                "section"           : chunk_data.get("section"),
+                "section_title"     : chunk_data.get("section_title"),
+                "legal_unit"        : chunk_data.get("legal_unit"),
+                "chunk_size"        : len(text),
+                "chunking_method"   : chunking_method,
             }
 
         else:
             text = chunk_data["content"]
             metadata = {
-                "document_id": data["document_id"],
-                "document_name": doc_meta.get("document_name"),
-                "document_type": doc_meta.get("document_type"),
-                "release_date": release_date,
-                "category": category,
-                "heading_level": chunk_data.get("heading_level"),
-                "heading_id": chunk_data.get("heading_id"),
-                "heading_title": chunk_data.get("heading_title"),
-                "parent_h1": chunk_data.get("parent_h1"),
-                "chunk_size": len(text),
-                "chunking_method": chunking_method,
+                "document_id"       : data["document_id"],
+                "document_name"     : doc_meta.get("document_name"),
+                "document_type"     : doc_meta.get("document_type"),
+                "release_date"      : release_date,
+                "category"          : category,
+                "heading_level"     : chunk_data.get("heading_level"),
+                "heading_id"        : chunk_data.get("heading_id"),
+                "heading_title"     : chunk_data.get("heading_title"),
+                "parent_h1"         : chunk_data.get("parent_h1"),
+                "chunk_size"        : len(text),
+                "chunking_method"   : chunking_method,
             }
 
         # Final chunk structure stored for embedding and retrieval

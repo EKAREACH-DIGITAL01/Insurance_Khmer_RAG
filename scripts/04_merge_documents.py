@@ -42,10 +42,10 @@ for (category, document_id), pages in documents.items():
     output_path = output_folder / f"{document_id}.json"
 
     output_data = {
-        "document_id": document_id,
-        "category": category,
-        "total_pages": len(pages),
-        "merged_text": merged_text,
+        "document_id"   : document_id,
+        "category"      : category,
+        "total_pages"   : len(pages),
+        "merged_text"   : merged_text,
     }
 
     with open(output_path, "w", encoding="utf-8") as f:

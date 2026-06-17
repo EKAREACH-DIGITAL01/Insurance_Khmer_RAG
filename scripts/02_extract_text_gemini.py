@@ -104,9 +104,9 @@ for image_path in image_files:
                 with open(output_path, "w", encoding="utf-8") as f:
                     json.dump(
                         {
-                            "document_id": document_id,
-                            "page": page_number,
-                            "raw_text": extracted_text,
+                            "document_id"   : document_id,
+                            "page"          : page_number,
+                            "raw_text"      : extracted_text,
                         },
                         f,
                         ensure_ascii=False,
