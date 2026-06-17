@@ -72,7 +72,7 @@ Total Dataset Statistics:
 ---
 
 ## Project Structure
-
+```text
 ├── data
 │   ├── 01_source_documents
 │   │   ├── guidance
@@ -146,7 +146,7 @@ Total Dataset Statistics:
 ├── README.md
 ├── app.py
 └── requirements.txt
-
+```
 ---
 
 ## Retrieval Pipeline
