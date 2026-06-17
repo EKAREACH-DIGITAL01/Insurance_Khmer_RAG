@@ -32,7 +32,6 @@ gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
 if not gold_files:
     raise ValueError("No gold_questions.json files found.")
 
-
 start_time = time.time()
 
 summary_table = []
@@ -182,7 +181,7 @@ for gold_file in gold_files:
             valid_questions,
             missing_questions,
             len(missing_chunk_ids),
-            ", ".join(sorted(missing_chunk_ids)) if missing_chunk_ids else "-",
+            ", ".join(sorted(missing_chunk_ids)) if missing_chunk_ids else "None",
         ]
     )
 
@@ -203,46 +202,37 @@ for gold_file in gold_files:
     mrr_table.append(mrr_row)
     file_hit_table.append(file_hit_row)
 
-headers = ["Category"] + [f"@{k}" for k in EVAL_KS]
+metric_headers = ["Category"] + [f"@{k}" for k in EVAL_KS]
+summary_headers = ["Category","Gold Questions","Valid Questions","Skipped Questions","Missing Chunks","Missing Chunk IDs",]
+
+metric_colalign = ("center",) * len(metric_headers)
+summary_colalign = ("center",) * len(summary_headers)
 
 print("\n====================")
 print("CHUNK HIT RATE")
 print("====================")
-print(tabulate(hit_table, headers=headers, tablefmt="grid", floatfmt=".4f"))
+print(tabulate(hit_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
 print("\n====================")
 print("RECALL")
 print("====================")
-print(tabulate(recall_table, headers=headers, tablefmt="grid", floatfmt=".4f"))
+print(tabulate(recall_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
 print("\n====================")
 print("MRR")
 print("====================")
-print(tabulate(mrr_table, headers=headers, tablefmt="grid", floatfmt=".4f"))
+print(tabulate(mrr_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
 print("\n====================")
 print("FILE HIT RATE")
 print("====================")
-print(tabulate(file_hit_table, headers=headers, tablefmt="grid", floatfmt=".4f"))
+print(tabulate(file_hit_table, headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign,))
 
 print("\n====================")
 print("DATASET SUMMARY")
 print("====================")
 
-print(
-    tabulate(
-        summary_table,
-        headers=[
-            "Category",
-            "Gold Questions",
-            "Valid Questions",
-            "Skipped Questions",
-            "Missing Chunks",
-            "Missing Chunk IDs",
-        ],
-        tablefmt="grid",
-    )
-)
+print(tabulate(summary_table, headers=summary_headers, tablefmt="grid", colalign=summary_colalign,))
 
 elapsed_time = time.time() - start_time
 
