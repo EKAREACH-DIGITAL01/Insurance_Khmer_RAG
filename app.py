@@ -1,18 +1,13 @@
 import json
 import time
-
 import faiss
 import numpy as np
 import streamlit as st
 import torch
-
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-# ============================================================
 # CONFIG
-# ============================================================
-
 MODEL_NAME = "SeaLLMs/SeaLLMs-v3-7B-Chat"
 
 TOP_K = 5
@@ -21,11 +16,7 @@ MIN_SCORE = 0.50
 FAISS_PATH = "vector_db/khmer_insurance.index"
 METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
 
-
-# ============================================================
 # STREAMLIT
-# ============================================================
-
 st.set_page_config(
     page_title="Khmer Legal Chatbot",
     layout="wide",
@@ -35,21 +26,13 @@ st.title("Khmer Legal Chatbot")
 st.caption("RAG + SeaLLMs-v3-7B-Chat")
 
 
-# ============================================================
 # LOAD EMBEDDING MODEL
-# ============================================================
-
-
 @st.cache_resource
 def load_embedding_model():
     return SentenceTransformer("BAAI/bge-m3")
 
 
-# ============================================================
 # LOAD FAISS
-# ============================================================
-
-
 @st.cache_resource
 def load_index():
     return faiss.read_index(FAISS_PATH)
@@ -61,11 +44,7 @@ def load_metadata():
         return json.load(f)
 
 
-# ============================================================
 # LOAD LLM
-# ============================================================
-
-
 @st.cache_resource
 def load_llm():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -86,11 +65,7 @@ chunks = load_metadata()
 tokenizer, model = load_llm()
 
 
-# ============================================================
 # RETRIEVAL
-# ============================================================
-
-
 def retrieve(query):
     query_embedding = embedding_model.encode(
         [query],
@@ -120,11 +95,7 @@ def retrieve(query):
     return results
 
 
-# ============================================================
 # BUILD CONTEXT
-# ============================================================
-
-
 def build_context(results):
 
     context_parts = []
@@ -164,11 +135,7 @@ Content:
     return "\n\n".join(context_parts)
 
 
-# ============================================================
 # GENERATE ANSWER
-# ============================================================
-
-
 def generate_answer(question, context):
     prompt = f"""
 
@@ -231,10 +198,7 @@ Answer:
     return answer
 
 
-# ============================================================
 # UI
-# ============================================================
-
 question = st.text_area("Ask a Khmer legal question:")
 
 if st.button("Ask") and question.strip():
