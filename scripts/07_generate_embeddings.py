@@ -1,20 +1,28 @@
 import json
 import faiss
+import time
 import numpy as np
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
-import time
 
 input_root = Path("data/07_chunked_documents")
 output_root = Path("vector_db")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
+DOCUMENT_TYPE_KH = {
+    "law"       : "ច្បាប់",
+    "prakas"    : "ប្រកាស",
+    "guidance"  : "គោលការណ៍ណែនាំ",
+    "sub_decree": "អនុក្រឹត្យ",
+}
+
 # FAISS vector index used for similarity search retrieval
 faiss_output = output_root / "khmer_insurance.index"
 # Metadata used to map retrieved vectors back to chunks and citations
 metadata_output = output_root / "khmer_insurance_metadata.json"
 
+# Skip if file already exists
 if faiss_output.exists() and metadata_output.exists():
 
     print("\n========== EXISTING VECTOR DATABASE ==========")
@@ -26,18 +34,11 @@ if faiss_output.exists() and metadata_output.exists():
         "Delete the existing files and run the script again if you want to regenerate them."
     )
 
-# Find all JSONs recursively
-chunk_files = sorted(input_root.rglob("*.json"))
-
-DOCUMENT_TYPE_KH = {
-    "law"       : "ច្បាប់",
-    "prakas"    : "ប្រកាស",
-    "guidance"  : "គោលការណ៍ណែនាំ",
-    "sub_decree": "អនុក្រឹត្យ",
-}
-
 # BGE-M3 provides strong multilingual retrieval performance, including Khmer
 model = SentenceTransformer("BAAI/bge-m3")
+
+# Find all JSONs recursively
+chunk_files = sorted(input_root.rglob("*.json"))
 
 all_chunks = []
 start_time = time.time()
@@ -54,11 +55,11 @@ for chunk_path in chunk_files:
             all_chunks.extend(chunks)
 
     except Exception as e:
-        print(f"Skipping broken chunk file: " f"{chunk_path.name}")
+        print(f"Skipping broken chunk file: {chunk_path.name}")
         print(e)
         continue
 
-print(f"\nTotal chunks loaded: " f"{len(all_chunks)}")
+print(f"\nTotal chunks loaded: {len(all_chunks)}")
 
 # Build embedding text by combining metadata context with chunk content
 embedding_chunks = []
@@ -156,10 +157,10 @@ print("Encode finished.")
 
 embeddings = np.asarray(embeddings, dtype="float32")
 
-dimension = embeddings.shape[1]
-
 # Use cosine similarity via normalized vectors + inner product index
-index = faiss.IndexFlatIP(dimension)
+embedding_dimension = embeddings.shape[1]
+
+index = faiss.IndexFlatIP(embedding_dimension)
 index.add(embeddings)
 
 # Save vector index to disk
@@ -185,14 +186,14 @@ print(f"Max Value           : {embeddings.max():.6f}")
 print(f"Mean Value          : {embeddings.mean():.6f}")
 print(f"First Vector Norm   : {np.linalg.norm(embeddings[0]):.6f}")
 
-print("\n========== FAISS INFO ==========")
+print("\n=========== FAISS INFO =============")
 print(f"Index Type          : {type(index).__name__}")
 print(f"Vector Count        : {index.ntotal}")
 print(f"Metadata File Size  : {metadata_size_mb:.2f} MB")
 print(f"FAISS File Size     : {faiss_size_mb:.2f} MB")
 print(f"Embedding RAM Size  : {embedding_size_mb:.2f} MB")
 
-print("\n========== RUNTIME ==========")
+print("\n============= RUNTIME ==============")
 print(f"Encode Time         : {encode_time:.2f} sec")
 print(f"Total Runtime       : {elapsed_time:.2f} sec")
 
