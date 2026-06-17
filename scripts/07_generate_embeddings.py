@@ -21,7 +21,10 @@ if faiss_output.exists() and metadata_output.exists():
     print(f"FAISS Index : {faiss_output}")
     print(f"Metadata    : {metadata_output}")
 
-    raise SystemExit("\nDelete the existing files and run the script again if you want to regenerate embeddings.")
+    raise SystemExit(
+        "\nEmbeddings already exist.\n"
+        "Delete the existing files and run the script again if you want to regenerate them."
+    )
 
 # Find all JSONs recursively
 chunk_files = sorted(input_root.rglob("*.json"))
@@ -54,7 +57,6 @@ for chunk_path in chunk_files:
         print(f"Skipping broken chunk file: " f"{chunk_path.name}")
         print(e)
         continue
-
 
 print(f"\nTotal chunks loaded: " f"{len(all_chunks)}")
 
