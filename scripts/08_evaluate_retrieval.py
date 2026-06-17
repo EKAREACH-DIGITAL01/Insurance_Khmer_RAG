@@ -32,6 +32,7 @@ gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
 if not gold_files:
     raise ValueError("No gold_questions.json files found.")
 
+
 start_time = time.time()
 
 summary_table = []
@@ -185,9 +186,6 @@ for gold_file in gold_files:
         ]
     )
 
-    if missing_chunk_ids:
-        print("Missing chunk ids : " + ", ".join(sorted(missing_chunk_ids)))
-
     hit_row = [category]
     recall_row = [category]
     mrr_row = [category]
@@ -204,25 +202,6 @@ for gold_file in gold_files:
     recall_table.append(recall_row)
     mrr_table.append(mrr_row)
     file_hit_table.append(file_hit_row)
-
-print("\n====================")
-print("DATASET SUMMARY")
-print("====================")
-
-print(
-    tabulate(
-        summary_table,
-        headers=[
-            "Category",
-            "Gold",
-            "Valid",
-            "Skipped",
-            "Missing IDs",
-            "Missing Chunk IDs",
-        ],
-        tablefmt="grid",
-    )
-)
 
 headers = ["Category"] + [f"@{k}" for k in EVAL_KS]
 
@@ -246,9 +225,26 @@ print("FILE HIT RATE")
 print("====================")
 print(tabulate(file_hit_table, headers=headers, tablefmt="grid", floatfmt=".4f"))
 
+print("\n====================")
+print("DATASET SUMMARY")
+print("====================")
+
+print(
+    tabulate(
+        summary_table,
+        headers=[
+            "Category",
+            "Gold Questions",
+            "Valid Questions",
+            "Skipped Questions",
+            "Missing Chunks",
+            "Missing Chunk IDs",
+        ],
+        tablefmt="grid",
+    )
+)
+
 elapsed_time = time.time() - start_time
 
-print("\n========== SUMMARY ==========")
-print(f"Categories Evaluated : {len(gold_files)}")
 print(f"Total Runtime        : {elapsed_time:.2f} seconds")
 print("Retriever evaluation completed successfully.")
