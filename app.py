@@ -2,7 +2,6 @@ import json
 import time
 import faiss
 import requests
-import numpy as np
 import streamlit as st
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
@@ -39,8 +38,11 @@ if MODEL_NAME == "No Model Loaded":
     st.error("llama-server is not running.")
     st.stop()
 
-st.title("Khmer Legal Chatbot")
-st.caption(f"RAG + {MODEL_NAME}")
+left_col, right_col = st.columns([2, 1])
+
+with left_col:
+    st.title("Khmer Legal Chatbot")
+    st.caption(f"RAG + {MODEL_NAME}")
 
 
 client = OpenAI(
@@ -48,7 +50,7 @@ client = OpenAI(
     api_key="not-needed",
 )
 
-TOP_K = 5
+TOP_K = 3
 MIN_SCORE = 0.50
 
 FAISS_PATH = "vector_db/khmer_insurance.index"
@@ -78,9 +80,8 @@ embedding_model = load_embedding_model()
 index = load_index()
 chunks = load_metadata()
 
-print("=" * 80)
-print(f"Embedding Device: {embedding_model.device}")
-print("=" * 80)
+if "has_result" not in st.session_state:
+    st.session_state["has_result"] = False
 
 
 # RETRIEVAL
@@ -103,10 +104,6 @@ def retrieve(query):
 
     search_time = time.time() - search_start
 
-    print(f"Embedding Time : {embed_time:.2f}s")
-    print(f"FAISS Time     : {search_time:.4f}s")
-    print(f"Embedding Device: {embedding_model.device}")
-
     results = []
 
     for score, idx in zip(scores[0], indices[0]):
@@ -117,11 +114,16 @@ def retrieve(query):
             )
         )
 
-    return results
+    return (
+        results,
+        embed_time,
+        search_time,
+    )
 
 
 # BUILD CONTEXT
 def build_context(results):
+    context_start = time.time()
 
     context_parts = []
 
@@ -157,10 +159,24 @@ Content:
 {chunk["text"]}
 """)
 
-    return "\n\n".join(context_parts)
+    context = "\n\n".join(context_parts)
+
+    context_length = len(context)
+
+    context_time = time.time() - context_start
+
+    return (
+        context,
+        context_time,
+        context_length,
+    )
 
 
-def generate_answer(question, context):
+def stream_answer(
+    question,
+    context,
+    diagnostics,
+):
     prompt = f"""
 You are a Khmer legal assistant.
 
@@ -183,117 +199,269 @@ Question:
 
 Answer:
 """
-    print("=" * 80)
-    print(f"Prompt Length: {len(prompt):,} chars")
-    print("=" * 80)
 
-    try:
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            temperature=0.2,
-            max_tokens=512,
-        )
+    diagnostics["prompt_length"] = len(prompt)
 
-    except Exception as e:
-        return f"LLM Error: {str(e)}"
+    start = time.time()
+    first_token = True
 
-    return response.choices[0].message.content.strip()
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
+        temperature=0.2,
+        max_tokens=512,
+        stream=True,
+    )
+
+    total_chars = 0
+
+    for chunk in response:
+
+        delta = chunk.choices[0].delta.content
+
+        if delta:
+
+            total_chars += len(delta)
+
+            if first_token:
+                diagnostics["first_token_time"] = time.time() - start
+                first_token = False
+
+            yield delta
+
+    diagnostics["generated_chars"] = total_chars
+
+    diagnostics["generation_time"] = time.time() - start
 
 
 # UI
-question = st.text_area("Ask a Khmer legal question:")
+with left_col:
+    question = st.text_area("Ask a Khmer legal question:")
 
-if st.button("Ask") and question.strip():
-    total_start = time.time()
-
-    with st.spinner("Searching..."):
-        retrieval_start = time.time()
-
-        results = retrieve(question)
-
-        if not results:
-            st.error("រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។")
-            st.stop()
-
-        best_score = results[0][0]
-
-        if best_score < MIN_SCORE:
-            st.warning(f"Low confidence retrieval (best score = {best_score:.4f})")
-
-        retrieval_time = time.time() - retrieval_start
-
-        context = build_context(results)
-        print("=" * 80)
-        print(f"Context Length: {len(context):,} chars")
-        print("=" * 80)
-
-        st.write(f"Context Length: {len(context):,} chars")
-
-        generation_start = time.time()
-
-        answer = generate_answer(
-            question,
-            context,
+    if st.button("Ask") and question.strip():
+        status = st.status(
+            "Processing...",
+            expanded=True,
         )
+        total_start = time.time()
 
-        generation_time = time.time() - generation_start
+        with st.spinner("Searching..."):
+            retrieval_start = time.time()
 
-    st.subheader("Answer")
-    st.write(answer)
+            status.write("Searching vector database...")
+            (
+                results,
+                embed_time,
+                search_time,
+            ) = retrieve(question)
 
-    st.markdown("### Sources Used")
+            if not results:
+                st.error("រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។")
+                st.stop()
 
-    for rank, (score, chunk) in enumerate(results, start=1):
+            best_score = results[0][0]
 
-        metadata = chunk.get("metadata", {})
+            if best_score < MIN_SCORE:
+                st.warning(f"Low confidence retrieval (best score = {best_score:.4f})")
 
-        st.markdown(f"""
-    {rank}. **{metadata.get('document_name', 'Unknown Document')}**
-    - Score: {score:.4f}
-    - Chunk: {chunk['chunk_id']}
-    """)
-    st.subheader("Performance")
+            retrieval_time = time.time() - retrieval_start
 
-    st.write(f"Retrieval Time: {retrieval_time:.2f}s")
+            status.write("Building context...")
+            (
+                context,
+                context_time,
+                context_length,
+            ) = build_context(results)
 
-    st.write(f"Generation Time: {generation_time:.2f}s")
+            generation_start = time.time()
 
-    st.write(f"Total Time: {time.time() - total_start:.2f}s")
+            status.write("Generating answer...")
+            st.subheader("Answer")
 
-    st.subheader("Source Details")
+            diagnostics = {}
 
-    for rank, (score, chunk) in enumerate(
-        results,
-        start=1,
-    ):
-        with st.expander(f"Rank {rank} | Score {score:.4f}"):
+            st.write_stream(
+                stream_answer(
+                    question,
+                    context,
+                    diagnostics,
+                )
+            )
 
+            status.update(
+                label="Completed",
+                state="complete",
+            )
+
+            generation_time = time.time() - generation_start
+            total_time = time.time() - total_start
+            st.session_state["diagnostics"] = {
+                "embed_time": embed_time,
+                "search_time": search_time,
+                "retrieval_time": retrieval_time,
+                "best_score": float(best_score),
+                "context_length": context_length,
+                "context_time": context_time,
+                "generation_time": generation_time,
+                "total_time": total_time,
+                "results": results,
+                "diagnostics": diagnostics,
+            }
+
+            st.session_state["has_result"] = True
+
+        st.markdown("### Sources Used")
+        for rank, (score, chunk) in enumerate(results, start=1):
             metadata = chunk.get("metadata", {})
 
+            st.markdown(f"""
+        {rank}. **{metadata.get('document_name', 'Unknown Document')}**
+        - Score: {score:.4f}
+        - Chunk: {chunk['chunk_id']}
+        """)
+
+        st.subheader("Source Details")
+
+        for rank, (score, chunk) in enumerate(
+            results,
+            start=1,
+        ):
+            with st.expander(f"Rank {rank} | Score {score:.4f}"):
+
+                metadata = chunk.get("metadata", {})
+
+                st.write(
+                    {
+                        "similarity_score": round(
+                            float(score),
+                            4,
+                        ),
+                        "document_name": metadata.get("document_name"),
+                        "document_type": metadata.get(
+                            "document_type_kh",
+                            metadata.get("document_type"),
+                        ),
+                        "release_date": metadata.get("release_date"),
+                        "chapter": metadata.get("chapter"),
+                        "chapter_title": metadata.get("chapter_title"),
+                        "section": metadata.get("section"),
+                        "section_title": metadata.get("section_title"),
+                        "legal_unit": metadata.get("legal_unit"),
+                        "chunk_id": chunk["chunk_id"],
+                    }
+                )
+
+                st.markdown("---")
+
+                st.write(chunk["text"])
+
+with right_col:
+    diag = st.session_state.get(
+        "diagnostics",
+        {},
+    )
+    st.header("Diagnostics")
+
+    st.subheader("System")
+
+    st.write(
+        {
+            "model": MODEL_NAME,
+            "embedding_model": EMBEDDING_MODEL_PATH,
+            "embedding_device": str(embedding_model.device),
+            "top_k": TOP_K,
+        }
+    )
+
+    if st.session_state.get("has_result", False):
+
+        st.subheader("Retrieval")
+
+        st.write(
+            {
+                "embedding_time_sec": round(
+                    diag["embed_time"],
+                    3,
+                ),
+                "faiss_time_sec": round(
+                    diag["search_time"],
+                    3,
+                ),
+                "retrieval_time_sec": round(
+                    diag["retrieval_time"],
+                    3,
+                ),
+                "best_score": round(
+                    float(diag["best_score"]),
+                    4,
+                ),
+            }
+        )
+
+        st.subheader("Context")
+
+        st.write(
+            {
+                "context_length_chars": diag["context_length"],
+                "context_build_time_sec": round(
+                    diag["context_time"],
+                    3,
+                ),
+                "prompt_length_chars": diag["diagnostics"].get(
+                    "prompt_length",
+                    0,
+                ),
+            }
+        )
+
+        st.subheader("Generation")
+
+        st.write(
+            {
+                "first_token_time_sec": round(
+                    diag["diagnostics"].get(
+                        "first_token_time",
+                        0,
+                    ),
+                    3,
+                ),
+                "generation_time_sec": round(
+                    diag["diagnostics"].get(
+                        "generation_time",
+                        0,
+                    ),
+                    3,
+                ),
+                "total_time_sec": round(
+                    diag["total_time"],
+                    3,
+                ),
+                "generated_chars": diag["diagnostics"].get(
+                    "generated_chars",
+                    0,
+                ),
+            }
+        )
+
+        st.subheader("Chunks")
+
+        for rank, (score, chunk) in enumerate(
+            diag["results"],
+            start=1,
+        ):
             st.write(
                 {
-                    "similarity_score": round(score, 4),
-                    "document_name": metadata.get("document_name"),
-                    "document_type": metadata.get(
-                        "document_type_kh",
-                        metadata.get("document_type"),
+                    "rank": rank,
+                    "score": round(
+                        float(score),
+                        4,
                     ),
-                    "release_date": metadata.get("release_date"),
-                    "chapter": metadata.get("chapter"),
-                    "chapter_title": metadata.get("chapter_title"),
-                    "section": metadata.get("section"),
-                    "section_title": metadata.get("section_title"),
-                    "legal_unit": metadata.get("legal_unit"),
+                    "chunk_length": len(chunk["text"]),
                     "chunk_id": chunk["chunk_id"],
                 }
             )
-
-            st.markdown("---")
-
-            st.write(chunk["text"])
