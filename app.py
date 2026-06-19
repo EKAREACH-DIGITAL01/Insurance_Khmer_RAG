@@ -3,6 +3,7 @@ import time
 import faiss
 import requests
 import streamlit as st
+import numpy as np
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 
@@ -50,7 +51,7 @@ client = OpenAI(
     api_key="not-needed",
 )
 
-TOP_K = 3
+TOP_K = 10
 MIN_SCORE = 0.50
 
 FAISS_PATH = "vector_db/khmer_insurance.index"
@@ -91,6 +92,11 @@ def retrieve(query):
     query_embedding = embedding_model.encode(
         [query],
         normalize_embeddings=True,
+    )
+
+    query_embedding = np.asarray(
+        query_embedding,
+        dtype=np.float32,
     )
 
     embed_time = time.time() - embed_start

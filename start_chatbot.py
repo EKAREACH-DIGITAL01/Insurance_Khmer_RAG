@@ -101,6 +101,14 @@ while True:
 print("Model loaded.")
 print("Launching Streamlit...")
 
+subprocess.run(
+    [
+        "streamlit",
+        "cache",
+        "clear",
+    ]
+)
+
 try:
     subprocess.run(
         [
