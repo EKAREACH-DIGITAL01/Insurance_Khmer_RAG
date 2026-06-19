@@ -17,6 +17,7 @@ import uuid
 import numpy as np
 import requests
 import streamlit as st
+from PIL import Image
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 
@@ -41,23 +42,9 @@ PHASE_LABELS = {
     "done": "Done",
 }
 
-SEAL_SVG = """
-<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-<circle cx="20" cy="20" r="18" fill="none" stroke="#B68B4C" stroke-width="1.1"/>
-<circle cx="20" cy="20" r="12" fill="none" stroke="#B68B4C" stroke-width="1.1"/>
-<g stroke="#B68B4C" stroke-width="1.1">
-<line x1="20" y1="2" x2="20" y2="8"/>
-<line x1="20" y1="32" x2="20" y2="38"/>
-<line x1="2" y1="20" x2="8" y2="20"/>
-<line x1="32" y1="20" x2="38" y2="20"/>
-<line x1="7.5" y1="7.5" x2="11.5" y2="11.5"/>
-<line x1="28.5" y1="28.5" x2="32.5" y2="32.5"/>
-<line x1="7.5" y1="32.5" x2="11.5" y2="28.5"/>
-<line x1="28.5" y1="11.5" x2="32.5" y2="7.5"/>
-</g>
-<circle cx="20" cy="20" r="3" fill="#B68B4C"/>
-</svg>
-"""
+SEAL_SVG = """<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="18" fill="none" stroke="#B68B4C" stroke-width="1.1"/><circle cx="20" cy="20" r="12" fill="none" stroke="#B68B4C" stroke-width="1.1"/><g stroke="#B68B4C" stroke-width="1.1"><line x1="20" y1="2" x2="20" y2="8"/><line x1="20" y1="32" x2="20" y2="38"/><line x1="2" y1="20" x2="8" y2="20"/><line x1="32" y1="20" x2="38" y2="20"/><line x1="7.5" y1="7.5" x2="11.5" y2="11.5"/><line x1="28.5" y1="28.5" x2="32.5" y2="32.5"/><line x1="7.5" y1="32.5" x2="11.5" y2="28.5"/><line x1="28.5" y1="11.5" x2="32.5" y2="7.5"/></g><circle cx="20" cy="20" r="3" fill="#B68B4C"/></svg>"""
+
+favicon = Image.open("assets/favicon.png")
 
 # ----------------------------------------------------------------------------
 # Session state
@@ -71,8 +58,10 @@ st.session_state.setdefault("pending_question", None)
 IS_DIAGNOSTICS = st.session_state["view"] == "diagnostics"
 
 st.set_page_config(
-    page_title="Khmer Legal Chatbot",
+    page_title="Khmer Insurance Law Assistant",
+    page_icon=favicon,
     layout="wide" if IS_DIAGNOSTICS else "centered",
+    initial_sidebar_state="collapsed",
 )
 
 # ----------------------------------------------------------------------------
@@ -109,6 +98,7 @@ footer {{ visibility: hidden; }}
 [data-testid="stToolbar"] {{display: none !important;}}
 [data-testid="stDecoration"] {{display: none !important;}}
 [data-testid="stStatusWidget"] {{display: none !important;}}
+[data-testid="stForm"] div[data-testid="InputInstructions"] {{display: none !important;}}
 header {{display: none !important;}}
 
 html, body, [data-testid="stAppViewContainer"], .stApp {{
