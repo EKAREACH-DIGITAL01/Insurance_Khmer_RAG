@@ -115,6 +115,9 @@ try:
             "streamlit",
             "run",
             str(PROJECT_ROOT / "app.py"),
+            "--client.toolbarMode=viewer",
+            "--client.toolbarMode=minimal",
+            "--browser.gatherUsageStats=false",
         ]
     )
 finally:

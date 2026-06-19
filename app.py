@@ -105,8 +105,11 @@ CSS = f"""
 
 #MainMenu {{ visibility: hidden; }}
 footer {{ visibility: hidden; }}
-[data-testid="stHeader"] {{ background: transparent; }}
-[data-testid="stToolbar"] {{ right: 8px; }}
+[data-testid="stHeader"] {{background: transparent;}}
+[data-testid="stToolbar"] {{display: none !important;}}
+[data-testid="stDecoration"] {{display: none !important;}}
+[data-testid="stStatusWidget"] {{display: none !important;}}
+header {{display: none !important;}}
 
 html, body, [data-testid="stAppViewContainer"], .stApp {{
   background: {PAGE_BG} !important;
@@ -118,10 +121,14 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-welcome-lockup {{
   display: inline-flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   text-align: left;
 }}
-.kc-welcome-lockup svg {{ display: block; flex-shrink: 0; }}
+.kc-welcome-lockup svg {{
+  display: block;
+  flex-shrink: 0;
+  transform: translateY(4px);
+}}
 .kc-eyebrow {{
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
@@ -134,7 +141,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   font-family: 'Moul', serif !important;
   font-size: 30px !important;
   color: var(--lacquer) !important;
-  margin: 4px 0 0 0 !important;
+  margin: 17px 0 0 0 !important;
   line-height: 1.3 !important;
   white-space: nowrap;
 }}
@@ -168,7 +175,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   background: var(--parchment-soft) !important;
   border: 1px solid var(--brass-soft) !important;
   border-radius: 26px !important;
-  padding: 6px 10px !important;
+  padding: 6px 16px !important;
   box-shadow: 0 4px 18px rgba(58,53,43,0.12);
   max-width: 560px;
   width: 100%;
@@ -198,18 +205,52 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   padding: 10px 8px;
   box-shadow: none !important;
 }}
+[data-testid="stForm"] [data-baseweb="input"] {{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}}
+
+[data-testid="stForm"] [data-baseweb="input"] > div {{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}}
 [data-testid="stForm"] [data-testid="stTextInput"] input:focus {{ box-shadow: none !important; }}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] {{
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}}
 [data-testid="stForm"] [data-testid="stFormSubmitButton"] button {{
   background: var(--lacquer) !important;
   color: var(--parchment-soft) !important;
   border: none !important;
+
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+
   border-radius: 50% !important;
-  width: 38px;
-  height: 38px;
-  padding: 0 !important;
-  font-size: 16px !important;
+
+  margin-right: 0px !important;
+  margin-left: 10px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  font-size: 28px !important;
+  font-weight: 800 !important;
   line-height: 1 !important;
-  transition: background 0.15s ease, transform 0.15s ease;
+
+  box-shadow: none !important;
+}}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button::before {{
+    content: "↑";
+    font-size: 20px;
+    font-weight: 500;
+    color: white;
 }}
 [data-testid="stForm"] [data-testid="stFormSubmitButton"] button:hover {{
   background: var(--lacquer-deep) !important;
@@ -414,6 +455,25 @@ def inject_css():
     st.markdown(CSS, unsafe_allow_html=True)
 
 
+import streamlit.components.v1 as components
+
+components.html(
+    """
+    <script>
+    window.parent.document.addEventListener(
+        'keydown',
+        function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+                e.stopImmediatePropagation();
+            }
+        },
+        true
+    );
+    </script>
+    """,
+    height=0,
+)
+
 # ----------------------------------------------------------------------------
 # Backend
 # ----------------------------------------------------------------------------
@@ -429,7 +489,7 @@ def get_loaded_model():
         return "No Model Loaded"
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def load_embedding_model():
     return SentenceTransformer(EMBEDDING_MODEL_PATH, device="cpu")
 
@@ -617,10 +677,12 @@ def render_ladder_html(current_idx, phase_elapsed):
 def render_full_header(model_name):
     st.markdown(
         f'<div class="kc-welcome-wrap">'
-        f'<div class="kc-welcome-lockup">{SEAL_SVG}'
-        f'<div><div class="kc-eyebrow">RAG &middot; Insurance Law Corpus</div>'
-        f'<div class="kc-title-big">ជំនួយការច្បាប់ធានារ៉ាប់រង</div></div></div>'
-        f'<div class="kc-subtitle">Khmer Legal Research Assistant</div>'
+        f'<div class="kc-eyebrow">RAG &middot; Insurance Law Corpus</div>'
+        f'<div class="kc-welcome-lockup">'
+        f"{SEAL_SVG}"
+        f'<div class="kc-title-big">ជំនួយការច្បាប់ធានារ៉ាប់រង</div>'
+        f"</div>"
+        f'<div class="kc-subtitle">Khmer Insurance Law Assistant</div>'
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -639,20 +701,20 @@ def render_welcome_form():
                 placeholder="សរសេរសំណួររបស់អ្នកនៅទីនេះ...",
             )
         with col_btn:
-            submitted = st.form_submit_button("↑")
+            submitted = st.form_submit_button("")
     if submitted and question.strip():
         st.session_state["pending_question"] = question.strip()
         st.rerun()
 
 
 def render_compact_topbar(model_name):
-    status_ok = model_name != "No Model Loaded"
-    dot_class = "kc-dot-on" if status_ok else "kc-dot-off"
     st.markdown(
         f'<div class="kc-topbar">{SEAL_SVG}'
-        f'<div><div class="kc-topbar-title">ជំនួយការច្បាប់ធានារ៉ាប់រង</div>'
-        f'<div class="kc-topbar-sub">{html.escape(model_name)}</div></div>'
-        f'<div style="margin-left:auto"><span class="kc-dot {dot_class}"></span></div></div>',
+        f"<div>"
+        f'<div class="kc-topbar-title">ជំនួយការច្បាប់ធានារ៉ាប់រង</div>'
+        f'<div class="kc-topbar-sub">Khmer Insurance Law Assistant</div>'
+        f"</div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
