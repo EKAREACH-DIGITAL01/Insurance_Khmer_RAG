@@ -1,6 +1,13 @@
+import os
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "1"
+
+import faiss
+
+faiss.omp_set_num_threads(1)
 import json
 import time
-import faiss
 import requests
 import streamlit as st
 import numpy as np
@@ -62,7 +69,7 @@ EMBEDDING_MODEL_PATH = "models/retriever/BAAI-BGE-M3"
 
 @st.cache_resource
 def load_embedding_model():
-    return SentenceTransformer(EMBEDDING_MODEL_PATH)
+    return SentenceTransformer(EMBEDDING_MODEL_PATH, device="cpu")
 
 
 # LOAD FAISS
@@ -320,6 +327,12 @@ with left_col:
             }
 
             st.session_state["has_result"] = True
+
+            # --- TEMP DEBUG ---
+        st.subheader("DEBUG: raw retrieval")
+        st.code(repr(question))
+        st.write([(float(s), c["chunk_id"]) for s, c in results])
+        # --- END DEBUG ---
 
         st.markdown("### Sources Used")
         for rank, (score, chunk) in enumerate(results, start=1):
