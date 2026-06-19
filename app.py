@@ -35,12 +35,36 @@ FAISS_PATH = "vector_db/khmer_insurance.index"
 METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
 EMBEDDING_MODEL_PATH = "models/retriever/BAAI-BGE-M3"
 
-PHASES = ["processing", "searching", "generating", "done"]
+PHASES = [
+    "encoding_query",
+    "searching_faiss",
+    "building_context",
+    "constructing_prompt",
+    "generating_response",
+    "completed",
+]
 PHASE_LABELS = {
-    "processing": "Processing",
-    "searching": "Searching",
-    "generating": "Generating",
-    "done": "Done",
+    "encoding_query": (
+        "<b>Encoding Query</b> - "
+        "<i>BGE-M3 is converting the question into an embedding vector</i>"
+    ),
+    "searching_faiss": (
+        "<b>Searching FAISS Index</b> - "
+        "<i>FAISS is searching the vector database for relevant chunks</i>"
+    ),
+    "building_context": (
+        "<b>Building Retrieval Context</b> - "
+        "<i>Retrieved chunks are being assembled into context</i>"
+    ),
+    "constructing_prompt": (
+        "<b>Constructing Prompt</b> - "
+        "<i>Context, instructions, and question are being merged</i>"
+    ),
+    "generating_response": (
+        "<b>Generating Response</b> - "
+        "<i>SeaLLMs is generating the answer from retrieved context</i>"
+    ),
+    "completed": ("<b>Completed</b>"),
 }
 
 SEAL_SVG = """<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="18" fill="none" stroke="#B68B4C" stroke-width="1.1"/><circle cx="20" cy="20" r="12" fill="none" stroke="#B68B4C" stroke-width="1.1"/><g stroke="#B68B4C" stroke-width="1.1"><line x1="20" y1="2" x2="20" y2="8"/><line x1="20" y1="32" x2="20" y2="38"/><line x1="2" y1="20" x2="8" y2="20"/><line x1="32" y1="20" x2="38" y2="20"/><line x1="7.5" y1="7.5" x2="11.5" y2="11.5"/><line x1="28.5" y1="28.5" x2="32.5" y2="32.5"/><line x1="7.5" y1="32.5" x2="11.5" y2="28.5"/><line x1="28.5" y1="11.5" x2="32.5" y2="7.5"/></g><circle cx="20" cy="20" r="3" fill="#B68B4C"/></svg>"""
@@ -598,18 +622,29 @@ def load_metadata():
         return json.load(f)
 
 
-def retrieve(query, embedding_model, index, chunks):
+def encode_query(query, embedding_model):
     embed_start = time.time()
-    query_embedding = embedding_model.encode([query], normalize_embeddings=True)
-    query_embedding = np.asarray(query_embedding, dtype=np.float32)
+    query_embedding = embedding_model.encode(
+        [query],
+        normalize_embeddings=True,
+    )
+    query_embedding = np.asarray(
+        query_embedding,
+        dtype=np.float32,
+    )
     embed_time = time.time() - embed_start
+    return query_embedding, embed_time
 
+
+def search_faiss(query_embedding, index, chunks):
     search_start = time.time()
-    scores, indices = index.search(query_embedding, k=TOP_K)
+    scores, indices = index.search(
+        query_embedding,
+        k=TOP_K,
+    )
     search_time = time.time() - search_start
-
     results = [(score, chunks[idx]) for score, idx in zip(scores[0], indices[0])]
-    return results, embed_time, search_time
+    return results, search_time
 
 
 def build_context(results):
@@ -690,21 +725,35 @@ def run_pipeline_in_thread(
 ):
     """Runs entirely in a background thread. Must never call any st.* API."""
     try:
-        results, embed_time, search_time = retrieve(
-            question, embedding_model, index, chunks
+        out_q.put(("phase", "encoding_query"))
+
+        query_embedding, embed_time = encode_query(
+            question,
+            embedding_model,
         )
+
+        out_q.put(("phase", "searching_faiss"))
+
+        results, search_time = search_faiss(
+            query_embedding,
+            index,
+            chunks,
+        )
+
         best_score = float(results[0][0]) if results else 0.0
         min_score = float(results[-1][0]) if results else 0.0
         spread_score = best_score - min_score
         retrieval_time = embed_time + search_time
 
-        out_q.put(("phase", "searching"))
+        out_q.put(("phase", "building_context"))
         context, context_length, context_time = build_context(results)
+        out_q.put(("phase", "constructing_prompt"))
         prompt = build_prompt(question, context)
         context_tokens = count_tokens(context)
         prompt_tokens = count_tokens(prompt)
 
-        out_q.put(("phase", "generating"))
+        out_q.put(("phase", "generating_response"))
+
         gen_start = time.time()
         first_token_time = None
         total_chars = 0
@@ -714,7 +763,7 @@ def run_pipeline_in_thread(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
-            max_tokens=512,
+            max_tokens=1024,
             stream=True,
         )
         for chunk in response:
@@ -748,6 +797,7 @@ def run_pipeline_in_thread(
             "generated_chars": total_chars,
             "generated_tokens": total_tokens_out,
         }
+        out_q.put(("phase", "completed"))
         out_q.put(("done", payload))
     except Exception as e:
         out_q.put(("error", str(e)))
@@ -756,7 +806,7 @@ def run_pipeline_in_thread(
 def render_ladder_html(current_idx, phase_elapsed):
     rows = []
     for i, key in enumerate(PHASES):
-        label = PHASE_LABELS[key]
+        label_html = PHASE_LABELS[key]
         elapsed = phase_elapsed.get(key)
         time_str = f"{elapsed:.1f}s" if elapsed is not None else ""
         if i < current_idx:
@@ -769,8 +819,11 @@ def render_ladder_html(current_idx, phase_elapsed):
             icon = '<span class="kc-step-icon kc-step-pending"></span>'
             row_cls = "kc-step-row kc-step-row-pending"
         rows.append(
-            f'<div class="{row_cls}">{icon}<span class="kc-step-label">{label}</span>'
-            f'<span class="kc-step-time">{time_str}</span></div>'
+            f'<div class="{row_cls}">'
+            f"{icon}"
+            f'<span class="kc-step-label">{label_html}</span>'
+            f'<span class="kc-step-time">{time_str}</span>'
+            f"</div>"
         )
     return f'<div class="kc-ladder">{"".join(rows)}</div>'
 
@@ -883,7 +936,7 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
     )
 
     overall_start = time.time()
-    phase_start_times = {"processing": overall_start}
+    phase_start_times = {"encoding_query": overall_start}
     phase_elapsed = {}
     current_idx = 0
     answer_text = ""
@@ -912,8 +965,8 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
                 phase_elapsed[PHASES[current_idx]] = (
                     now - phase_start_times[PHASES[current_idx]]
                 )
-                current_idx = PHASES.index("done")
-                phase_elapsed["done"] = now - overall_start
+                current_idx = PHASES.index("completed")
+                phase_elapsed["completed"] = now - overall_start
                 final_payload = payload
                 finished = True
             elif kind == "error":
