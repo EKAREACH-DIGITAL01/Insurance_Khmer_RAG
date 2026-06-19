@@ -418,11 +418,66 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-chunk-len {{ color: var(--mist); opacity: 0.7; text-align: right; }}
 
 .kc-diag-page [data-testid="stExpander"] {{
-  background: var(--ink-soft); border: 1px solid var(--ink-line) !important; border-radius: 4px !important;
+  background: var(--ink-soft) !important;
+  border: 1px solid var(--ink-line) !important;
+  border-radius: 6px !important;
+  margin-bottom: 10px !important;
+  overflow: hidden;
 }}
 .kc-diag-page [data-testid="stExpander"] summary {{
-  font-family: 'IBM Plex Mono', monospace; color: var(--parchment-soft); font-size: 12px;
+  font-family: 'IBM Plex Mono', monospace !important;
+  color: var(--parchment-soft) !important;
+  font-size: 12px !important;
+  padding: 12px 16px !important;
+  transition: background 0.15s ease, color 0.15s ease;
 }}
+.kc-diag-page [data-testid="stExpander"] summary:hover {{
+  background: rgba(182,139,76,0.08) !important;
+  color: var(--brass) !important;
+}}
+.kc-diag-page [data-testid="stExpander"] summary svg {{ fill: var(--brass) !important; }}
+.kc-diag-page [data-testid="stExpander"] [data-testid="stExpanderDetails"] {{
+  padding: 4px 16px 16px 16px !important;
+  border-top: 1px solid var(--ink-line);
+}}
+
+/* ---------- Diagnostics source cards (right column, ink register) ---------- */
+.kc-diag-src-list {{ display: flex; flex-direction: column; gap: 10px; }}
+.kc-diag-src-card {{
+  background: var(--ink-soft);
+  border: 1px solid var(--ink-line);
+  border-radius: 6px;
+  padding: 14px 16px;
+  opacity: 0;
+  animation: kc-rise 0.5s ease forwards;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}}
+.kc-diag-src-card:hover {{
+  transform: translateY(-2px);
+  border-color: var(--brass);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+}}
+.kc-diag-src-top {{ display: flex; align-items: flex-start; gap: 12px; }}
+.kc-diag-src-rank {{
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--brass);
+  width: 20px; flex-shrink: 0; padding-top: 2px;
+}}
+.kc-diag-src-main {{ flex: 1; min-width: 0; }}
+.kc-diag-src-name {{ font-family: 'Hanuman', sans-serif; font-size: 14px; color: var(--parchment-soft); line-height: 1.5; }}
+.kc-diag-src-id {{ font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--brass); margin-top: 4px; }}
+.kc-diag-src-score {{
+  font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--signal);
+  font-weight: 600; flex-shrink: 0;
+}}
+.kc-diag-src-bar {{ width: 100%; height: 5px; background: var(--ink-line); border-radius: 3px; overflow: hidden; margin-top: 10px; }}
+.kc-diag-src-fill {{
+  height: 100%; width: 0; border-radius: 3px;
+  background: linear-gradient(90deg, var(--brass), var(--lacquer));
+  animation: kc-fill 0.9s cubic-bezier(.2,.8,.2,1) forwards;
+}}
+@keyframes kc-rise {{ from {{ opacity: 0; transform: translateY(8px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+@keyframes kc-fill {{ from {{ width: 0; }} to {{ width: var(--w, 0%); }} }}
+
 .kc-detail-grid {{
   display: grid; grid-template-columns: auto 1fr; gap: 4px 14px;
   font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; margin-bottom: 12px;
@@ -907,30 +962,40 @@ def console_block(title, rows):
     )
 
 
-def render_chunks_console(results):
-    rows = []
+def render_diag_source_cards(results):
+    cards = []
     for rank, (score, chunk) in enumerate(results, start=1):
+        metadata = chunk.get("metadata", {})
+        doc_name = html.escape(metadata.get("document_name", "Unknown Document"))
         chunk_id = html.escape(chunk["chunk_id"])
-        rows.append(
-            f'<div class="kc-chunk-row">'
-            f'<span class="kc-chunk-rank">{rank:02d}</span>'
-            f'<span class="kc-chunk-score">{float(score):.3f}</span>'
-            f'<span class="kc-chunk-id">{chunk_id}</span>'
-            f'<span class="kc-chunk-len">{len(chunk["text"])}</span>'
+        pct = max(0.0, min(1.0, float(score))) * 100
+        delay = (rank - 1) * 0.05
+        card = (
+            f'<div class="kc-diag-src-card" style="animation-delay:{delay:.2f}s">'
+            f'<div class="kc-diag-src-top">'
+            f'<span class="kc-diag-src-rank">{rank:02d}</span>'
+            f'<div class="kc-diag-src-main">'
+            f'<div class="kc-diag-src-name">{doc_name}</div>'
+            f'<div class="kc-diag-src-id">{chunk_id}</div>'
+            f"</div>"
+            f'<span class="kc-diag-src-score">{score:.3f}</span>'
+            f"</div>"
+            f'<div class="kc-diag-src-bar"><div class="kc-diag-src-fill" '
+            f'style="--w:{pct:.1f}%; animation-delay:{delay:.2f}s"></div></div>'
             f"</div>"
         )
+        cards.append(card)
     st.markdown(
-        f'<div class="kc-console-block"><div class="kc-console-title">&gt; CHUNKS (TOP {len(results)})</div>'
-        f'{"".join(rows)}</div>',
-        unsafe_allow_html=True,
+        f'<div class="kc-diag-src-list">{"".join(cards)}</div>', unsafe_allow_html=True
     )
 
 
 def render_source_detail(rank, score, chunk):
     metadata = chunk.get("metadata", {})
+    doc_name = metadata.get("document_name", "N/A")
     rows = [
         ("similarity", f"{float(score):.4f}"),
-        ("document", metadata.get("document_name", "N/A")),
+        ("document", doc_name),
         (
             "type",
             metadata.get("document_type_kh", metadata.get("document_type", "N/A")),
@@ -946,7 +1011,7 @@ def render_source_detail(rank, score, chunk):
         for k, v in rows
     )
     text = html.escape(chunk["text"])
-    with st.expander(f"Rank {rank} | Score {score:.4f}"):
+    with st.expander(f"Rank {rank} | {doc_name} | Score {score:.4f}"):
         st.markdown(
             f'<div class="kc-detail-grid">{grid}</div><div class="kc-detail-text">{text}</div>',
             unsafe_allow_html=True,
@@ -984,7 +1049,7 @@ def render_diagnostics_page():
     )
 
     d = msg["diag"]
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([1, 2.4])
     with col1:
         console_block(
             "SYSTEM",
@@ -1004,7 +1069,6 @@ def render_diagnostics_page():
                 ("best score", f'{msg["best_score"]:.4f}'),
             ],
         )
-    with col2:
         console_block(
             "CONTEXT",
             [
@@ -1022,8 +1086,12 @@ def render_diagnostics_page():
                 ("generated chars", d["generated_chars"]),
             ],
         )
-
-    render_chunks_console(msg["all_results"])
+    with col2:
+        st.markdown(
+            f'<div class="kc-console-title">&gt; CHUNKS (TOP {len(msg["all_results"])})</div>',
+            unsafe_allow_html=True,
+        )
+        render_diag_source_cards(msg["all_results"])
 
     st.markdown(
         '<div class="kc-console-title" style="margin-top:18px">&gt; FULL SOURCE DETAILS</div>',
