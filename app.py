@@ -22,6 +22,7 @@ from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 
 LLAMA_SERVER_URL = "http://localhost:8080/v1"
+LLAMA_SERVER_ROOT = "http://localhost:8080"
 
 TOP_K = 10
 MIN_SCORE = 0.50
@@ -70,6 +71,7 @@ st.set_page_config(
 
 PAGE_BG = "var(--ink)" if IS_DIAGNOSTICS else "var(--parchment)"
 PAGE_FG = "var(--mist)" if IS_DIAGNOSTICS else "var(--stone)"
+BUTTON_HOVER_COLOR = "var(--signal)" if IS_DIAGNOSTICS else "var(--lacquer)"
 
 CSS = f"""
 <style>
@@ -311,9 +313,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   padding: 4px 0 !important;
   box-shadow: none !important;
 }}
-[data-testid="stButton"] button:hover {{ color: var(--lacquer) !important; text-decoration: underline; }}
-.kc-diag-page [data-testid="stButton"] button {{ color: var(--brass) !important; }}
-.kc-diag-page [data-testid="stButton"] button:hover {{ color: var(--signal) !important; }}
+[data-testid="stButton"] button:hover {{ color: {BUTTON_HOVER_COLOR} !important; text-decoration: underline; }}
 
 /* ---------- Native chat input (bottom-pinned by Streamlit itself) ---------- */
 [data-testid="stChatInput"] {{
@@ -390,8 +390,17 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 }}
 .kc-diag-question {{ font-family: 'Hanuman', sans-serif; font-size: 14px; color: var(--parchment-soft); opacity: 0.85; }}
 .kc-console-block {{
-  background: var(--ink-soft); border: 1px solid var(--ink-line);
-  border-radius: 4px; padding: 12px 14px; margin-bottom: 14px;
+  background: var(--ink-soft);
+  border: 1px solid var(--ink-line);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}}
+.kc-console-block:hover {{
+  transform: translateY(-2px);
+  border-color: var(--brass);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
 }}
 .kc-console-title {{
   font-family: 'IBM Plex Mono', monospace; font-size: 10.5px;
@@ -416,30 +425,6 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-chunk-score {{ color: var(--signal); }}
 .kc-chunk-id {{ color: var(--parchment-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
 .kc-chunk-len {{ color: var(--mist); opacity: 0.7; text-align: right; }}
-
-.kc-diag-page [data-testid="stExpander"] {{
-  background: var(--ink-soft) !important;
-  border: 1px solid var(--ink-line) !important;
-  border-radius: 6px !important;
-  margin-bottom: 10px !important;
-  overflow: hidden;
-}}
-.kc-diag-page [data-testid="stExpander"] summary {{
-  font-family: 'IBM Plex Mono', monospace !important;
-  color: var(--parchment-soft) !important;
-  font-size: 12px !important;
-  padding: 12px 16px !important;
-  transition: background 0.15s ease, color 0.15s ease;
-}}
-.kc-diag-page [data-testid="stExpander"] summary:hover {{
-  background: rgba(182,139,76,0.08) !important;
-  color: var(--brass) !important;
-}}
-.kc-diag-page [data-testid="stExpander"] summary svg {{ fill: var(--brass) !important; }}
-.kc-diag-page [data-testid="stExpander"] [data-testid="stExpanderDetails"] {{
-  padding: 4px 16px 16px 16px !important;
-  border-top: 1px solid var(--ink-line);
-}}
 
 /* ---------- Diagnostics source cards (right column, ink register) ---------- */
 .kc-diag-src-list {{ display: flex; flex-direction: column; gap: 10px; }}
@@ -489,6 +474,54 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   border-top: 1px dashed var(--ink-line); padding-top: 12px; white-space: pre-wrap;
 }}
 
+/* Full Source Details -- back to native st.expander: simple, reliable,
+   guaranteed clickable. Styled to match the ink card system. The
+   .kc-diag-page wrapping div used to scope these never actually contained
+   the expanders in the real DOM (opening/closing a div across separate
+   st.markdown calls doesn't nest the content in between), so every rule
+   below was previously matching nothing. st.expander is only used on this
+   one page in the whole app, so these are safe to leave unscoped. */
+[data-testid="stExpander"] {{
+  background: var(--ink-soft) !important;
+  border: 1px solid var(--ink-line) !important;
+  border-radius: 6px !important;
+  margin-bottom: 10px !important;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}}
+[data-testid="stExpander"]:hover {{
+  transform: translateY(-2px);
+  border-color: var(--brass) !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+}}
+/* Force every background inside the expander to transparent first -- we
+   don't know exactly which element/attribute Streamlit uses to paint the
+   "open" state in this version, so rather than guess a single selector,
+   blank everything out and re-apply our own color via more specific rules
+   below (which win on specificity regardless of source order). */
+[data-testid="stExpander"] * {{
+  background-color: transparent !important;
+}}
+[data-testid="stExpander"] summary {{
+  font-family: 'IBM Plex Mono', monospace !important;
+  color: var(--parchment-soft) !important;
+  font-size: 12px !important;
+  padding: 12px 16px !important;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}}
+[data-testid="stExpander"] summary:hover,
+[data-testid="stExpander"] details[open] summary,
+[data-testid="stExpander"] summary[aria-expanded="true"],
+[data-testid="stExpander"] [aria-expanded="true"] summary {{
+  background-color: rgba(182,139,76,0.1) !important;
+  color: var(--brass) !important;
+}}
+[data-testid="stExpander"] summary svg {{ fill: var(--brass) !important; }}
+[data-testid="stExpander"] [data-testid="stExpanderDetails"] {{
+  padding: 4px 16px 16px 16px !important;
+  border-top: 1px solid var(--ink-line);
+}}
+
 @media (prefers-reduced-motion: reduce) {{
   * {{ animation: none !important; transition: none !important; }}
 }}
@@ -522,6 +555,21 @@ components.html(
 # ----------------------------------------------------------------------------
 # Backend
 # ----------------------------------------------------------------------------
+
+
+def count_tokens(text):
+    """Real token count via llama-server's native /tokenize endpoint (not an
+    estimate -- character-based heuristics are especially wrong for Khmer).
+    Returns None if the server doesn't support it / is unreachable."""
+    try:
+        resp = requests.post(
+            f"{LLAMA_SERVER_ROOT}/tokenize", json={"content": text}, timeout=10
+        )
+        resp.raise_for_status()
+        tokens = resp.json().get("tokens", [])
+        return len(tokens)
+    except Exception:
+        return None
 
 
 def get_loaded_model():
@@ -646,16 +694,21 @@ def run_pipeline_in_thread(
             question, embedding_model, index, chunks
         )
         best_score = float(results[0][0]) if results else 0.0
+        min_score = float(results[-1][0]) if results else 0.0
+        spread_score = best_score - min_score
         retrieval_time = embed_time + search_time
 
         out_q.put(("phase", "searching"))
         context, context_length, context_time = build_context(results)
         prompt = build_prompt(question, context)
+        context_tokens = count_tokens(context)
+        prompt_tokens = count_tokens(prompt)
 
         out_q.put(("phase", "generating"))
         gen_start = time.time()
         first_token_time = None
         total_chars = 0
+        total_tokens_out = 0
 
         response = client.chat.completions.create(
             model=model_name,
@@ -668,6 +721,9 @@ def run_pipeline_in_thread(
             delta = chunk.choices[0].delta.content
             if delta:
                 total_chars += len(delta)
+                # llama-server streams one token per content delta, so this
+                # count is a direct token count, not a character estimate.
+                total_tokens_out += 1
                 if first_token_time is None:
                     first_token_time = time.time() - gen_start
                 out_q.put(("token", delta))
@@ -677,15 +733,20 @@ def run_pipeline_in_thread(
         payload = {
             "results": results,
             "best_score": best_score,
+            "min_score": min_score,
+            "spread_score": spread_score,
             "embed_time": embed_time,
             "search_time": search_time,
             "retrieval_time": retrieval_time,
             "context_length": context_length,
+            "context_tokens": context_tokens,
             "context_time": context_time,
             "prompt_length": len(prompt),
+            "prompt_tokens": prompt_tokens,
             "first_token_time": first_token_time or 0.0,
             "generation_time": generation_time,
             "generated_chars": total_chars,
+            "generated_tokens": total_tokens_out,
         }
         out_q.put(("done", payload))
     except Exception as e:
@@ -901,13 +962,18 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
             "embed_time": final_payload["embed_time"],
             "search_time": final_payload["search_time"],
             "retrieval_time": final_payload["retrieval_time"],
+            "min_score": final_payload["min_score"],
+            "spread_score": final_payload["spread_score"],
             "context_length": final_payload["context_length"],
+            "context_tokens": final_payload["context_tokens"],
             "context_time": final_payload["context_time"],
             "prompt_length": final_payload["prompt_length"],
+            "prompt_tokens": final_payload["prompt_tokens"],
             "first_token_time": final_payload["first_token_time"],
             "generation_time": final_payload["generation_time"],
             "total_time": time.time() - overall_start,
             "generated_chars": final_payload["generated_chars"],
+            "generated_tokens": final_payload["generated_tokens"],
         },
     }
     st.session_state["messages"].append(msg)
@@ -1019,8 +1085,6 @@ def render_source_detail(rank, score, chunk):
 
 
 def render_diagnostics_page():
-    st.markdown('<div class="kc-diag-page">', unsafe_allow_html=True)
-
     msg = next(
         (
             m
@@ -1037,7 +1101,7 @@ def render_diagnostics_page():
 
     if msg is None:
         st.markdown(
-            '<div class="kc-diag-title">No diagnostics found for this message.</div></div>',
+            '<div class="kc-diag-title">No diagnostics found for this message.</div>',
             unsafe_allow_html=True,
         )
         return
@@ -1049,14 +1113,19 @@ def render_diagnostics_page():
     )
 
     d = msg["diag"]
+
+    def tok(value):
+        return f"{value:,}" if value is not None else "N/A"
+
     col1, col2 = st.columns([1, 2.4])
     with col1:
         console_block(
             "SYSTEM",
             [
-                ("model", d["model"]),
-                ("embedding model", d["embedding_model"]),
-                ("embedding device", d["embedding_device"]),
+                ("generator model", d["model"]),
+                ("generator endpoint", LLAMA_SERVER_URL),
+                ("retriever model", d["embedding_model"]),
+                ("retriever device", d["embedding_device"]),
                 ("top k", d["top_k"]),
             ],
         )
@@ -1067,14 +1136,18 @@ def render_diagnostics_page():
                 ("faiss time", f'{d["search_time"]:.3f}s'),
                 ("retrieval time", f'{d["retrieval_time"]:.3f}s'),
                 ("best score", f'{msg["best_score"]:.4f}'),
+                ("min score", f'{d["min_score"]:.4f}'),
+                ("spread score", f'{d["spread_score"]:.4f}'),
             ],
         )
         console_block(
             "CONTEXT",
             [
                 ("context length", f'{d["context_length"]} chars'),
-                ("build time", f'{d["context_time"]:.3f}s'),
+                ("context token", tok(d["context_tokens"])),
+                ("context build time", f'{d["context_time"]:.3f}s'),
                 ("prompt length", f'{d["prompt_length"]} chars'),
+                ("prompt token", tok(d["prompt_tokens"])),
             ],
         )
         console_block(
@@ -1083,6 +1156,7 @@ def render_diagnostics_page():
                 ("first token", f'{d["first_token_time"]:.3f}s'),
                 ("generation time", f'{d["generation_time"]:.3f}s'),
                 ("total time", f'{d["total_time"]:.3f}s'),
+                ("output token", tok(d["generated_tokens"])),
                 ("generated chars", d["generated_chars"]),
             ],
         )
@@ -1099,8 +1173,6 @@ def render_diagnostics_page():
     )
     for rank, (score, chunk) in enumerate(msg["all_results"], start=1):
         render_source_detail(rank, score, chunk)
-
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ----------------------------------------------------------------------------
