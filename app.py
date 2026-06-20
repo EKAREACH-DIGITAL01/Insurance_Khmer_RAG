@@ -25,6 +25,8 @@ LLAMA_SERVER_URL = "http://localhost:8080/v1"
 LLAMA_SERVER_ROOT = "http://localhost:8080"
 
 TOP_K = 10
+CONTEXT_K = 5  # how many chunks actually go into the LLM prompt (<= TOP_K)
+MAX_CHUNKS_PER_DOC = 1  # cap near-duplicate chunks from the same document
 MIN_SCORE = 0.50
 USED_SOURCE_MARGIN = (
     0.03  # how close a score must be to the top score to also count as "used"
@@ -755,33 +757,19 @@ def build_context(results):
     context_parts = []
     for rank, (score, chunk) in enumerate(results, start=1):
         metadata = chunk.get("metadata", {})
-        context_parts.append(f"""
-[Source {rank}]
-
-Document Name:
-{metadata.get("document_name", "N/A")}
-
-Document Type:
-{metadata.get("document_type_kh", metadata.get("document_type", "N/A"))}
-
-Release Date:
-{metadata.get("release_date", "N/A")}
-
-Chapter:
-{metadata.get("chapter_title", metadata.get("chapter", "N/A"))}
-
-Section:
-{metadata.get("section_title", metadata.get("section", "N/A"))}
-
-Legal Unit:
-{metadata.get("legal_unit", "N/A")}
-
-Chunk ID:
-{chunk["chunk_id"]}
-
-Content:
-{chunk["text"]}
-""")
+        doc_name = metadata.get("document_name", "N/A")
+        doc_type = metadata.get(
+            "document_type_kh", metadata.get("document_type", "N/A")
+        )
+        chapter = metadata.get("chapter_title", metadata.get("chapter", "N/A"))
+        section = metadata.get("section_title", metadata.get("section", "N/A"))
+        legal_unit = metadata.get("legal_unit", "N/A")
+        release_date = metadata.get("release_date", "N/A")
+        header = (
+            f"[Source {rank}] {doc_name} ({doc_type}, {release_date}) | "
+            f"{chapter} > {section} | {legal_unit} | {chunk['chunk_id']}"
+        )
+        context_parts.append(f"{header}\n{chunk['text']}")
     context = "\n\n".join(context_parts)
     context_length = len(context)
     context_time = time.time() - context_start
@@ -813,6 +801,26 @@ Question:
 
 Answer:
 """
+
+
+def select_context_chunks(results):
+    """Cap which retrieved chunks actually go into the LLM prompt: at most
+    CONTEXT_K total, and no more than MAX_CHUNKS_PER_DOC from any single
+    source document. Retrieval still searches/shows the full TOP_K (so
+    diagnostics stays informative), but redundant near-duplicate chunks
+    from the same document were the single biggest driver of prompt size
+    (and therefore prefill/first-token time) without adding real coverage."""
+    selected = []
+    per_doc_count = {}
+    for score, chunk in results:
+        doc_name = chunk.get("metadata", {}).get("document_name", "unknown")
+        if per_doc_count.get(doc_name, 0) >= MAX_CHUNKS_PER_DOC:
+            continue
+        selected.append((score, chunk))
+        per_doc_count[doc_name] = per_doc_count.get(doc_name, 0) + 1
+        if len(selected) >= CONTEXT_K:
+            break
+    return selected
 
 
 def select_used_sources(results):
@@ -849,7 +857,8 @@ def run_pipeline_in_thread(
         retrieval_time = embed_time + search_time
 
         out_q.put(("phase", "building_context"))
-        context, context_length, context_time = build_context(results)
+        context_results = select_context_chunks(results)
+        context, context_length, context_time = build_context(context_results)
         out_q.put(("phase", "constructing_prompt"))
         prompt = build_prompt(question, context)
         context_tokens = count_tokens(context)
@@ -894,6 +903,7 @@ def run_pipeline_in_thread(
 
         payload = {
             "results": results,
+            "context_results": context_results,
             "best_score": best_score,
             "min_score": min_score,
             "spread_score": spread_score,
@@ -1246,7 +1256,7 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
     try:
         results = final_payload["results"]
         best_score = final_payload["best_score"]
-        used_sources = select_used_sources(results)
+        used_sources = select_used_sources(final_payload["context_results"])
 
         render_used_sources(used_sources)
 
@@ -1537,8 +1547,8 @@ def render_diagnostics_page():
                 ("first token", f'{d["first_token_time"]:.4f}s'),
                 ("generation time", f'{d["generation_time"]:.4f}s'),
                 (
-                    "tokens/sec",
-                    f'{d["generated_tokens"]/max(d["generation_time"],0.001):.4f}',
+                    "tokens/sec (decode)",
+                    f'{d["generated_tokens"]/max(d["generation_time"]-d["first_token_time"],0.001):.4f}',
                 ),
                 ("total time", f'{d["total_time"]:.4f}s'),
                 ("output token", tok(d["generated_tokens"])),

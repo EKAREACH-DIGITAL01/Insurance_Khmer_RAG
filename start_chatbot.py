@@ -60,6 +60,21 @@ if not MODEL_PATH.exists():
 
 print(f"\nStarting {model}...")
 
+# --ctx-size: MUST exceed prompt_token + max_tokens or llama.cpp falls back
+# to context-shifting (re-evaluating large chunks of the prompt), which is
+# far slower than ordinary prefill -- this was previously unset, silently
+# defaulting to a small window (commonly 4096) that the app's ~8k-15k token
+# prompts blew straight through. 16384 gives headroom above CONTEXT_K=5's
+# typical prompt size (~8-9k tokens) + max_tokens=1024 in app.py, with room
+# to spare for longer questions/chunks. Raise further if you see this get
+# hit again (e.g. after increasing CONTEXT_K).
+#
+# --flash-attn: faster attention computation, more noticeable at this
+# context length than at a short one.
+#
+# --cache-type-k / --cache-type-v: quantize the KV cache (FP16 -> Q8_0).
+# At ~9-16k tokens the KV cache itself is large enough that this matters
+# for both memory headroom and avoiding any swap-induced slowdown.
 llama_process = subprocess.Popen(
     [
         LLAMA_SERVER,
@@ -67,6 +82,14 @@ llama_process = subprocess.Popen(
         str(MODEL_PATH),
         "-ngl",
         "999",
+        "--ctx-size",
+        "16384",
+        "--flash-attn",
+        "on",
+        "--cache-type-k",
+        "q8_0",
+        "--cache-type-v",
+        "q8_0",
         "--host",
         "0.0.0.0",
         "--port",
