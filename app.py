@@ -79,6 +79,9 @@ st.session_state.setdefault("messages", [])
 st.session_state.setdefault("view", "chat")
 st.session_state.setdefault("active_msg_id", None)
 st.session_state.setdefault("pending_question", None)
+st.session_state.setdefault("is_generating", False)
+st.session_state.setdefault("stop_event", None)
+st.session_state.setdefault("active_run", None)
 
 IS_DIAGNOSTICS = st.session_state["view"] == "diagnostics"
 
@@ -546,6 +549,63 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   border-top: 1px solid var(--ink-line);
 }}
 
+/* ---------- Stop / interrupt bar (replaces chat input while generating) ---------- */
+.st-key-kc_stopbar {{
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 999;
+  max-width: 560px;
+  width: calc(100% - 48px);
+}}
+.st-key-kc_stopbar [data-testid="stHorizontalBlock"] {{
+  background: var(--parchment-soft);
+  border: 1px solid var(--brass-soft);
+  border-radius: 26px;
+  padding: 6px 16px;
+  box-shadow: 0 4px 18px rgba(58,53,43,0.12);
+  align-items: center !important;
+}}
+.kc-stopbar-text {{
+  font-family: 'Hanuman', sans-serif;
+  font-size: 15.5px;
+  color: var(--stone);
+  opacity: 0.55;
+  padding: 10px 8px;
+}}
+.st-key-kc_stopbar [data-testid="stButton"] {{
+  display: flex !important;
+  justify-content: center !important;
+}}
+.st-key-kc_stopbar [data-testid="stButton"] button {{
+  background: var(--lacquer) !important;
+  border: none !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  border-radius: 9px !important;
+  margin-left: auto !important;
+  padding: 0 !important;
+  position: relative !important;
+  box-shadow: none !important;
+}}
+.st-key-kc_stopbar [data-testid="stButton"] button p {{ display: none !important; }}
+.st-key-kc_stopbar [data-testid="stButton"] button::before {{
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 13px;
+  height: 13px;
+  background: var(--parchment-soft);
+  border-radius: 3px;
+}}
+.st-key-kc_stopbar [data-testid="stButton"] button:hover {{
+  background: var(--lacquer-deep) !important;
+}}
+
 @media (prefers-reduced-motion: reduce) {{
   * {{ animation: none !important; transition: none !important; }}
 }}
@@ -721,7 +781,7 @@ def select_used_sources(results):
 
 
 def run_pipeline_in_thread(
-    question, model_name, client, embedding_model, index, chunks, out_q
+    question, model_name, client, embedding_model, index, chunks, out_q, stop_event
 ):
     """Runs entirely in a background thread. Must never call any st.* API."""
     try:
@@ -758,6 +818,7 @@ def run_pipeline_in_thread(
         first_token_time = None
         total_chars = 0
         total_tokens_out = 0
+        was_stopped = False
 
         response = client.chat.completions.create(
             model=model_name,
@@ -767,6 +828,9 @@ def run_pipeline_in_thread(
             stream=True,
         )
         for chunk in response:
+            if stop_event.is_set():
+                was_stopped = True
+                break
             delta = chunk.choices[0].delta.content
             if delta:
                 total_chars += len(delta)
@@ -776,6 +840,11 @@ def run_pipeline_in_thread(
                 if first_token_time is None:
                     first_token_time = time.time() - gen_start
                 out_q.put(("token", delta))
+
+        try:
+            response.close()
+        except Exception:
+            pass
 
         generation_time = time.time() - gen_start
 
@@ -796,6 +865,7 @@ def run_pipeline_in_thread(
             "generation_time": generation_time,
             "generated_chars": total_chars,
             "generated_tokens": total_tokens_out,
+            "stopped": was_stopped,
         }
         out_q.put(("phase", "completed"))
         out_q.put(("done", payload))
@@ -809,7 +879,7 @@ def render_ladder_html(current_idx, phase_elapsed):
         label_html = PHASE_LABELS[key]
         elapsed = phase_elapsed.get(key)
         time_str = f"{elapsed:.1f}s" if elapsed is not None else ""
-        if i < current_idx:
+        if i < current_idx or (key == "completed" and i == current_idx):
             icon = '<span class="kc-step-icon kc-step-done">&#10003;</span>'
             row_cls = "kc-step-row"
         elif i == current_idx:
@@ -878,6 +948,22 @@ def render_compact_topbar(model_name):
     )
 
 
+def render_stop_bar():
+    """Replaces the native chat input while a question is being processed.
+    Visually a square 'stop' button instead of the arrow. Returns True if
+    the user clicked it on this run."""
+    with st.container(key="kc_stopbar"):
+        col_text, col_btn = st.columns([8, 1])
+        with col_text:
+            st.markdown(
+                '<div class="kc-stopbar-text">កំពុងបង្កើតចម្លើយ...</div>',
+                unsafe_allow_html=True,
+            )
+        with col_btn:
+            clicked = st.button("stop", key="kc_stop_btn")
+    return clicked
+
+
 def render_used_sources(used_sources):
     chips = []
     for score, chunk in used_sources:
@@ -905,17 +991,27 @@ def render_message(msg):
             f'{msg["best_score"]:.3f}. Treat this answer with extra caution.</div>',
             unsafe_allow_html=True,
         )
-    st.markdown(
-        f'<div class="kc-msg-assistant">{html.escape(msg["answer"])}</div>',
-        unsafe_allow_html=True,
-    )
-    render_used_sources(msg["used_sources"])
-    st.markdown('<div class="kc-msg-actions">', unsafe_allow_html=True)
-    if st.button("Details", key=f"diag_{msg['id']}"):
-        st.session_state["view"] = "diagnostics"
-        st.session_state["active_msg_id"] = msg["id"]
-        st.rerun()
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    if msg.get("interrupted"):
+        st.markdown(
+            '<div class="kc-alert">This question was interrupted before completion.</div>',
+            unsafe_allow_html=True,
+        )
+        if msg.get("ladder_html"):
+            st.markdown(msg["ladder_html"], unsafe_allow_html=True)
+    if msg["answer"]:
+        st.markdown(
+            f'<div class="kc-msg-assistant">{html.escape(msg["answer"])}</div>',
+            unsafe_allow_html=True,
+        )
+    if not msg.get("interrupted"):
+        render_used_sources(msg["used_sources"])
+        st.markdown('<div class="kc-msg-actions">', unsafe_allow_html=True)
+        if st.button("Details", key=f"diag_{msg['id']}"):
+            st.session_state["view"] = "diagnostics"
+            st.session_state["active_msg_id"] = msg["id"]
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def handle_new_question(question, model_name, client, embedding_model, index, chunks):
@@ -929,9 +1025,21 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
     answer_ph = st.empty()
 
     out_q = queue.Queue()
+    stop_event = threading.Event()
+    st.session_state["stop_event"] = stop_event
+
     thread = threading.Thread(
         target=run_pipeline_in_thread,
-        args=(question, model_name, client, embedding_model, index, chunks, out_q),
+        args=(
+            question,
+            model_name,
+            client,
+            embedding_model,
+            index,
+            chunks,
+            out_q,
+            stop_event,
+        ),
         daemon=True,
     )
 
@@ -943,9 +1051,25 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
     final_payload = None
     error_text = None
 
+    # Seeded immediately, then kept in sync below on every loop tick. If the
+    # user clicks Stop, this whole function call (and its local variables)
+    # gets torn down mid-flight by Streamlit before it ever sees the click --
+    # so the *next* run has nothing to go on except whatever was last written
+    # here to session_state.
+    st.session_state["active_run"] = {
+        "question": question,
+        "answer_text": answer_text,
+        "ladder_html": render_ladder_html(current_idx, phase_elapsed),
+    }
+
     thread.start()
     finished = False
     while not finished:
+        # If the user clicked stop on a *previous* run, this whole function
+        # call (and its thread) never even started -- Streamlit kills the
+        # in-flight script run the instant a new widget interaction comes
+        # in. That's handled in render_chat_page before we get here. This
+        # loop only watches the queue for the thread we just launched.
         try:
             kind, payload = out_q.get(timeout=0.12)
             now = time.time()
@@ -979,9 +1103,17 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
             phase_elapsed[PHASES[current_idx]] = (
                 time.time() - phase_start_times[PHASES[current_idx]]
             )
-        ladder_ph.markdown(
-            render_ladder_html(current_idx, phase_elapsed), unsafe_allow_html=True
-        )
+        ladder_html = render_ladder_html(current_idx, phase_elapsed)
+        ladder_ph.markdown(ladder_html, unsafe_allow_html=True)
+
+        # Mirror progress so a stop-induced rerun can recover it. Cheap
+        # dict writes; happens at most ~every 0.12s (queue poll interval)
+        # or immediately on each phase/token event.
+        st.session_state["active_run"] = {
+            "question": question,
+            "answer_text": answer_text,
+            "ladder_html": ladder_html,
+        }
 
     time.sleep(0.4)
     ladder_ph.empty()
@@ -997,7 +1129,10 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
     results = final_payload["results"]
     best_score = final_payload["best_score"]
     used_sources = select_used_sources(results)
+
     render_used_sources(used_sources)
+
+    st.session_state["active_run"] = None
 
     msg = {
         "id": str(uuid.uuid4()),
@@ -1007,6 +1142,7 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
         "all_results": results,
         "best_score": best_score,
         "low_confidence": best_score < MIN_SCORE,
+        "interrupted": False,
         "diag": {
             "model": model_name,
             "embedding_model": EMBEDDING_MODEL_PATH,
@@ -1036,7 +1172,7 @@ def render_chat_page(model_name, client, embedding_model, index, chunks):
     messages = st.session_state["messages"]
     pending = st.session_state["pending_question"]
 
-    if not messages and not pending:
+    if not messages and not pending and not st.session_state.get("is_generating"):
         render_full_header(model_name)
         render_welcome_form()
         return
@@ -1047,15 +1183,63 @@ def render_chat_page(model_name, client, embedding_model, index, chunks):
         render_message(msg)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Called before the (blocking) pipeline run below so it's already painted
-    # on screen -- and pinned at the bottom -- the instant a question is sent.
-    prompt = st.chat_input(placeholder="សរសេរសំណួររបស់អ្នកនៅទីនេះ...")
+    # A question is about to start processing this run -- lock the input
+    # bar down to the stop button before the (blocking) pipeline call below.
+    if pending:
+        st.session_state["is_generating"] = True
+
+    if st.session_state["is_generating"]:
+        stop_clicked = render_stop_bar()
+        prompt = None
+    else:
+        stop_clicked = False
+        # Called before the (blocking) pipeline run below so it's already
+        # painted on screen -- and pinned at the bottom -- the instant a
+        # question is sent.
+        prompt = st.chat_input(placeholder="សរសេរសំណួររបស់អ្នកនៅទីនេះ...")
+
+    if stop_clicked:
+        # This branch only ever runs on the NEXT script execution after the
+        # click: clicking Stop is itself a new widget interaction, so
+        # Streamlit immediately tears down whatever run was mid-stream
+        # (including the thread-polling loop inside handle_new_question) and
+        # starts this fresh run. That old run's local variables are gone --
+        # but it was mirroring its progress into session_state["active_run"]
+        # on every loop tick, so we can recover the question, the partial
+        # answer, and the ladder right up to the moment of the click.
+        ev = st.session_state.get("stop_event")
+        if ev is not None:
+            ev.set()  # tells the orphaned background thread to stop streaming
+
+        active = st.session_state.get("active_run")
+        if active is not None:
+            st.session_state["messages"].append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "question": active["question"],
+                    "answer": active["answer_text"],
+                    "used_sources": [],
+                    "all_results": [],
+                    "best_score": 0.0,
+                    "low_confidence": False,
+                    "interrupted": True,
+                    "ladder_html": active["ladder_html"],
+                }
+            )
+
+        st.session_state["is_generating"] = False
+        st.session_state["stop_event"] = None
+        st.session_state["active_run"] = None
+        st.session_state["pending_question"] = None
+        st.rerun()
 
     if pending:
         st.session_state["pending_question"] = None
         st.markdown('<div class="kc-thread">', unsafe_allow_html=True)
         handle_new_question(pending, model_name, client, embedding_model, index, chunks)
         st.markdown("</div>", unsafe_allow_html=True)
+        st.session_state["is_generating"] = False
+        st.session_state["stop_event"] = None
         st.rerun()
 
     if prompt and prompt.strip():
