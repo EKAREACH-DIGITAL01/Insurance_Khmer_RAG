@@ -1,4 +1,7 @@
+import base64
+import re
 import subprocess
+import sys
 import time
 import requests
 import platform
@@ -122,10 +125,95 @@ while True:
     time.sleep(1)
 
 print("Model loaded.")
+
+
+def patch_streamlit_browser_chrome(title, favicon_path):
+    """Sets the browser tab's title/favicon to match this app instead of
+    Streamlit's defaults, by patching the static index.html Streamlit
+    serves (st.set_page_config() in app.py can't do this on its own --
+    it only takes effect once the page has already loaded and the
+    websocket has connected, by which point the static HTML's own
+    title/icon have already been read once).
+
+    Patches whichever streamlit installation `import streamlit` resolves
+    to for the interpreter running this script. The server below is
+    launched via `sys.executable -m streamlit` specifically so it's
+    guaranteed to be that exact same installation -- a bare "streamlit"
+    command resolves via PATH instead, which could silently pick a
+    different installed copy on a machine with more than one Python/
+    Streamlit install.
+
+    Safe to run on every launch -- always strips any previous version of
+    this patch first (in case an older, different patch logic was applied
+    before) and reapplies cleanly, so it can never accumulate stale
+    leftovers across app updates or get stuck skipping a real fix.
+
+    Note: a brief "Streamlit" flash specifically on the very first
+    navigation to a freshly-opened tab (but never on a reload of an
+    already-open one) is a Chromium tab-title-from-history quirk, not
+    something page content can control -- not worth chasing further."""
+    try:
+        import streamlit as st_pkg
+
+        index_path = Path(st_pkg.__file__).parent / "static" / "index.html"
+        if not index_path.exists():
+            return
+
+        html = index_path.read_text(encoding="utf-8")
+
+        # Strip any title-enforcer <script> block and marker comment left
+        # behind by earlier, more complex versions of this patch, so this
+        # always starts from a clean slate instead of layering a new
+        # marker on top while the old (now-unwanted) script stays behind.
+        html = re.sub(
+            r"<script>\s*\(function\(\) \{.*?khmer-chatbot.*?\}\)\(\);\s*</script>\s*",
+            "",
+            html,
+            flags=re.DOTALL,
+        )
+        html = re.sub(r"<!--\s*khmer-chatbot-branding-patch[^>]*-->\s*", "", html)
+
+        marker = "<!-- khmer-chatbot-branding-patch -->"
+
+        favicon_bytes = Path(favicon_path).read_bytes()
+        favicon_b64 = base64.b64encode(favicon_bytes).decode("ascii")
+        data_uri = f"data:image/png;base64,{favicon_b64}"
+
+        patched, title_count = re.subn(
+            r"<title>.*?</title>", f"<title>{title}</title>", html, count=1
+        )
+        patched, icon_count = re.subn(
+            r'<link rel="(?:shortcut icon|icon)"[^>]*>',
+            f'<link rel="icon" href="{data_uri}">',
+            patched,
+            count=1,
+        )
+
+        if title_count == 0 or icon_count == 0:
+            # Expected tags weren't found (unexpected streamlit static
+            # layout for this version) -- don't write a no-op/partial patch.
+            return
+
+        patched = patched.replace("</head>", f"{marker}\n</head>", 1)
+        index_path.write_text(patched, encoding="utf-8")
+    except Exception:
+        # Never let a cosmetic patch block the actual app from starting.
+        pass
+
+
+patch_streamlit_browser_chrome(
+    "Khmer Insurance Law Assistant",
+    PROJECT_ROOT / "assets" / "favicon.png",
+)
+
 print("Launching Streamlit...")
 
+# Using `sys.executable -m streamlit` (not the bare "streamlit" command) so
+# this is the exact same installation that was just patched above.
 subprocess.run(
     [
+        sys.executable,
+        "-m",
         "streamlit",
         "cache",
         "clear",
@@ -135,6 +223,8 @@ subprocess.run(
 try:
     subprocess.run(
         [
+            sys.executable,
+            "-m",
             "streamlit",
             "run",
             str(PROJECT_ROOT / "app.py"),

@@ -141,6 +141,15 @@ st.session_state.setdefault("pending_question", None)
 st.session_state.setdefault("is_generating", False)
 st.session_state.setdefault("stop_event", None)
 st.session_state.setdefault("active_run", None)
+# Holds the real queue.Queue and the numeric phase-tracking state for an
+# in-flight generation, NOT just a rendered snapshot of it (that's what
+# active_run is for). Storing the actual objects means ANY future script
+# run -- including the one triggered by navigating to Diagnostics and
+# back -- can literally resume draining the same background thread's
+# output where a previous, now-killed run left off, instead of the thread
+# being orphaned with nobody left to read its queue.
+st.session_state.setdefault("pipeline_out_q", None)
+st.session_state.setdefault("pipeline_state", None)
 
 IS_DIAGNOSTICS = st.session_state["view"] == "diagnostics"
 
@@ -1280,6 +1289,62 @@ def render_message(msg):
 
 
 def handle_new_question(question, model_name, client, embedding_model, index, chunks):
+    """Starts a NEW generation, or RESUMES one already in flight.
+
+    Resuming happens when session_state["pipeline_out_q"] is already set --
+    meaning a previous script run created that queue and background thread,
+    but got preempted (e.g. the user clicked Details mid-generation) before
+    it could finish draining it. The queue and stop_event are real Python
+    objects stashed directly in session_state (not just a snapshot of their
+    contents), so picking the SAME ones back up here means this run
+    continues draining the exact same background thread's output rather
+    than it being permanently orphaned with nobody left to read it.
+    """
+    resuming = st.session_state.get("pipeline_out_q") is not None
+
+    if resuming:
+        out_q = st.session_state["pipeline_out_q"]
+        stop_event = st.session_state["stop_event"]
+        saved = st.session_state["pipeline_state"]
+        question = saved["question"]
+        overall_start = saved["overall_start"]
+        phase_start_times = saved["phase_start_times"]
+        phase_elapsed = saved["phase_elapsed"]
+        current_idx = saved["current_idx"]
+        answer_text = saved["answer_text"]
+    else:
+        out_q = queue.Queue()
+        stop_event = threading.Event()
+        st.session_state["stop_event"] = stop_event
+        st.session_state["pipeline_out_q"] = out_q
+
+        thread = threading.Thread(
+            target=run_pipeline_in_thread,
+            args=(
+                question,
+                model_name,
+                client,
+                embedding_model,
+                index,
+                chunks,
+                out_q,
+                stop_event,
+            ),
+            daemon=True,
+        )
+
+        overall_start = time.time()
+        phase_start_times = {"encoding_query": overall_start}
+        phase_elapsed = {}
+        current_idx = 0
+        answer_text = ""
+
+        thread.start()
+
+    # The question bubble needs reprinting every time this function runs --
+    # including on resume, since THIS is a fresh script execution that
+    # hasn't drawn anything yet, regardless of what an earlier, now-dead
+    # run already sent to the browser.
     st.markdown(
         f'<div class="kc-msg-user-row"><div class="kc-msg-user">{html.escape(question)}</div></div>',
         unsafe_allow_html=True,
@@ -1289,54 +1354,48 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
 
     ladder_ph = st.empty()
     answer_ph = st.empty()
-
-    out_q = queue.Queue()
-    stop_event = threading.Event()
-    st.session_state["stop_event"] = stop_event
-
-    thread = threading.Thread(
-        target=run_pipeline_in_thread,
-        args=(
-            question,
-            model_name,
-            client,
-            embedding_model,
-            index,
-            chunks,
-            out_q,
-            stop_event,
-        ),
-        daemon=True,
+    if answer_text:
+        answer_ph.markdown(
+            f'<div class="kc-msg-assistant">{html.escape(answer_text)}</div>',
+            unsafe_allow_html=True,
+        )
+    ladder_ph.markdown(
+        render_ladder_html(current_idx, phase_elapsed), unsafe_allow_html=True
     )
 
-    overall_start = time.time()
-    phase_start_times = {"encoding_query": overall_start}
-    phase_elapsed = {}
-    current_idx = 0
-    answer_text = ""
     final_payload = None
     error_text = None
     out_of_domain_payload = None
 
-    # Seeded immediately, then kept in sync below on every loop tick. If the
-    # user clicks Stop, this whole function call (and its local variables)
-    # gets torn down mid-flight by Streamlit before it ever sees the click --
-    # so the *next* run has nothing to go on except whatever was last written
-    # here to session_state.
-    st.session_state["active_run"] = {
-        "question": question,
-        "answer_text": answer_text,
-        "ladder_html": render_ladder_html(current_idx, phase_elapsed),
-    }
+    def save_progress():
+        # Stores BOTH the raw numeric state needed to seamlessly resume
+        # this exact polling loop from a future run (pipeline_state), AND
+        # a pre-rendered snapshot for the interrupted-message/stop path
+        # (active_run, unchanged from before).
+        st.session_state["pipeline_state"] = {
+            "question": question,
+            "overall_start": overall_start,
+            "phase_start_times": phase_start_times,
+            "phase_elapsed": phase_elapsed,
+            "current_idx": current_idx,
+            "answer_text": answer_text,
+        }
+        st.session_state["active_run"] = {
+            "question": question,
+            "answer_text": answer_text,
+            "ladder_html": render_ladder_html(current_idx, phase_elapsed),
+        }
 
-    thread.start()
+    save_progress()
+
     finished = False
     while not finished:
         # If the user clicked stop on a *previous* run, this whole function
         # call (and its thread) never even started -- Streamlit kills the
         # in-flight script run the instant a new widget interaction comes
         # in. That's handled in render_chat_page before we get here. This
-        # loop only watches the queue for the thread we just launched.
+        # loop only watches the queue for the thread tied to it (freshly
+        # started, or resumed from a previous run -- same loop either way).
         try:
             kind, payload = out_q.get(timeout=0.12)
             now = time.time()
@@ -1388,14 +1447,16 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
         ladder_html = render_ladder_html(current_idx, phase_elapsed)
         ladder_ph.markdown(ladder_html, unsafe_allow_html=True)
 
-        # Mirror progress so a stop-induced rerun can recover it. Cheap
-        # dict writes; happens at most ~every 0.12s (queue poll interval)
-        # or immediately on each phase/token event.
-        st.session_state["active_run"] = {
-            "question": question,
-            "answer_text": answer_text,
-            "ladder_html": ladder_html,
-        }
+        # Mirror progress so a stop-induced rerun, OR a later run resuming
+        # this same queue, can recover it. Cheap dict writes; happens at
+        # most ~every 0.12s (queue poll interval) or immediately on each
+        # phase/token event.
+        save_progress()
+
+    # Generation has concluded one way or another -- this queue/state is no
+    # longer adoptable by a future run.
+    st.session_state["pipeline_out_q"] = None
+    st.session_state["pipeline_state"] = None
 
     time.sleep(0.4)
     ladder_ph.empty()
@@ -1575,11 +1636,24 @@ def render_chat_page(model_name, client, embedding_model, index, chunks):
         st.session_state["is_generating"] = False
         st.session_state["stop_event"] = None
         st.session_state["active_run"] = None
+        st.session_state["pipeline_out_q"] = None
+        st.session_state["pipeline_state"] = None
         st.session_state["pending_question"] = None
         st.markdown("</div>", unsafe_allow_html=True)
         st.rerun()
 
-    if pending:
+    # A fresh question was just submitted ("pending"), OR a generation
+    # started by some earlier, now-preempted run is still in flight and
+    # adoptable (is_generating is True, nothing newly pending, and its
+    # queue/stop_event are still sitting in session_state ready to be
+    # resumed) -- either way, handle_new_question drives it from here.
+    resuming = (
+        not pending
+        and st.session_state.get("is_generating")
+        and st.session_state.get("pipeline_out_q") is not None
+    )
+
+    if pending or resuming:
         st.session_state["pending_question"] = None
         handle_new_question(pending, model_name, client, embedding_model, index, chunks)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -1591,6 +1665,13 @@ def render_chat_page(model_name, client, embedding_model, index, chunks):
         st.session_state["pending_question"] = payload
         st.markdown("</div>", unsafe_allow_html=True)
         st.rerun()
+
+    # Defensive: is_generating shouldn't be True here with nothing to
+    # resume (pending and resuming both false) -- but if some future
+    # change ever produces that mismatch, fail open rather than leaving
+    # the input bar stuck showing the stop button forever.
+    if st.session_state.get("is_generating"):
+        st.session_state["is_generating"] = False
 
     st.markdown("</div>", unsafe_allow_html=True)
 
