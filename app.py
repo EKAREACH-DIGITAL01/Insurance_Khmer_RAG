@@ -472,12 +472,13 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 }}
 .kc-console-title {{
   font-family: 'IBM Plex Mono', monospace; font-size: 10.5px;
-  letter-spacing: 0.08em; color: var(--brass); text-transform: uppercase; margin-bottom: 8px;
+  letter-spacing: 0.08em; color: var(--brass); text-transform: uppercase;
+  margin: 6px 0 8px 0;
 }}
 .kc-row {{
   display: flex; justify-content: space-between; gap: 10px;
   font-family: 'IBM Plex Mono', monospace; font-size: 12px;
-  padding: 3px 0; border-bottom: 1px dashed rgba(157,182,171,0.15);
+  padding: 6px 0; border-bottom: 1px dashed rgba(157,182,171,0.15);
 }}
 .kc-row:last-child {{ border-bottom: none; }}
 .kc-row-label {{ color: var(--mist); opacity: 0.85; }}
@@ -1053,12 +1054,18 @@ def render_message(msg):
         )
         if msg.get("ladder_html"):
             st.markdown(msg["ladder_html"], unsafe_allow_html=True)
+    if msg.get("errored"):
+        st.markdown(
+            f'<div class="kc-alert">Something went wrong while generating the answer: '
+            f'{html.escape(msg.get("error_text", "unknown error"))}</div>',
+            unsafe_allow_html=True,
+        )
     if msg["answer"]:
         st.markdown(
             f'<div class="kc-msg-assistant">{html.escape(msg["answer"])}</div>',
             unsafe_allow_html=True,
         )
-    if not msg.get("interrupted"):
+    if not msg.get("interrupted") and not msg.get("errored"):
         render_used_sources(msg["used_sources"])
         st.markdown('<div class="kc-msg-actions">', unsafe_allow_html=True)
         if st.button("Details", key=f"diag_{msg['id']}"):
@@ -1181,53 +1188,90 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
     ladder_ph.empty()
 
     if error_text:
-        answer_ph.markdown(
-            f'<div class="kc-alert">Something went wrong while generating the answer: '
-            f"{html.escape(error_text)}</div>",
-            unsafe_allow_html=True,
+        # Previously this only flashed a transient alert via answer_ph and
+        # returned -- but render_chat_page unconditionally st.rerun()s right
+        # after handle_new_question, which redraws the whole page from
+        # session_state["messages"]. Since nothing was appended there, the
+        # alert vanished and the question disappeared with no trace. Persist
+        # it like an interrupted message instead.
+        st.session_state["active_run"] = None
+        st.session_state["messages"].append(
+            {
+                "id": str(uuid.uuid4()),
+                "question": question,
+                "answer": "",
+                "used_sources": [],
+                "all_results": [],
+                "best_score": 0.0,
+                "low_confidence": False,
+                "interrupted": False,
+                "errored": True,
+                "error_text": error_text,
+            }
         )
         return
 
-    results = final_payload["results"]
-    best_score = final_payload["best_score"]
-    used_sources = select_used_sources(results)
+    # Defensive: anything unexpected here (e.g. a malformed payload from a
+    # future change) must never escape as an uncaught exception. If it did,
+    # render_chat_page's "is_generating = False" reset right after this call
+    # would never be reached, permanently locking the input bar into its
+    # generating/stop state with no way back short of restarting the app.
+    try:
+        results = final_payload["results"]
+        best_score = final_payload["best_score"]
+        used_sources = select_used_sources(results)
 
-    render_used_sources(used_sources)
+        render_used_sources(used_sources)
 
-    st.session_state["active_run"] = None
-
-    msg = {
-        "id": str(uuid.uuid4()),
-        "question": question,
-        "answer": answer_text,
-        "used_sources": used_sources,
-        "all_results": results,
-        "best_score": best_score,
-        "low_confidence": best_score < MIN_SCORE,
-        "interrupted": False,
-        "diag": {
-            "model": model_name,
-            "embedding_model": EMBEDDING_MODEL_PATH,
-            "embedding_device": str(embedding_model.device),
-            "top_k": TOP_K,
-            "embed_time": final_payload["embed_time"],
-            "search_time": final_payload["search_time"],
-            "retrieval_time": final_payload["retrieval_time"],
-            "min_score": final_payload["min_score"],
-            "spread_score": final_payload["spread_score"],
-            "context_length": final_payload["context_length"],
-            "context_tokens": final_payload["context_tokens"],
-            "context_time": final_payload["context_time"],
-            "prompt_length": final_payload["prompt_length"],
-            "prompt_tokens": final_payload["prompt_tokens"],
-            "first_token_time": final_payload["first_token_time"],
-            "generation_time": final_payload["generation_time"],
-            "total_time": time.time() - overall_start,
-            "generated_chars": final_payload["generated_chars"],
-            "generated_tokens": final_payload["generated_tokens"],
-        },
-    }
-    st.session_state["messages"].append(msg)
+        msg = {
+            "id": str(uuid.uuid4()),
+            "question": question,
+            "answer": answer_text,
+            "used_sources": used_sources,
+            "all_results": results,
+            "best_score": best_score,
+            "low_confidence": best_score < MIN_SCORE,
+            "interrupted": False,
+            "diag": {
+                "model": model_name,
+                "embedding_model": EMBEDDING_MODEL_PATH,
+                "embedding_device": str(embedding_model.device),
+                "top_k": TOP_K,
+                "embed_time": final_payload["embed_time"],
+                "search_time": final_payload["search_time"],
+                "retrieval_time": final_payload["retrieval_time"],
+                "min_score": final_payload["min_score"],
+                "spread_score": final_payload["spread_score"],
+                "context_length": final_payload["context_length"],
+                "context_tokens": final_payload["context_tokens"],
+                "context_time": final_payload["context_time"],
+                "prompt_length": final_payload["prompt_length"],
+                "prompt_tokens": final_payload["prompt_tokens"],
+                "first_token_time": final_payload["first_token_time"],
+                "generation_time": final_payload["generation_time"],
+                "total_time": time.time() - overall_start,
+                "generated_chars": final_payload["generated_chars"],
+                "generated_tokens": final_payload["generated_tokens"],
+            },
+        }
+        st.session_state["messages"].append(msg)
+    except Exception as e:
+        st.session_state["messages"].append(
+            {
+                "id": str(uuid.uuid4()),
+                "question": question,
+                "answer": answer_text,
+                "used_sources": [],
+                "all_results": [],
+                "best_score": 0.0,
+                "low_confidence": False,
+                "interrupted": False,
+                "errored": True,
+                "error_text": f"internal error while finalizing the answer: {e}",
+            }
+        )
+    finally:
+        st.session_state["active_run"] = None
 
 
 def render_chat_page(model_name, client, embedding_model, index, chunks):
@@ -1331,8 +1375,8 @@ def console_block(title, rows):
         for k, v in rows
     )
     st.markdown(
-        f'<div class="kc-console-block"><div class="kc-console-title">&gt; {html.escape(title)}</div>'
-        f"{row_html}</div>",
+        f'<div class="kc-console-title">&gt; {html.escape(title)}</div>'
+        f'<div class="kc-console-block">{row_html}</div>',
         unsafe_allow_html=True,
     )
 
