@@ -297,7 +297,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-topbar-title {{ font-family: 'Moul', serif; font-size: 15px; color: var(--lacquer); }}
 .kc-topbar-sub {{ font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--brass); opacity: 0.85; }}
 
-.kc-thread {{ padding-top: 64px; }}
+.kc-thread {{ padding-top: 64px; padding-bottom: 96px; }}
 
 .kc-msg-user-row {{ display: flex; justify-content: flex-end; margin: 18px 0 6px 0; }}
 .kc-msg-user {{
@@ -342,30 +342,71 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 }}
 [data-testid="stButton"] button:hover {{ color: {BUTTON_HOVER_COLOR} !important; text-decoration: underline; }}
 
-/* ---------- Native chat input (bottom-pinned by Streamlit itself) ---------- */
-[data-testid="stChatInput"] {{
-  background: var(--parchment-soft) !important;
-  border: 1px solid var(--brass-soft) !important;
-  border-radius: 26px !important;
-  box-shadow: 0 4px 18px rgba(58,53,43,0.12);
+/* ---------- Persistent pinned chat bar (idle + generating share one bar) ----------
+   st.chat_input anchors itself in Streamlit's persistent "stBottom" slot,
+   which isn't reliably cleared on runs where it's skipped -- that caused an
+   old input to ghost on screen. A plain st.container has no such
+   special-cased persistence. Both idle/generating states render through
+   the SAME st.container(key="kc_chatbar") call, with a borderless st.form
+   nested inside purely for widget grouping -- the outer container is what
+   carries the CSS-targetable "st-key-kc_chatbar" class reliably (a
+   borderless st.form's own key does not reliably expose the same class).
+   Only the inner content (text field vs status text) and the submit
+   button's icon differ between states, toggled purely with CSS via
+   :has(), so the outer box itself never moves or resizes. */
+.st-key-kc_chatbar {{
+  position: fixed !important;
+  left: 50% !important;
+  bottom: 24px !important;
+  transform: translateX(-50%) !important;
+  contain: none !important;
+  filter: none !important;
+  will-change: auto !important;
+  z-index: 999;
+  max-width: 560px;
+  width: calc(100% - 48px);
+  margin: 0 !important;
 }}
-[data-testid="stChatInput"] textarea {{
-  font-family: 'Hanuman', sans-serif !important;
-  font-size: 15.5px !important;
-  color: var(--stone) !important;
+.st-key-kc_chatbar [data-testid="stForm"] {{
+  margin: 0 !important;
 }}
-[data-testid="stChatInput"] textarea::placeholder {{ color: var(--stone); opacity: 0.5; }}
-[data-testid="stChatInputSubmitButton"] button,
-[data-testid="stChatInputSubmitButton"] {{
+.st-key-kc_chatbar [data-testid="stHorizontalBlock"] {{
+  align-items: center !important;
+  gap: 0.5rem !important;
+}}
+.st-key-kc_chatbar [data-testid="column"] {{ padding: 0 !important; }}
+
+.kc-stopbar-text {{
+  font-family: 'Hanuman', sans-serif;
+  font-size: 15.5px;
+  color: var(--stone);
+  opacity: 0.55;
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 8px;
+}}
+
+/* Stop-mode icon swap: detected via the .kc-stopbar-text marker that only
+   exists in the form's DOM while generating. Same 42px circular button as
+   the send arrow -- only the glyph inside changes. */
+.st-key-kc_chatbar:has(.kc-stopbar-text) [data-testid="stFormSubmitButton"] button {{
   background: var(--lacquer) !important;
-  border-radius: 50% !important;
+  position: relative !important;
 }}
-[data-testid="stChatInputSubmitButton"] svg {{ fill: var(--parchment-soft) !important; }}
-[data-testid="stBottom"],
-[data-testid="stBottomBlockContainer"],
-[data-testid="stBottom"] > div,
-[data-testid="stApp"] [data-testid="stBottom"] {{
-  background: var(--parchment) !important;
+.st-key-kc_chatbar:has(.kc-stopbar-text) [data-testid="stFormSubmitButton"] button::before {{
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 13px;
+  height: 13px;
+  background: var(--parchment-soft);
+  border-radius: 3px;
+}}
+.st-key-kc_chatbar:has(.kc-stopbar-text) [data-testid="stFormSubmitButton"] button:hover {{
+  background: var(--lacquer-deep) !important;
 }}
 
 .kc-alert {{
@@ -549,63 +590,6 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   border-top: 1px solid var(--ink-line);
 }}
 
-/* ---------- Stop / interrupt bar (replaces chat input while generating) ---------- */
-.st-key-kc_stopbar {{
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  z-index: 999;
-  max-width: 560px;
-  width: calc(100% - 48px);
-}}
-.st-key-kc_stopbar [data-testid="stHorizontalBlock"] {{
-  background: var(--parchment-soft);
-  border: 1px solid var(--brass-soft);
-  border-radius: 26px;
-  padding: 6px 16px;
-  box-shadow: 0 4px 18px rgba(58,53,43,0.12);
-  align-items: center !important;
-}}
-.kc-stopbar-text {{
-  font-family: 'Hanuman', sans-serif;
-  font-size: 15.5px;
-  color: var(--stone);
-  opacity: 0.55;
-  padding: 10px 8px;
-}}
-.st-key-kc_stopbar [data-testid="stButton"] {{
-  display: flex !important;
-  justify-content: center !important;
-}}
-.st-key-kc_stopbar [data-testid="stButton"] button {{
-  background: var(--lacquer) !important;
-  border: none !important;
-  width: 36px !important;
-  height: 36px !important;
-  min-width: 36px !important;
-  border-radius: 9px !important;
-  margin-left: auto !important;
-  padding: 0 !important;
-  position: relative !important;
-  box-shadow: none !important;
-}}
-.st-key-kc_stopbar [data-testid="stButton"] button p {{ display: none !important; }}
-.st-key-kc_stopbar [data-testid="stButton"] button::before {{
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 13px;
-  height: 13px;
-  background: var(--parchment-soft);
-  border-radius: 3px;
-}}
-.st-key-kc_stopbar [data-testid="stButton"] button:hover {{
-  background: var(--lacquer-deep) !important;
-}}
-
 @media (prefers-reduced-motion: reduce) {{
   * {{ animation: none !important; transition: none !important; }}
 }}
@@ -635,6 +619,46 @@ components.html(
     """,
     height=0,
 )
+
+
+def scroll_to_bottom():
+    """Scrolls the actual app viewport (not this throwaway iframe) down to
+    the latest content. Runs inside a 0-height components.html iframe, so it
+    has to reach back out to window.parent to find Streamlit's real
+    scrolling element -- same trick as the keydown listener above.
+
+    Streamlit's actual scrolling container has varied across versions
+    ("stAppViewContainer", "stMain", plain document scroll...), so rather
+    than guess one selector, this just scrolls every plausible candidate
+    plus the window itself. Harmless no-ops for whichever aren't actually
+    scrollable."""
+    components.html(
+        """
+        <script>
+        (function() {
+            const doc = window.parent.document;
+            const win = window.parent;
+            const candidates = [
+                doc.querySelector('[data-testid="stAppViewContainer"]'),
+                doc.querySelector('[data-testid="stMain"]'),
+                doc.querySelector('.main'),
+                doc.scrollingElement,
+                doc.body,
+            ];
+            candidates.forEach(function(el) {
+                if (el) {
+                    try { el.scrollTo({ top: el.scrollHeight, behavior: "auto" }); }
+                    catch (e) {}
+                }
+            });
+            try { win.scrollTo({ top: doc.body.scrollHeight, behavior: "auto" }); }
+            catch (e) {}
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
 
 # ----------------------------------------------------------------------------
 # Backend
@@ -948,20 +972,51 @@ def render_compact_topbar(model_name):
     )
 
 
-def render_stop_bar():
-    """Replaces the native chat input while a question is being processed.
-    Visually a square 'stop' button instead of the arrow. Returns True if
-    the user clicked it on this run."""
-    with st.container(key="kc_stopbar"):
-        col_text, col_btn = st.columns([8, 1])
-        with col_text:
-            st.markdown(
-                '<div class="kc-stopbar-text">កំពុងបង្កើតចម្លើយ...</div>',
-                unsafe_allow_html=True,
-            )
-        with col_btn:
-            clicked = st.button("stop", key="kc_stop_btn")
-    return clicked
+def render_input_bar():
+    """Single persistent fixed-position bar at the bottom of the chat
+    screen, used for both idle (ask a question) and generating (show stop
+    button) states. Both states render through the same call site (outer
+    key="kc_chatbar"), so the box itself never moves or resizes -- only the
+    inner content (text field vs status text) and the submit button's icon
+    (CSS-swapped via :has(), see stylesheet) differ between them.
+
+    The CSS-targetable wrapper is a plain st.container(key=...), NOT
+    st.form's own key -- a borderless st.form does not reliably expose the
+    same "st-key-<key>" class for CSS targeting, which silently dropped all
+    of our positioning/icon-swap CSS once border=False was set. A plain
+    keyed container has none of that ambiguity.
+
+    Returns (action, payload):
+      ("send", question_text)  -- user submitted a new question
+      ("stop", None)           -- user clicked stop while generating
+      (None, None)             -- nothing happened this run
+    """
+    is_gen = st.session_state["is_generating"]
+    question_value = ""
+    with st.container(key="kc_chatbar"):
+        with st.form(key="kc_chatbar_form", clear_on_submit=True, border=False):
+            col_input, col_btn = st.columns([8, 1])
+            with col_input:
+                if is_gen:
+                    st.markdown(
+                        '<div class="kc-stopbar-text">កំពុងបង្កើតចម្លើយ...</div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    question_value = st.text_input(
+                        "Ask a follow-up question",
+                        label_visibility="collapsed",
+                        placeholder="សរសេរសំណួររបស់អ្នកនៅទីនេះ...",
+                        key="kc_chatbar_input",
+                    )
+            with col_btn:
+                submitted = st.form_submit_button("")
+
+    if is_gen:
+        return ("stop", None) if submitted else (None, None)
+    if submitted and question_value.strip():
+        return ("send", question_value.strip())
+    return (None, None)
 
 
 def render_used_sources(used_sources):
@@ -1019,6 +1074,7 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
         f'<div class="kc-msg-user-row"><div class="kc-msg-user">{html.escape(question)}</div></div>',
         unsafe_allow_html=True,
     )
+    scroll_to_bottom()
     st.markdown('<div class="kc-msg-assistant-row">', unsafe_allow_html=True)
 
     ladder_ph = st.empty()
@@ -1079,6 +1135,11 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
                 )
                 current_idx = PHASES.index(payload)
                 phase_start_times[payload] = now
+                # Re-anchor to the bottom as the ladder grows -- a single
+                # scroll right when the question bubble appears (before any
+                # ladder rows exist) isn't enough, since the page keeps
+                # growing taller below that point as each phase completes.
+                scroll_to_bottom()
             elif kind == "token":
                 answer_text += payload
                 answer_ph.markdown(
@@ -1093,6 +1154,7 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
                 phase_elapsed["completed"] = now - overall_start
                 final_payload = payload
                 finished = True
+                scroll_to_bottom()
             elif kind == "error":
                 error_text = payload
                 finished = True
@@ -1178,27 +1240,28 @@ def render_chat_page(model_name, client, embedding_model, index, chunks):
         return
 
     render_compact_topbar(model_name)
+    # Single .kc-thread wrapper spans BOTH the existing history and the
+    # currently-processing question below it -- previously this was opened
+    # and closed twice (once per section), stacking the wrapper's top/bottom
+    # padding on top of itself and leaving a large blank gap between them.
     st.markdown('<div class="kc-thread">', unsafe_allow_html=True)
     for msg in messages:
         render_message(msg)
-    st.markdown("</div>", unsafe_allow_html=True)
 
     # A question is about to start processing this run -- lock the input
-    # bar down to the stop button before the (blocking) pipeline call below.
+    # bar down to its generating/stop state before the (blocking) pipeline
+    # call below.
     if pending:
         st.session_state["is_generating"] = True
 
-    if st.session_state["is_generating"]:
-        stop_clicked = render_stop_bar()
-        prompt = None
-    else:
-        stop_clicked = False
-        # Called before the (blocking) pipeline run below so it's already
-        # painted on screen -- and pinned at the bottom -- the instant a
-        # question is sent.
-        prompt = st.chat_input(placeholder="សរសេរសំណួររបស់អ្នកនៅទីនេះ...")
+    # Rendered before the (blocking) pipeline run below so it's already
+    # painted on screen the instant a question is sent. Its position on
+    # screen is governed purely by CSS (position: fixed), not by where it
+    # sits in the markup, so calling it here -- ahead of the new question's
+    # own content -- doesn't affect where it visually appears.
+    action, payload = render_input_bar()
 
-    if stop_clicked:
+    if action == "stop":
         # This branch only ever runs on the NEXT script execution after the
         # click: clicking Stop is itself a new widget interaction, so
         # Streamlit immediately tears down whatever run was mid-stream
@@ -1231,20 +1294,29 @@ def render_chat_page(model_name, client, embedding_model, index, chunks):
         st.session_state["stop_event"] = None
         st.session_state["active_run"] = None
         st.session_state["pending_question"] = None
+        st.markdown("</div>", unsafe_allow_html=True)
         st.rerun()
 
     if pending:
         st.session_state["pending_question"] = None
-        st.markdown('<div class="kc-thread">', unsafe_allow_html=True)
         handle_new_question(pending, model_name, client, embedding_model, index, chunks)
         st.markdown("</div>", unsafe_allow_html=True)
         st.session_state["is_generating"] = False
         st.session_state["stop_event"] = None
         st.rerun()
 
-    if prompt and prompt.strip():
-        st.session_state["pending_question"] = prompt.strip()
+    if action == "send":
+        st.session_state["pending_question"] = payload
+        st.markdown("</div>", unsafe_allow_html=True)
         st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Idle tail: only reached once a question has fully finished (or been
+    # stopped) and the page has settled -- safe to snap to the bottom so
+    # the newest content (ladder/answer/interrupted notice) is visible
+    # without the user needing to scroll.
+    scroll_to_bottom()
 
 
 # ----------------------------------------------------------------------------
