@@ -40,6 +40,7 @@ PHASES = [
     "searching_faiss",
     "building_context",
     "constructing_prompt",
+    "preparing_response",
     "generating_response",
     "completed",
 ]
@@ -59,6 +60,10 @@ PHASE_LABELS = {
     "constructing_prompt": (
         "<b>Constructing Prompt</b> - "
         "<i>Context, instructions, and question are being merged</i>"
+    ),
+    "preparing_response": (
+        "<b>Preparing Response</b> - "
+        "<i>SeaLLMs is processing the prompt and preparing the first token</i>"
     ),
     "generating_response": (
         "<b>Generating Response</b> - "
@@ -850,7 +855,7 @@ def run_pipeline_in_thread(
         context_tokens = count_tokens(context)
         prompt_tokens = count_tokens(prompt)
 
-        out_q.put(("phase", "generating_response"))
+        out_q.put(("phase", "preparing_response"))
 
         gen_start = time.time()
         first_token_time = None
@@ -877,6 +882,7 @@ def run_pipeline_in_thread(
                 total_tokens_out += 1
                 if first_token_time is None:
                     first_token_time = time.time() - gen_start
+                    out_q.put(("phase", "generating_response"))
                 out_q.put(("token", delta))
 
         try:
@@ -1530,6 +1536,10 @@ def render_diagnostics_page():
             [
                 ("first token", f'{d["first_token_time"]:.4f}s'),
                 ("generation time", f'{d["generation_time"]:.4f}s'),
+                (
+                    "tokens/sec",
+                    f'{d["generated_tokens"]/max(d["generation_time"],0.001):.4f}',
+                ),
                 ("total time", f'{d["total_time"]:.4f}s'),
                 ("output token", tok(d["generated_tokens"])),
                 ("generated chars", d["generated_chars"]),
