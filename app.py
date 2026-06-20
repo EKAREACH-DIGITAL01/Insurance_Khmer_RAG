@@ -385,6 +385,9 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   align-items: center;
   min-height: 42px;
   padding: 0 8px;
+
+  position: relative;
+  top: -5px;
 }}
 
 /* Stop-mode icon swap: detected via the .kc-stopbar-text marker that only
@@ -448,15 +451,25 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 
 /* ---------- Diagnostics page (ink register) ---------- */
 .kc-diag-header {{
-  display: flex; align-items: baseline; gap: 14px;
+  text-align: center;
   border-bottom: 1px solid var(--ink-line);
-  padding-bottom: 14px; margin-bottom: 18px;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
 }}
+
 .kc-diag-title {{
-  font-family: 'IBM Plex Mono', monospace; font-size: 13px;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--brass);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--brass);
+  text-align: center;
 }}
-.kc-diag-question {{ font-family: 'Hanuman', sans-serif; font-size: 14px; color: var(--parchment-soft); opacity: 0.85; }}
+.kc-diag-question {{
+  font-family: 'Moul', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--brass);
+}}
 .kc-console-block {{
   background: var(--ink-soft);
   border: 1px solid var(--ink-line);
@@ -903,7 +916,7 @@ def render_ladder_html(current_idx, phase_elapsed):
     for i, key in enumerate(PHASES):
         label_html = PHASE_LABELS[key]
         elapsed = phase_elapsed.get(key)
-        time_str = f"{elapsed:.1f}s" if elapsed is not None else ""
+        time_str = f"{elapsed:.4f}s" if elapsed is not None else ""
         if i < current_idx or (key == "completed" and i == current_idx):
             icon = '<span class="kc-step-icon kc-step-done">&#10003;</span>'
             row_cls = "kc-step-row"
@@ -1031,7 +1044,15 @@ def render_used_sources(used_sources):
             f'<div class="id">{cid}</div></div>'
         )
     st.markdown(
-        f'<div class="kc-sources-block">{"".join(chips)}</div>', unsafe_allow_html=True
+        f"""
+        <div class="kc-sources-title" style="color: var(--brass); padding-top: 20px;">
+            ប្រភព
+        </div>
+        <div class="kc-sources-block">
+            {"".join(chips)}
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
@@ -1068,7 +1089,7 @@ def render_message(msg):
     if not msg.get("interrupted") and not msg.get("errored"):
         render_used_sources(msg["used_sources"])
         st.markdown('<div class="kc-msg-actions">', unsafe_allow_html=True)
-        if st.button("Details", key=f"diag_{msg['id']}"):
+        if st.button("មើលព័ត៌មានលម្អិត", key=f"diag_{msg['id']}"):
             st.session_state["view"] = "diagnostics"
             st.session_state["active_msg_id"] = msg["id"]
             st.rerun()
@@ -1460,8 +1481,9 @@ def render_diagnostics_page():
         return
 
     st.markdown(
-        f'<div class="kc-diag-header"><div class="kc-diag-title">DIAGNOSTICS</div>'
-        f'<div class="kc-diag-question">{html.escape(msg["question"])}</div></div>',
+        f'<div class="kc-diag-header">'
+        f'<div class="kc-diag-title">DIAGNOSTICS — <span class="kc-diag-question">{html.escape(msg["question"])}</span></div>'
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -1470,7 +1492,7 @@ def render_diagnostics_page():
     def tok(value):
         return f"{value:,}" if value is not None else "N/A"
 
-    col1, col2 = st.columns([1, 2.4])
+    col1, col2 = st.columns([1.25, 2.15])
     with col1:
         console_block(
             "SYSTEM",
@@ -1485,9 +1507,9 @@ def render_diagnostics_page():
         console_block(
             "RETRIEVAL",
             [
-                ("embed time", f'{d["embed_time"]:.3f}s'),
-                ("faiss time", f'{d["search_time"]:.3f}s'),
-                ("retrieval time", f'{d["retrieval_time"]:.3f}s'),
+                ("embed time", f'{d["embed_time"]:.4f}s'),
+                ("faiss time", f'{d["search_time"]:.4f}s'),
+                ("retrieval time", f'{d["retrieval_time"]:.4f}s'),
                 ("best score", f'{msg["best_score"]:.4f}'),
                 ("min score", f'{d["min_score"]:.4f}'),
                 ("spread score", f'{d["spread_score"]:.4f}'),
@@ -1498,7 +1520,7 @@ def render_diagnostics_page():
             [
                 ("context length", f'{d["context_length"]} chars'),
                 ("context token", tok(d["context_tokens"])),
-                ("context build time", f'{d["context_time"]:.3f}s'),
+                ("context build time", f'{d["context_time"]:.4f}s'),
                 ("prompt length", f'{d["prompt_length"]} chars'),
                 ("prompt token", tok(d["prompt_tokens"])),
             ],
@@ -1506,9 +1528,9 @@ def render_diagnostics_page():
         console_block(
             "GENERATION",
             [
-                ("first token", f'{d["first_token_time"]:.3f}s'),
-                ("generation time", f'{d["generation_time"]:.3f}s'),
-                ("total time", f'{d["total_time"]:.3f}s'),
+                ("first token", f'{d["first_token_time"]:.4f}s'),
+                ("generation time", f'{d["generation_time"]:.4f}s'),
+                ("total time", f'{d["total_time"]:.4f}s'),
                 ("output token", tok(d["generated_tokens"])),
                 ("generated chars", d["generated_chars"]),
             ],
