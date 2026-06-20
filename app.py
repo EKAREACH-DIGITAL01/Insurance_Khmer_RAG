@@ -10,6 +10,7 @@ faiss.omp_set_num_threads(1)
 import html
 import json
 import queue
+import re
 import threading
 import time
 import uuid
@@ -28,6 +29,57 @@ TOP_K = 10
 CONTEXT_K = 5  # how many chunks actually go into the LLM prompt (<= TOP_K)
 MAX_CHUNKS_PER_DOC = 1  # cap near-duplicate chunks from the same document
 MIN_SCORE = 0.50
+# Hard floor below MIN_SCORE: scores under this are treated as "not even
+# in-domain" and skip the LLM call entirely (out-of-domain questions like
+# "who is Messi?" still return *some* top-10 from FAISS -- it always
+# returns k results -- just with low scores; without this gate that
+# irrelevant context still gets sent through a full ~75-150s generation).
+# Tune empirically: should sit below the worst score seen on genuine
+# Case 2 questions (valid domain, weak coverage) and above what garbage
+# queries actually score on your index -- check the diagnostics page after
+# trying a few out-of-domain questions and adjust if needed.
+#
+# Calibration log (raise/lower as more real data comes in):
+#   "who is messi?" (caught separately by the Khmer-script gate now)  -> 0.295
+#   "តើអ្នកស្រឡាញ់ខ្ញុំទេ?" (valid Khmer grammar, no topical relevance) -> 0.3959
+#   "ហេតុអ្វីបានជាអ្នកឆ្លើយមិនចេញ?" (meta-question about the assistant)  -> 0.457
+#       -- still hallucinated a confident wrong answer even with the
+#          low-confidence relevance-check prompt instruction added.
+#   "ប្រទេសកម្ពុជាសម្បូរទៅដោយមនុស្សប្រុសទេ?" (off-topic chit-chat)        -> 0.474
+#       -- hallucinated a garbled answer stitching together 5 unrelated
+#          chunks instead of declining.
+#   "ខ្ញុំពិបាកចិត្តណាស់ជួយខ្ញុំផង" (distress, not a legal question)      -> 0.484
+#       -- this one DID correctly decline. The only success in this band.
+#   Raised from 0.42 to 0.49 (just under MIN_SCORE): 3 of 4 real
+#   non-insurance questions tested in the 0.42-0.50 band produced
+#   hallucinated/garbled output despite the relevance-check instruction,
+#   not just "low confidence" ones. That band has proven to be more
+#   dangerous than useful on this model/quantization, so this trades away
+#   some recall on weak-but-real questions (still unconfirmed whether any
+#   exist in this exact range) in favor of not fabricating answers. If a
+#   genuinely valid (if weak) question starts getting rejected here,
+#   that's the signal to lower this again -- but until that's observed,
+#   the evidence favors precision over recall in this band.
+OUT_OF_DOMAIN_THRESHOLD = 0.49
+# Catches degenerate inputs ("Hi", "ok") that the score gate alone misses --
+# very short/low-information queries can embed to a deceptively "moderate"
+# similarity against *something* in a large corpus purely from vector-space
+# geometry, not real relevance. No legitimate Khmer insurance-law question
+# is this short, so this is a safe, score-independent pre-check.
+MIN_QUESTION_LENGTH = 8
+# Deterministic language gate: if a question contains zero Khmer-script
+# characters, it's not a Khmer question -- no embedding similarity needed
+# to know that. This catches English chit-chat ("do you love me?", "who is
+# Messi?") that the score gate alone let through inconsistently, since
+# short English phrases can land deceptively close to *something* in a
+# multilingual embedding space. Khmer Unicode block: U+1780-U+17FF.
+KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
+
+
+def contains_khmer_script(text):
+    return bool(KHMER_SCRIPT_PATTERN.search(text))
+
+
 USED_SOURCE_MARGIN = (
     0.03  # how close a score must be to the top score to also count as "used"
 )
@@ -776,19 +828,46 @@ def build_context(results):
     return context, context_length, context_time
 
 
-def build_prompt(question, context):
+def build_prompt(question, context, low_confidence=False):
+    relevance_check = ""
+    if low_confidence:
+        # Triggered when best_score sits below MIN_SCORE but above
+        # OUT_OF_DOMAIN_THRESHOLD -- i.e. retrieval wasn't confident enough
+        # to reject outright, but isn't a clean match either. The risk in
+        # this band specifically isn't "no context was found" (the model
+        # already handles that case via the rule below) -- it's that the
+        # retrieved chunks share VOCABULARY with the question without
+        # sharing its actual TOPIC (e.g. a meta-question about the
+        # assistant itself landing on legal complaint-procedure documents
+        # purely because both use the word "answer/respond"). A 7B model
+        # under low temperature tends to pattern-match surface phrasing
+        # from such chunks into a confident-sounding but wrong answer
+        # rather than recognizing the mismatch, so this band gets an
+        # explicit instruction to check topical alignment before relying
+        # on the context at all.
+        relevance_check = """
+IMPORTANT: The retrieved context below has LOW relevance confidence for this
+question. Before answering, first check whether the context is actually
+ABOUT the same topic as the question -- not just whether it shares similar
+words or phrasing. If the context discusses a different subject, or the
+question is not really about Cambodian insurance law at all (for example,
+a question about the assistant itself, or unrelated small talk), you MUST
+reply with the "not found" message below instead of extracting a loosely
+related answer.
+"""
     return f"""
 You are a Khmer legal assistant.
 
 Answer ONLY from the provided context.
-
+{relevance_check}
 Rules:
 
 - Answer in Khmer.
 - Do not invent facts.
 - Preserve dates, fees, deadlines and requirements exactly.
 - Provide a complete and detailed answer. If the context lists multiple conditions, sub-points, exceptions, or requirements, enumerate ALL of them.
-- If relevant information spans multiple sources, synthesize all of them into one coherent answer.
+- Only combine information from multiple sources if EACH of them directly addresses the question asked. Do not stitch together unrelated facts from different sources just because they were retrieved -- if most of the retrieved sources don't actually answer the question, say so instead of forcing a combined answer out of all of them.
+- Do not reinterpret a number, rate, or statistic for a purpose other than what it was stated for in the source (for example, a mortality or incidence rate expressed "per 1,000 people" is NOT the same as a total population count -- never restate a rate's denominator as if it were the literal answer to a "how many" question).
 - If answer not found, reply:
 
 រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។
@@ -836,6 +915,44 @@ def run_pipeline_in_thread(
 ):
     """Runs entirely in a background thread. Must never call any st.* API."""
     try:
+        if not contains_khmer_script(question):
+            out_q.put(("phase", "completed"))
+            out_q.put(
+                (
+                    "out_of_domain",
+                    {
+                        "reason": "not_khmer",
+                        "results": [],
+                        "best_score": 0.0,
+                        "min_score": 0.0,
+                        "spread_score": 0.0,
+                        "embed_time": 0.0,
+                        "search_time": 0.0,
+                        "retrieval_time": 0.0,
+                    },
+                )
+            )
+            return
+
+        if len(question.strip()) < MIN_QUESTION_LENGTH:
+            out_q.put(("phase", "completed"))
+            out_q.put(
+                (
+                    "out_of_domain",
+                    {
+                        "reason": "too_short",
+                        "results": [],
+                        "best_score": 0.0,
+                        "min_score": 0.0,
+                        "spread_score": 0.0,
+                        "embed_time": 0.0,
+                        "search_time": 0.0,
+                        "retrieval_time": 0.0,
+                    },
+                )
+            )
+            return
+
         out_q.put(("phase", "encoding_query"))
 
         query_embedding, embed_time = encode_query(
@@ -856,11 +973,34 @@ def run_pipeline_in_thread(
         spread_score = best_score - min_score
         retrieval_time = embed_time + search_time
 
+        if best_score < OUT_OF_DOMAIN_THRESHOLD:
+            # Don't waste a full generation cycle on a question this
+            # corpus has nothing relevant for -- FAISS always returns k
+            # results regardless of actual relevance, so a low top score
+            # here is the signal, not the chunk content itself.
+            out_q.put(("phase", "completed"))
+            out_q.put(
+                (
+                    "out_of_domain",
+                    {
+                        "reason": "low_score",
+                        "results": results,
+                        "best_score": best_score,
+                        "min_score": min_score,
+                        "spread_score": spread_score,
+                        "embed_time": embed_time,
+                        "search_time": search_time,
+                        "retrieval_time": retrieval_time,
+                    },
+                )
+            )
+            return
+
         out_q.put(("phase", "building_context"))
         context_results = select_context_chunks(results)
         context, context_length, context_time = build_context(context_results)
         out_q.put(("phase", "constructing_prompt"))
-        prompt = build_prompt(question, context)
+        prompt = build_prompt(question, context, low_confidence=best_score < MIN_SCORE)
         context_tokens = count_tokens(context)
         prompt_tokens = count_tokens(prompt)
 
@@ -1097,12 +1237,38 @@ def render_message(msg):
             f'{html.escape(msg.get("error_text", "unknown error"))}</div>',
             unsafe_allow_html=True,
         )
+    if msg.get("out_of_domain"):
+        reason = msg.get("out_of_domain_reason")
+        if reason == "not_khmer":
+            st.markdown(
+                '<div class="kc-alert">No Khmer text detected &mdash; '
+                "this assistant only answers Khmer-language questions, so "
+                "generation was skipped.</div>",
+                unsafe_allow_html=True,
+            )
+        elif reason == "too_short":
+            st.markdown(
+                '<div class="kc-alert">Question too short to search &mdash; '
+                "generation was skipped.</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f'<div class="kc-alert">Out of domain &mdash; best match score '
+                f'{msg["best_score"]:.3f} (below the relevance floor), so generation '
+                f"was skipped.</div>",
+                unsafe_allow_html=True,
+            )
     if msg["answer"]:
         st.markdown(
             f'<div class="kc-msg-assistant">{html.escape(msg["answer"])}</div>',
             unsafe_allow_html=True,
         )
-    if not msg.get("interrupted") and not msg.get("errored"):
+    if (
+        not msg.get("interrupted")
+        and not msg.get("errored")
+        and not msg.get("out_of_domain")
+    ):
         render_used_sources(msg["used_sources"])
         st.markdown('<div class="kc-msg-actions">', unsafe_allow_html=True)
         if st.button("មើលព័ត៌មានលម្អិត", key=f"diag_{msg['id']}"):
@@ -1150,6 +1316,7 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
     answer_text = ""
     final_payload = None
     error_text = None
+    out_of_domain_payload = None
 
     # Seeded immediately, then kept in sync below on every loop tick. If the
     # user clicks Stop, this whole function call (and its local variables)
@@ -1202,6 +1369,15 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
             elif kind == "error":
                 error_text = payload
                 finished = True
+            elif kind == "out_of_domain":
+                phase_elapsed[PHASES[current_idx]] = (
+                    now - phase_start_times[PHASES[current_idx]]
+                )
+                current_idx = PHASES.index("completed")
+                phase_elapsed["completed"] = now - overall_start
+                out_of_domain_payload = payload
+                finished = True
+                scroll_to_bottom()
         except queue.Empty:
             pass
 
@@ -1223,6 +1399,31 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
 
     time.sleep(0.4)
     ladder_ph.empty()
+
+    if out_of_domain_payload is not None:
+        st.session_state["active_run"] = None
+        score = out_of_domain_payload["best_score"]
+        canned_answer = (
+            "សំណួររបស់អ្នកហាក់ដូចជាមិនទាក់ទងនឹងច្បាប់ ឬបទប្បញ្ញត្តិធានារ៉ាប់រងកម្ពុជាទេ។ "
+            "ជំនួយការនេះអាចឆ្លើយបានតែសំណួរទាក់ទងនឹងច្បាប់ធានារ៉ាប់រងប៉ុណ្ណោះ។"
+        )
+        st.session_state["messages"].append(
+            {
+                "id": str(uuid.uuid4()),
+                "question": question,
+                "answer": canned_answer,
+                "used_sources": [],
+                "all_results": out_of_domain_payload["results"],
+                "best_score": score,
+                "low_confidence": False,
+                "interrupted": False,
+                "out_of_domain": True,
+                "out_of_domain_reason": out_of_domain_payload.get(
+                    "reason", "low_score"
+                ),
+            }
+        )
+        return
 
     if error_text:
         # Previously this only flashed a transient alert via answer_ph and
