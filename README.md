@@ -126,7 +126,6 @@ Total Dataset Statistics:
 │       └── BAAI-BGE-M3
 │   └── generator
 │       └── SeaLLMs-v3-7B-Chat
-├── requirements.txt
 ├── scripts
 │   ├── 01_convert_pdf_to_png.py
 │   ├── 02_extract_text_gemini.py
@@ -136,16 +135,17 @@ Total Dataset Statistics:
 │   ├── 06_chunk_documents.py
 │   ├── 07_generate_embeddings.py
 │   ├── 08_evaluate_retrieval.py
-│   ├── 09_install_model.py
-│   ├── 10_merge_chunked_documents.py
-│   └── utils.py
+│   ├── 09_install_models.py
 └── vector_db
     ├── khmer_insurance.index
     └── khmer_insurance_metadata.json
 ├── .env
-├── README.md
+├── .gitignore
 ├── app.py
+├── start_chatbot.py
+├── README.md
 └── requirements.txt
+
 ```
 ---
 
