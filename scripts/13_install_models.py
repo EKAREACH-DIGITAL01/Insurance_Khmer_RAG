@@ -17,16 +17,49 @@ os.environ["HF_HOME"] = str(HF_CACHE_DIR)
 from huggingface_hub import hf_hub_download
 from sentence_transformers import SentenceTransformer
 
-EMBEDDING_DIR = MODELS_DIR / "retriever" / "BAAI-BGE-M3"
-
-# Comparison-only retriever model -- NOT used by the live app (app.py only
-# ever loads EMBEDDING_DIR/BGE-M3). Used solely by
-# scripts/09_compare_embeddings.py. Opt-in (see below): a previous version
-# of this script installed it unconditionally on every run, which meant a
-# person just re-checking their SeaLLM quantizations could get stuck
-# behind an unrequested ~470MB download with no way to skip it.
-COMPARISON_EMBEDDING_DIR = MODELS_DIR / "retriever" / "MiniLM-paraphrase-multilingual-L12-v2"
-COMPARISON_EMBEDDING_HF_ID = "paraphrase-multilingual-MiniLM-L12-v2"
+# ----------------------------------------------------------------------------
+# Embedding models -- three genuine alternatives, not "main + comparison-only"
+# ----------------------------------------------------------------------------
+# Either can be used to actually build the production vector_db/ index (see
+# scripts/07_generate_embeddings.py, which now lets you choose). Having
+# BOTH installed also lets you run scripts/09_compare_embeddings.py.
+#
+# BGE-M3 (~568M params) and jina-embeddings-v3 (~572M params) are
+# comparably sized -- a much fairer apples-to-apples comparison than the
+# original MiniLM (~118M params, ~400MB), which was closer to comparing a
+# Ferrari against a bicycle than two real alternatives.
+#
+# jina-embeddings-v3 needs `trust_remote_code=True` to load (its
+# task-specific LoRA adapters are implemented as custom modeling code, not
+# a standard SentenceTransformer architecture) and the `einops` package --
+# add `einops` to requirements.txt if it isn't already there. BGE-M3 needs
+# neither.
+EMBEDDING_MODELS = {
+    "1": {
+        "label": "BAAI/bge-m3",
+        "hf_id": "BAAI/bge-m3",
+        "local_dir": MODELS_DIR / "retriever" / "BAAI-BGE-M3",
+        "trust_remote_code": False,
+        "task_aware": False,
+        "note": "~568M params",
+    },
+    "2": {
+        "label": "jinaai/jina-embeddings-v3",
+        "hf_id": "jinaai/jina-embeddings-v3",
+        "local_dir": MODELS_DIR / "retriever" / "jinaai-jina-embeddings-v3",
+        "trust_remote_code": True,
+        "task_aware": True,
+        "note": "~572M params, requires `einops` and trust_remote_code=True",
+    },
+    "3": {
+        "label": "paraphrase-multilingual-MiniLM-L12-v2",
+        "hf_id": "paraphrase-multilingual-MiniLM-L12-v2",
+        "local_dir": MODELS_DIR / "retriever" / "MiniLM-paraphrase-multilingual-L12-v2",
+        "trust_remote_code": False,
+        "task_aware": False,
+        "note": "~118M params, ~470 MB -- noticeably smaller than the other two",
+    },
+}
 
 LLM_DIR = MODELS_DIR / "generator"
 
@@ -54,15 +87,8 @@ LLM_MODELS = {
 }
 
 # CREATE DIRECTORIES
-EMBEDDING_DIR.mkdir(
-    parents=True,
-    exist_ok=True,
-)
-
-COMPARISON_EMBEDDING_DIR.mkdir(
-    parents=True,
-    exist_ok=True,
-)
+for info in EMBEDDING_MODELS.values():
+    info["local_dir"].mkdir(parents=True, exist_ok=True)
 
 LLM_DIR.mkdir(
     parents=True,
@@ -77,67 +103,76 @@ print("""
 
 print("Starting installation...")
 
-# INSTALL BGE-M3
-# Always automatic, no prompt -- this is a hard requirement for the live
-# app to function at all, there is nothing to "choose" about it.
-print("\n========== BGE-M3 (required) ==========")
+# INSTALL EMBEDDING MODEL(S)
+# Only prompts if there's actually a choice left to make -- if every
+# model is already installed, there's nothing to ask.
+print("\n========== Embedding Model(s) ==========")
 
-if (EMBEDDING_DIR / "modules.json").exists():
+installed_embed_status = {
+    key: (info["local_dir"] / "modules.json").exists()
+    for key, info in EMBEDDING_MODELS.items()
+}
 
-    print("BGE-M3 already installed.")
-    print(f"Location: {EMBEDDING_DIR}")
+if all(installed_embed_status.values()):
 
-else:
-
-    print("Installing BGE-M3 (~2.1 GB)...")
-
-    model = SentenceTransformer("BAAI/bge-m3")
-
-    model.save(str(EMBEDDING_DIR))
-
-    print("BGE-M3 installed successfully.")
-    print(f"Location: {EMBEDDING_DIR}")
-
-
-# INSTALL COMPARISON EMBEDDING MODEL (MiniLM) -- OPT-IN
-# Only used by scripts/09_compare_embeddings.py, never by the live
-# chatbot, so this asks first rather than downloading unconditionally.
-# Pressing Enter (empty input) skips it -- the safe default for someone
-# who just wants to check on their generator models, like the case that
-# motivated this change.
-print("\n========== MiniLM (optional, comparison only) ==========")
-
-if (COMPARISON_EMBEDDING_DIR / "modules.json").exists():
-
-    print("MiniLM already installed.")
-    print(f"Location: {COMPARISON_EMBEDDING_DIR}")
+    print("All embedding models are already installed -- nothing to choose.")
+    for info in EMBEDDING_MODELS.values():
+        print(f"  - {info['label']} -> {info['local_dir']}")
 
 else:
 
     print(
-        "Used only by scripts/09_compare_embeddings.py to benchmark "
-        "BGE-M3 against an alternative embedding model -- the live "
-        "chatbot does not need this."
+        f"{len(EMBEDDING_MODELS)} embedding models are available. Any of "
+        "them can be used to build the production vector_db/ index "
+        "(scripts/07_generate_embeddings.py lets you pick). Installing "
+        "more than one also enables scripts/09_compare_embeddings.py.\n"
     )
-    install_minilm = (
-        input("Install MiniLM now (~470 MB)? [y/N]: ").strip().lower()
-    )
+    for key, info in EMBEDDING_MODELS.items():
+        tag = "  [already installed]" if installed_embed_status[key] else ""
+        print(f"        {key}. {info['label']} ({info['note']}){tag}")
+    print()
 
-    if install_minilm == "y":
+    raw_choice = input(
+        "Install which model(s)? Comma-separated (e.g. 1,3), or 'all': "
+    ).strip().lower()
+
+    if raw_choice == "all":
+        to_install = list(EMBEDDING_MODELS.keys())
+    else:
+        to_install = [
+            token.strip()
+            for token in raw_choice.split(",")
+            if token.strip() in EMBEDDING_MODELS
+        ]
+
+    if not to_install:
+        print("No valid model(s) selected -- skipping embedding model installation.")
+
+    for key in to_install:
+        info = EMBEDDING_MODELS[key]
+
+        if installed_embed_status[key]:
+            print(f"{info['label']} already installed.")
+            print(f"Location: {info['local_dir']}")
+            continue
+
+        print(f"\nInstalling {info['label']}...")
+
         try:
-            comparison_model = SentenceTransformer(COMPARISON_EMBEDDING_HF_ID)
-            comparison_model.save(str(COMPARISON_EMBEDDING_DIR))
+            kwargs = (
+                {"trust_remote_code": True} if info["trust_remote_code"] else {}
+            )
+            embed_model = SentenceTransformer(info["hf_id"], **kwargs)
+            embed_model.save(str(info["local_dir"]))
 
-            print("MiniLM installed successfully.")
-            print(f"Location: {COMPARISON_EMBEDDING_DIR}")
+            print(f"{info['label']} installed successfully.")
+            print(f"Location: {info['local_dir']}")
 
         except Exception as e:
-            # Non-fatal: a failed comparison-model download should never
-            # block the rest of this installer or the live chatbot.
-            print(f"MiniLM installation failed, continuing anyway: {e}")
+            # Non-fatal per model -- a failed download of one embedding
+            # model shouldn't block the other, or the SeaLLM install below.
+            print(f"{info['label']} installation failed, continuing anyway: {e}")
             print("Re-run this installer later to retry.")
-    else:
-        print("Skipped. Re-run this installer anytime to install it later.")
 
 
 # INSTALL SEALLM GENERATOR
@@ -147,14 +182,14 @@ else:
 # with no purpose, since nothing will be downloaded either way.
 print("\n========== SeaLLM Generator ==========")
 
-installed_status = {
+installed_llm_status = {
     key: (LLM_DIR / info["local_filename"]).exists()
     for key, info in LLM_MODELS.items()
 }
 
 selected_llm = None
 
-if all(installed_status.values()):
+if all(installed_llm_status.values()):
 
     print("All SeaLLM quantizations are already installed -- nothing to choose.")
     for info in LLM_MODELS.values():
@@ -164,7 +199,7 @@ else:
 
     print("\nChoose a Generator Model:\n")
     for key, info in LLM_MODELS.items():
-        tag = "  [already installed]" if installed_status[key] else ""
+        tag = "  [already installed]" if installed_llm_status[key] else ""
         print(f"        {key}. {info['label']}{tag}")
     print()
 
@@ -206,14 +241,16 @@ else:
 # COMPLETE
 print("\n========== COMPLETE ==========")
 
-print("Installed models:")
+print("Installed embedding models:")
 
-print(f"- Embedding Model : {EMBEDDING_DIR}")
+any_embed_installed = False
+for info in EMBEDDING_MODELS.values():
+    if (info["local_dir"] / "modules.json").exists():
+        print(f"- {info['label']} : {info['local_dir']}")
+        any_embed_installed = True
 
-if (COMPARISON_EMBEDDING_DIR / "modules.json").exists():
-    print(f"- Comparison Embedding Model : {COMPARISON_EMBEDDING_DIR}")
-else:
-    print("- Comparison Embedding Model : not installed (optional)")
+if not any_embed_installed:
+    print("- none")
 
 print("\nInstalled LLMs:")
 
@@ -226,8 +263,11 @@ for model_info in LLM_MODELS.values():
         print(f"- {llm_file}")
         any_llm_installed = True
 
-if not (EMBEDDING_DIR / "modules.json").exists():
-    raise SystemExit("\nBGE-M3 installation failed.")
+if not any_embed_installed:
+    raise SystemExit(
+        "\nNo embedding model installed. scripts/07_generate_embeddings.py "
+        "needs at least one."
+    )
 
 if selected_llm is not None and not selected_llm.exists():
     raise SystemExit(f"\nSeaLLM installation failed: {selected_llm.name}")

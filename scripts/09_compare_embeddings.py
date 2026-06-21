@@ -22,11 +22,6 @@ from sentence_transformers import SentenceTransformer
 # already answered separately (see 08_evaluate_retrieval.py); this script
 # isolates ONE variable: which embedding model produces better vectors
 # for this corpus.
-#
-# MiniLM is the model referenced early in this project's development --
-# tested informally, found weaker, never benchmarked with real saved
-# numbers. This script produces those real numbers instead of relying on
-# memory of "it wasn't as good."
 METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
 EVALUATION_ROOT = Path("data/08_evaluation")
 REPORTS_DIR = Path("reports/embeddings")
@@ -34,26 +29,38 @@ REPORTS_DIR = Path("reports/embeddings")
 EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
 
-# (label, local model path)
-# Both models are loaded from local installed copies -- run
-# scripts/13_install_models.py first. MiniLM is installed there as a
-# comparison-only model (not used by the live app), specifically so this
-# script never has to silently download ~470MB from the Hugging Face Hub
-# mid-evaluation.
-MODEL_CONFIGS = [
-    ("BGE-M3 (current)", "models/retriever/BAAI-BGE-M3"),
-    (
-        "MiniLM (paraphrase-multilingual-MiniLM-L12-v2)",
-        "models/retriever/MiniLM-paraphrase-multilingual-L12-v2",
-    ),
-]
-
-for label, model_path in MODEL_CONFIGS:
-    if not (Path(model_path) / "modules.json").exists():
-        raise FileNotFoundError(
-            f"{label} not found at {model_path}.\n"
-            "Run: python scripts/13_install_models.py"
-        )
+# Duplicated from scripts/13_install_models.py / scripts/07_generate_embeddings.py
+# -- this project's scripts/ are each standalone, self-contained files
+# with no shared utils module. If this changes in one place, change it in
+# all three.
+#
+# jina-embeddings-v3 needs `trust_remote_code=True` to load and a `task`
+# argument at encode time -- a DIFFERENT task for documents
+# ("retrieval.passage") vs. queries ("retrieval.query"). Using the wrong
+# one, or none at all, doesn't error -- it silently produces a worse
+# embedding via the wrong (or no) LoRA adapter, which would make this
+# comparison invalid for that model specifically. BGE-M3 and MiniLM
+# ignore the task argument entirely (task_aware=False below).
+EMBEDDING_MODELS = {
+    "1": {
+        "label": "BAAI/bge-m3",
+        "local_dir": Path("models/retriever/BAAI-BGE-M3"),
+        "trust_remote_code": False,
+        "task_aware": False,
+    },
+    "2": {
+        "label": "jinaai/jina-embeddings-v3",
+        "local_dir": Path("models/retriever/jinaai-jina-embeddings-v3"),
+        "trust_remote_code": True,
+        "task_aware": True,
+    },
+    "3": {
+        "label": "paraphrase-multilingual-MiniLM-L12-v2",
+        "local_dir": Path("models/retriever/MiniLM-paraphrase-multilingual-L12-v2"),
+        "trust_remote_code": False,
+        "task_aware": False,
+    },
+}
 
 BOLD = "\033[1m"
 RESET = "\033[0m"
@@ -73,6 +80,14 @@ metric_colalign = ("center",) * len(metric_headers)
 summary_colalign = ("center",) * len(summary_headers)
 
 
+for key, info in EMBEDDING_MODELS.items():
+    if not (info["local_dir"] / "modules.json").exists():
+        raise FileNotFoundError(
+            f"{info['label']} not found at {info['local_dir']}.\n"
+            "Run: python scripts/13_install_models.py"
+        )
+
+
 print("Loading chunk metadata...")
 with open(METADATA_PATH, "r", encoding="utf-8") as f:
     chunks = json.load(f)
@@ -81,8 +96,8 @@ chunk_lookup = {chunk["chunk_id"]: chunk for chunk in chunks}
 metadata_chunk_ids = set(chunk_lookup.keys())
 
 # Same text every model embeds, identical to what 07_generate_embeddings.py
-# feeds BGE-M3 in production -- isolates the comparison to the model only,
-# not to differences in what text each model happened to see.
+# feeds the chosen model in production -- isolates the comparison to the
+# model only, not to differences in what text each model happened to see.
 embedding_texts = [chunk.get("embedding_text") or chunk["text"] for chunk in chunks]
 
 gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
@@ -91,19 +106,39 @@ if not gold_files:
     raise ValueError("No gold_questions.json files found.")
 
 
-def build_model_index(model_path_or_id):
+def encode_documents(model, model_config, texts, **kwargs):
+    """Encodes corpus chunks as PASSAGES, not queries -- matters only for
+    task-aware models. See the EMBEDDING_MODELS comment block above."""
+    if model_config.get("task_aware"):
+        kwargs["task"] = "retrieval.passage"
+        kwargs["prompt_name"] = "retrieval.passage"
+    return model.encode(texts, **kwargs)
+
+
+def encode_queries(model, model_config, texts, **kwargs):
+    """Encodes search QUERIES, not documents -- the other half of the
+    asymmetric task pair for task-aware models."""
+    if model_config.get("task_aware"):
+        kwargs["task"] = "retrieval.query"
+        kwargs["prompt_name"] = "retrieval.query"
+    return model.encode(texts, **kwargs)
+
+
+def build_model_index(model_config):
     """Loads a SentenceTransformer model and builds a fresh in-memory FAISS
     index over the exact same corpus text the production index uses.
     Nothing here touches vector_db/ -- this is a throwaway index that
-    exists only for the duration of this script, never written to disk
-    and never used by the live app."""
+    exists only for the duration of this script."""
     load_start = time.time()
-    model = SentenceTransformer(model_path_or_id)
+    kwargs = {"trust_remote_code": True} if model_config["trust_remote_code"] else {}
+    model = SentenceTransformer(str(model_config["local_dir"]), **kwargs)
     load_time = time.time() - load_start
 
-    print(f"  Encoding {len(embedding_texts)} chunks...")
+    print(f"  Encoding {len(embedding_texts)} chunks (as passages)...")
     encode_start = time.time()
-    embeddings = model.encode(
+    embeddings = encode_documents(
+        model,
+        model_config,
         embedding_texts,
         batch_size=16,
         show_progress_bar=True,
@@ -122,14 +157,16 @@ def build_model_index(model_path_or_id):
     }
 
 
-def make_retrieve_fn(model, index):
+def make_retrieve_fn(model, model_config, index):
     """Returns a retrieve(question) function closed over this specific
-    model/index pair, matching the same result-dict shape
-    08_evaluate_retrieval.py's retrieve_dense() uses, so the evaluation
-    loop below is identical between the two."""
+    model/index pair. Encodes the question as a QUERY (encode_queries),
+    not as a document -- this is the piece that was previously missing
+    entirely for jina-embeddings-v3."""
 
     def retrieve(question):
-        query_embedding = model.encode([question], normalize_embeddings=True)
+        query_embedding = encode_queries(
+            model, model_config, [question], normalize_embeddings=True
+        )
         query_embedding = np.asarray(query_embedding, dtype="float32")
         scores, indices = index.search(query_embedding, k=MAX_K)
 
@@ -152,9 +189,8 @@ def make_retrieve_fn(model, index):
 
 def evaluate_retrieval(retrieve_fn):
     """Same gold-question evaluation harness as 08_evaluate_retrieval.py
-    (duplicated rather than imported -- this project's scripts/ are each
-    standalone, self-contained files with no shared utils module; see
-    that script's own comment on this same convention)."""
+    (duplicated rather than imported -- see that script's own comment on
+    this project's standalone-scripts convention)."""
     summary_table = []
     hit_table = []
     recall_table = []
@@ -300,83 +336,84 @@ def print_mode_report(label, tables):
     print(tabulate(tables["summary"], headers=summary_headers, tablefmt="grid", colalign=summary_colalign))
 
 
-def build_comparison(model_a_label, tables_a, model_b_label, tables_b):
-    """Headline Hit@5 / Recall@5 per category for both models plus the
-    delta, and an overall macro-average across categories used to drive
-    the final recommendation (the proposal explicitly asks for "a
-    justified recommendation," not just raw tables)."""
-    rows = []
-    a_hit = {row[0]: row[5] for row in tables_a["hit"]}
-    b_hit = {row[0]: row[5] for row in tables_b["hit"]}
-    a_recall = {row[0]: row[5] for row in tables_a["recall"]}
-    b_recall = {row[0]: row[5] for row in tables_b["recall"]}
+def build_metric_comparison_table(model_results, metric_key):
+    """Category-by-model comparison at @5 for one metric ('hit' or
+    'recall') -- one row per category, one column per model. Generalizes
+    to any number of models, unlike a fixed before/after two-column
+    layout."""
+    labels = list(model_results.keys())
+    categories = [row[0] for row in next(iter(model_results.values()))["tables"][metric_key]]
 
-    for category in a_hit:
-        rows.append(
-            [
-                category,
-                f"{a_hit[category]:.4f}",
-                f"{b_hit[category]:.4f}",
-                f"{b_hit[category] - a_hit[category]:+.4f}",
-                f"{a_recall[category]:.4f}",
-                f"{b_recall[category]:.4f}",
-                f"{b_recall[category] - a_recall[category]:+.4f}",
-            ]
-        )
-
-    headers = [
-        "Category",
-        f"Hit@5 ({model_a_label})",
-        f"Hit@5 ({model_b_label})",
-        "Δ Hit@5",
-        f"Recall@5 ({model_a_label})",
-        f"Recall@5 ({model_b_label})",
-        "Δ Recall@5",
-    ]
-
-    macro_a_hit = sum(a_hit.values()) / len(a_hit)
-    macro_b_hit = sum(b_hit.values()) / len(b_hit)
-    macro_a_recall = sum(a_recall.values()) / len(a_recall)
-    macro_b_recall = sum(b_recall.values()) / len(b_recall)
-
-    if macro_a_hit >= macro_b_hit and macro_a_recall >= macro_b_recall:
-        winner = model_a_label
-    elif macro_b_hit >= macro_a_hit and macro_b_recall >= macro_a_recall:
-        winner = model_b_label
-    else:
-        # Mixed result -- one model wins Hit@5, the other wins Recall@5.
-        # Don't force a winner; report both macro numbers and let a human
-        # make the call, since the proposal asks for a JUSTIFIED
-        # recommendation, not an automated one.
-        winner = None
-
-    recommendation = (
-        f"RECOMMENDATION: {winner} -- macro-avg Hit@5 {max(macro_a_hit, macro_b_hit):.4f} "
-        f"and Recall@5 {max(macro_a_recall, macro_b_recall):.4f} across all categories, "
-        f"versus {min(macro_a_hit, macro_b_hit):.4f} / {min(macro_a_recall, macro_b_recall):.4f} "
-        f"for the other model."
-        if winner
-        else (
-            f"MIXED RESULT -- no single model wins on both metrics. "
-            f"{model_a_label}: macro-avg Hit@5={macro_a_hit:.4f}, Recall@5={macro_a_recall:.4f}. "
-            f"{model_b_label}: macro-avg Hit@5={macro_b_hit:.4f}, Recall@5={macro_b_recall:.4f}. "
-            f"Manual review of per-category results recommended before choosing."
-        )
-    )
-
-    return rows, headers, recommendation, {
-        model_a_label: {"macro_hit_at_5": macro_a_hit, "macro_recall_at_5": macro_a_recall},
-        model_b_label: {"macro_hit_at_5": macro_b_hit, "macro_recall_at_5": macro_b_recall},
+    per_model_lookup = {
+        label: {row[0]: row[5] for row in result["tables"][metric_key]}  # @5 is index 5
+        for label, result in model_results.items()
     }
 
+    rows = []
+    for category in categories:
+        row = [category] + [f"{per_model_lookup[label][category]:.4f}" for label in labels]
+        rows.append(row)
 
-def write_reports(model_results, comparison_rows, comparison_headers, recommendation, macro_scores):
+    headers = ["Category"] + labels
+    return rows, headers
+
+
+def rank_models(model_results):
+    """Ranks all models by macro-averaged Hit@5 + Recall@5 across every
+    category. Returns a list of (label, macro_hit5, macro_recall5,
+    combined_score) sorted best-first. Generalizes the old binary
+    A-vs-B winner logic to N models."""
+    ranked = []
+    for label, result in model_results.items():
+        hit5_vals = [row[5] for row in result["tables"]["hit"]]
+        recall5_vals = [row[5] for row in result["tables"]["recall"]]
+        macro_hit5 = sum(hit5_vals) / len(hit5_vals)
+        macro_recall5 = sum(recall5_vals) / len(recall5_vals)
+        ranked.append((label, macro_hit5, macro_recall5, macro_hit5 + macro_recall5))
+
+    ranked.sort(key=lambda x: x[3], reverse=True)
+    return ranked
+
+
+def build_recommendation(ranked):
+    """Builds the "justified recommendation" text the proposal's
+    deliverable asks for -- not just a bare winner name, but the full
+    ranking plus an honest flag when the top two are close enough that a
+    human should look at the per-category breakdown before trusting the
+    automatic pick."""
+    lines = ["RANKING (by macro-avg Hit@5 + Recall@5 across all categories):"]
+    for i, (label, hit5, recall5, combined) in enumerate(ranked, start=1):
+        lines.append(
+            f"  {i}. {label} -- Hit@5={hit5:.4f}, Recall@5={recall5:.4f}, combined={combined:.4f}"
+        )
+
+    if len(ranked) > 1:
+        gap = ranked[0][3] - ranked[1][3]
+        if gap < 0.02:
+            lines.append(
+                f"\nNOTE: the top {2 if len(ranked) >= 2 else 1} models are close "
+                f"(combined-score gap {gap:.4f}). Manual review of the "
+                "per-category tables is recommended before trusting this "
+                "ranking alone."
+            )
+
+    lines.append(f"\nRECOMMENDATION: {ranked[0][0]}")
+    return "\n".join(lines)
+
+
+def write_reports(model_results, hit_rows, hit_headers, recall_rows, recall_headers, recommendation, ranked):
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     json_payload = {
         "models": model_results,
-        "comparison": {"headers": comparison_headers, "rows": comparison_rows},
-        "macro_scores": macro_scores,
+        "comparison": {
+            "hit_at_5": {"headers": hit_headers, "rows": hit_rows},
+            "recall_at_5": {"headers": recall_headers, "rows": recall_rows},
+        },
+        "ranking": [
+            {"label": label, "macro_hit_at_5": h, "macro_recall_at_5": r, "combined_score": c}
+            for label, h, r, c in ranked
+        ],
         "recommendation": recommendation,
         "eval_ks": EVAL_KS,
     }
@@ -389,8 +426,8 @@ def write_reports(model_results, comparison_rows, comparison_headers, recommenda
 
     md_parts = ["# Embedding Comparison Report\n\n"]
     md_parts.append(
-        "Compares retrieval quality (dense-only, no hybrid/BM25) across "
-        "embedding models on the full gold question set, per Internship "
+        f"Compares {len(model_results)} embedding models (dense-only, no "
+        "hybrid/BM25) on the full gold question set, per Internship "
         "Proposal §6.3 / §12.\n\n"
     )
     for label, result in model_results.items():
@@ -404,10 +441,11 @@ def write_reports(model_results, comparison_rows, comparison_headers, recommenda
         md_parts.append(md_table("File Hit Rate @ K", result["tables"]["file_hit"], metric_headers))
         md_parts.append(md_table("Dataset Summary", result["tables"]["summary"], summary_headers))
 
-    md_parts.append("## Before / After Comparison (Hit@5 / Recall@5)\n\n")
-    md_parts.append(tabulate(comparison_rows, headers=comparison_headers, tablefmt="github"))
-    md_parts.append("\n\n## Recommendation\n\n")
-    md_parts.append(recommendation + "\n")
+    md_parts.append("## Comparison -- Hit@5 by Category\n\n")
+    md_parts.append(tabulate(hit_rows, headers=hit_headers, tablefmt="github"))
+    md_parts.append("\n\n## Comparison -- Recall@5 by Category\n\n")
+    md_parts.append(tabulate(recall_rows, headers=recall_headers, tablefmt="github"))
+    md_parts.append("\n\n## Recommendation\n\n```\n" + recommendation + "\n```\n")
 
     md_path = REPORTS_DIR / "embedding_comparison.md"
     with open(md_path, "w", encoding="utf-8") as f:
@@ -420,36 +458,46 @@ def write_reports(model_results, comparison_rows, comparison_headers, recommenda
 start_time = time.time()
 
 model_results = {}
-for label, model_path in MODEL_CONFIGS:
+for key, model_config in EMBEDDING_MODELS.items():
+    label = model_config["label"]
     print(f"\n{'=' * SEPARATOR_WIDTH}\nLoading and encoding with: {label}\n{'=' * SEPARATOR_WIDTH}")
-    model, index, meta = build_model_index(model_path)
-    retrieve_fn = make_retrieve_fn(model, index)
+    model, index, meta = build_model_index(model_config)
+
+    retrieve_fn = make_retrieve_fn(model, model_config, index)
 
     print(f"Running gold-question evaluation for {label}...")
     tables = evaluate_retrieval(retrieve_fn)
     model_results[label] = {"tables": tables, "meta": meta}
 
-    # Free the model/index before loading the next one -- two multilingual
-    # transformer models held in memory simultaneously is unnecessary
-    # memory pressure on a machine that's also expected to run llama-server.
+    # Free each model/index before loading the next -- three multilingual
+    # transformer models in memory simultaneously is unnecessary pressure
+    # on a machine that may also be running llama-server.
     del model, index
-
-(label_a, _), (label_b, _) = MODEL_CONFIGS
-comparison_rows, comparison_headers, recommendation, macro_scores = build_comparison(
-    label_a, model_results[label_a]["tables"], label_b, model_results[label_b]["tables"]
-)
 
 for label, result in model_results.items():
     print_mode_report(label, result["tables"])
 
+hit_rows, hit_headers = build_metric_comparison_table(model_results, "hit")
+recall_rows, recall_headers = build_metric_comparison_table(model_results, "recall")
+ranked = rank_models(model_results)
+recommendation = build_recommendation(ranked)
+
 banner = "=" * SEPARATOR_WIDTH
 print(f"\n\n{banner}")
-print(f"{BOLD}BEFORE / AFTER -- {label_a} vs. {label_b}{RESET}")
+print(f"{BOLD}COMPARISON -- HIT@5 BY CATEGORY{RESET}")
 print(banner)
-print(tabulate(comparison_rows, headers=comparison_headers, tablefmt="grid", colalign=("center",) * 7))
-print(f"\n{BOLD}{recommendation}{RESET}")
+print(tabulate(hit_rows, headers=hit_headers, tablefmt="grid", colalign=("center",) * len(hit_headers)))
 
-write_reports(model_results, comparison_rows, comparison_headers, recommendation, macro_scores)
+print(f"\n\n{banner}")
+print(f"{BOLD}COMPARISON -- RECALL@5 BY CATEGORY{RESET}")
+print(banner)
+print(tabulate(recall_rows, headers=recall_headers, tablefmt="grid", colalign=("center",) * len(recall_headers)))
+
+print(f"\n\n{banner}")
+print(f"{BOLD}{recommendation}{RESET}")
+print(banner)
+
+write_reports(model_results, hit_rows, hit_headers, recall_rows, recall_headers, recommendation, ranked)
 
 elapsed_time = time.time() - start_time
 print(f"\nTotal Runtime : {elapsed_time:.2f} seconds")

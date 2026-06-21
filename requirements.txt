@@ -8,6 +8,7 @@ transformers
 huggingface-hub
 sentencepiece
 accelerate
+einops
 faiss-cpu
 numpy
 torch

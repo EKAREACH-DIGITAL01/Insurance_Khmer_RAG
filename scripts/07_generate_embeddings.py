@@ -17,10 +17,53 @@ DOCUMENT_TYPE_KH = {
     "sub_decree": "អនុក្រឹត្យ",
 }
 
+# ----------------------------------------------------------------------------
+# Embedding model options
+# ----------------------------------------------------------------------------
+# Duplicated from scripts/13_install_models.py -- this project's scripts/
+# are each standalone, self-contained files with no shared utils module
+# (consistent with the rest of this pipeline). If you change one, change
+# the other.
+#
+# jina-embeddings-v3 needs `trust_remote_code=True` to load and a `task`
+# argument at encode time (its task-specific behavior is implemented via
+# LoRA adapters selected per-call, not a fixed architecture) -- BGE-M3
+# needs neither. See encode_documents() below for how that's handled.
+EMBEDDING_MODELS = {
+    "1": {
+        "label": "BAAI/bge-m3",
+        "hf_id": "BAAI/bge-m3",
+        "local_dir": Path("models/retriever/BAAI-BGE-M3"),
+        "trust_remote_code": False,
+        "task_aware": False,
+    },
+    "2": {
+        "label": "jinaai/jina-embeddings-v3",
+        "hf_id": "jinaai/jina-embeddings-v3",
+        "local_dir": Path("models/retriever/jinaai-jina-embeddings-v3"),
+        "trust_remote_code": True,
+        "task_aware": True,
+    },
+    "3": {
+        "label": "paraphrase-multilingual-MiniLM-L12-v2",
+        "hf_id": "paraphrase-multilingual-MiniLM-L12-v2",
+        "local_dir": Path("models/retriever/MiniLM-paraphrase-multilingual-L12-v2"),
+        "trust_remote_code": False,
+        "task_aware": False,
+    },
+}
+
 # FAISS vector index used for similarity search retrieval
 faiss_output = output_root / "khmer_insurance.index"
 # Metadata used to map retrieved vectors back to chunks and citations
 metadata_output = output_root / "khmer_insurance_metadata.json"
+# Records WHICH embedding model built this index -- the live app (and any
+# evaluation script) must load the SAME model to embed queries, since
+# embeddings from two different models are not compatible vector spaces
+# even when the dimensions happen to match. Without this file, swapping
+# which model scripts/07 used would silently break retrieval the next
+# time the app starts with no error, just nonsense similarity scores.
+model_info_output = output_root / "embedding_model_info.json"
 
 # Skip if file already exists
 if faiss_output.exists() and metadata_output.exists():
@@ -34,15 +77,58 @@ if faiss_output.exists() and metadata_output.exists():
         "Delete the existing files and run the script again if you want to regenerate them."
     )
 
-print("Loading embedding model...")
-MODEL_PATH = Path("models/retriever/BAAI-BGE-M3")
+# MODEL SELECTION
+print("""
+        ========================================
+        Embedding Model Selection
+        ========================================
 
-if not MODEL_PATH.exists():
+        Choose which model builds this vector database:
+
+        1. BAAI/bge-m3                          (~568M params)
+        2. jinaai/jina-embeddings-v3            (~572M params)
+        3. paraphrase-multilingual-MiniLM-L12-v2 (~118M params, smaller/faster)
+
+        Both are real, supported options -- not a "default vs.
+        experimental" choice. See reports/embeddings/ (after running
+        scripts/09_compare_embeddings.py) for a head-to-head comparison
+        on this corpus before deciding.
+        """)
+
+embed_choice = input("Enter choice: ").strip()
+
+if embed_choice not in EMBEDDING_MODELS:
+    raise SystemExit("Invalid choice.")
+
+selected = EMBEDDING_MODELS[embed_choice]
+
+print(f"\nSelected embedding model: {selected['label']}")
+
+print("Loading embedding model...")
+MODEL_PATH = selected["local_dir"]
+
+if not (MODEL_PATH / "modules.json").exists():
     raise FileNotFoundError(
-        "BAAI/BGE-M3 not found.\n" "Run: python scripts/09_install_models.py"
+        f"{selected['label']} not found at {MODEL_PATH}.\n"
+        "Run: python scripts/13_install_models.py"
     )
 
-model = SentenceTransformer(str(MODEL_PATH))
+model_kwargs = {"trust_remote_code": True} if selected["trust_remote_code"] else {}
+model = SentenceTransformer(str(MODEL_PATH), **model_kwargs)
+
+
+def encode_documents(model, model_config, texts, **kwargs):
+    """Encodes corpus chunks as PASSAGES/DOCUMENTS, not queries -- matters
+    only for task-aware models. jina-embeddings-v3 uses a different LoRA
+    adapter for "this text will be searched against" (retrieval.passage)
+    vs. "this text is a search query" (retrieval.query); using the wrong
+    one doesn't error, it just silently produces worse retrieval. BGE-M3
+    has no such distinction and ignores this entirely."""
+    if model_config.get("task_aware"):
+        kwargs["task"] = "retrieval.passage"
+        kwargs["prompt_name"] = "retrieval.passage"
+    return model.encode(texts, **kwargs)
+
 
 # Find all JSONs recursively
 chunk_files = sorted(input_root.rglob("*.json"))
@@ -155,8 +241,13 @@ print("Starting encode...")
 encode_start = time.time()
 
 # Generate normalized embeddings for cosine similarity search
-embeddings = model.encode(
-    texts, batch_size=16, show_progress_bar=True, normalize_embeddings=True
+embeddings = encode_documents(
+    model,
+    selected,
+    texts,
+    batch_size=16,
+    show_progress_bar=True,
+    normalize_embeddings=True,
 )
 
 encode_time = time.time() - encode_start
@@ -178,6 +269,23 @@ faiss.write_index(index, str(faiss_output))
 with open(metadata_output, "w", encoding="utf-8") as f:
     json.dump(all_chunks, f, ensure_ascii=False, indent=2)
 
+# Record which model built this index -- see model_info_output comment
+# above for why this matters beyond just bookkeeping.
+with open(model_info_output, "w", encoding="utf-8") as f:
+    json.dump(
+        {
+            "label": selected["label"],
+            "hf_id": selected["hf_id"],
+            "local_dir": str(selected["local_dir"]),
+            "trust_remote_code": selected["trust_remote_code"],
+            "task_aware": selected["task_aware"],
+            "embedding_dimension": int(embedding_dimension),
+        },
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
 elapsed_time = time.time() - start_time
 
 metadata_size_mb = metadata_output.stat().st_size / (1024 * 1024)
@@ -185,7 +293,7 @@ faiss_size_mb = faiss_output.stat().st_size / (1024 * 1024)
 embedding_size_mb = embeddings.nbytes / (1024 * 1024)
 
 print("\n========== EMBEDDING INFO ==========")
-print(f"Model               : {MODEL_PATH}")
+print(f"Model               : {selected['label']} ({MODEL_PATH})")
 print(f"Device              : {model.device}")
 print(f"Embedding Shape     : {embeddings.shape}")
 print(f"Embedding Dtype     : {embeddings.dtype}")
@@ -206,4 +314,5 @@ print("\n============= RUNTIME ==============")
 print(f"Encode Time         : {encode_time:.2f} sec")
 print(f"Total Runtime       : {elapsed_time:.2f} sec")
 
-print("\nEmbeddings and FAISS index created successfully.")
+print(f"\nModel info saved    : {model_info_output}")
+print("Embeddings and FAISS index created successfully.")

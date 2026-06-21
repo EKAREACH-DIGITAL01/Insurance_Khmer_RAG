@@ -254,7 +254,13 @@ MAX_USED_SOURCES = 3
 
 FAISS_PATH = "vector_db/khmer_insurance.index"
 METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
-EMBEDDING_MODEL_PATH = "models/retriever/BAAI-BGE-M3"
+# Which embedding model built vector_db/ is recorded by
+# scripts/07_generate_embeddings.py at build time (it now supports
+# BGE-M3, jina-embeddings-v3, or MiniLM) -- the app loads whichever one
+# was actually used, since embeddings from a different model are not a
+# compatible vector space even when dimensions happen to match. See
+# load_embedding_model_info() below for the legacy-install fallback.
+EMBEDDING_MODEL_INFO_PATH = "vector_db/embedding_model_info.json"
 
 PHASES = [
     "encoding_query",
@@ -1075,8 +1081,36 @@ def get_loaded_model():
 
 
 @st.cache_resource(show_spinner=False)
+def load_embedding_model_info():
+    """Reads which embedding model actually built vector_db/, written by
+    scripts/07_generate_embeddings.py. Falls back to the original
+    hardcoded BGE-M3 default if the file is missing -- which is exactly
+    what every vector_db/ built before this file existed actually used,
+    since BGE-M3 was the only option before scripts/07 supported
+    choosing a model. A loud warning is shown in the UI either way (see
+    main section below) so this fallback doesn't silently mask a real
+    mismatch going forward."""
+    try:
+        with open(EMBEDDING_MODEL_INFO_PATH, "r", encoding="utf-8") as f:
+            return json.load(f), True
+    except FileNotFoundError:
+        return (
+            {
+                "label": "BAAI/bge-m3",
+                "hf_id": "BAAI/bge-m3",
+                "local_dir": "models/retriever/BAAI-BGE-M3",
+                "trust_remote_code": False,
+                "task_aware": False,
+            },
+            False,
+        )
+
+
+@st.cache_resource(show_spinner=False)
 def load_embedding_model():
-    return SentenceTransformer(EMBEDDING_MODEL_PATH, device="cpu")
+    info, _ = load_embedding_model_info()
+    kwargs = {"trust_remote_code": True} if info.get("trust_remote_code") else {}
+    return SentenceTransformer(info["local_dir"], device="cpu", **kwargs)
 
 
 @st.cache_resource
@@ -1114,12 +1148,20 @@ def load_bm25_index(_chunks):
     return BM25Okapi(corpus_tokens)
 
 
-def encode_query(query, embedding_model):
+def encode_query(query, embedding_model, embedding_model_info):
+    """Encodes the live user question as a QUERY, not a document --
+    matters only for task-aware models (jina-embeddings-v3). The corpus
+    chunks were already encoded as PASSAGES once, offline, by
+    scripts/07_generate_embeddings.py's encode_documents(); this is the
+    other half of that same asymmetric task pair. Using the wrong task
+    (or none) doesn't error, it just silently produces worse retrieval --
+    the same risk documented in 07/09's encode_documents()."""
     embed_start = time.time()
-    query_embedding = embedding_model.encode(
-        [query],
-        normalize_embeddings=True,
-    )
+    kwargs = {"normalize_embeddings": True}
+    if embedding_model_info.get("task_aware"):
+        kwargs["task"] = "retrieval.query"
+        kwargs["prompt_name"] = "retrieval.query"
+    query_embedding = embedding_model.encode([query], **kwargs)
     query_embedding = np.asarray(
         query_embedding,
         dtype=np.float32,
@@ -1315,6 +1357,7 @@ def run_pipeline_in_thread(
     model_name,
     client,
     embedding_model,
+    embedding_model_info,
     index,
     bm25_index,
     chunks,
@@ -1390,6 +1433,7 @@ def run_pipeline_in_thread(
         query_embedding, embed_time = encode_query(
             question,
             embedding_model,
+            embedding_model_info,
         )
 
         out_q.put(("phase", "searching_faiss"))
@@ -1775,7 +1819,14 @@ def render_message(msg):
 
 
 def handle_new_question(
-    question, model_name, client, embedding_model, index, bm25_index, chunks
+    question,
+    model_name,
+    client,
+    embedding_model,
+    embedding_model_info,
+    index,
+    bm25_index,
+    chunks,
 ):
     """Starts a NEW generation, or RESUMES one already in flight.
 
@@ -1813,6 +1864,7 @@ def handle_new_question(
                 model_name,
                 client,
                 embedding_model,
+                embedding_model_info,
                 index,
                 bm25_index,
                 chunks,
@@ -2051,7 +2103,7 @@ def handle_new_question(
             "interrupted": False,
             "diag": {
                 "model": model_name,
-                "embedding_model": EMBEDDING_MODEL_PATH,
+                "embedding_model": embedding_model_info["label"],
                 "embedding_device": str(embedding_model.device),
                 "top_k": TOP_K,
                 "embed_time": final_payload["embed_time"],
@@ -2094,7 +2146,9 @@ def handle_new_question(
         st.session_state["active_run"] = None
 
 
-def render_chat_page(model_name, client, embedding_model, index, bm25_index, chunks):
+def render_chat_page(
+    model_name, client, embedding_model, embedding_model_info, index, bm25_index, chunks
+):
     messages = st.session_state["messages"]
     pending = st.session_state["pending_question"]
 
@@ -2177,7 +2231,14 @@ def render_chat_page(model_name, client, embedding_model, index, bm25_index, chu
     if pending or resuming:
         st.session_state["pending_question"] = None
         handle_new_question(
-            pending, model_name, client, embedding_model, index, bm25_index, chunks
+            pending,
+            model_name,
+            client,
+            embedding_model,
+            embedding_model_info,
+            index,
+            bm25_index,
+            chunks,
         )
         st.markdown("</div>", unsafe_allow_html=True)
         st.session_state["is_generating"] = False
@@ -2504,12 +2565,26 @@ if MODEL_NAME == "No Model Loaded":
     st.stop()
 
 client = OpenAI(base_url=LLAMA_SERVER_URL, api_key="not-needed")
+embedding_model_info, embedding_model_info_found = load_embedding_model_info()
 embedding_model = load_embedding_model()
 index = load_index()
 chunks = load_metadata()
 bm25_index = load_bm25_index(chunks)
 
+if not embedding_model_info_found:
+    st.markdown(
+        '<div class="kc-alert">No vector_db/embedding_model_info.json found -- '
+        f"assuming this index was built with {html.escape(embedding_model_info['label'])} "
+        "(the only option before multiple embedding models were supported). "
+        "If that assumption is wrong, retrieval will be silently broken. "
+        "Regenerate vector_db/ with the current scripts/07_generate_embeddings.py "
+        "to remove this warning.</div>",
+        unsafe_allow_html=True,
+    )
+
 if st.session_state["view"] == "diagnostics":
     render_diagnostics_page()
 else:
-    render_chat_page(MODEL_NAME, client, embedding_model, index, bm25_index, chunks)
+    render_chat_page(
+        MODEL_NAME, client, embedding_model, embedding_model_info, index, bm25_index, chunks
+    )

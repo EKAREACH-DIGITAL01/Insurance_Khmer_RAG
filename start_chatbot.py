@@ -1,4 +1,5 @@
 import base64
+import json
 import re
 import subprocess
 import sys
@@ -62,6 +63,41 @@ if not MODEL_PATH.exists():
     raise SystemExit(f"Model not found:\n{MODEL_PATH}")
 
 print(f"\nStarting {model}...")
+
+
+def print_embedding_model_status():
+    """Reads vector_db/embedding_model_info.json (written by
+    scripts/07_generate_embeddings.py) and prints which embedding model
+    actually built the index this session will query against -- the live
+    chatbot is only correct if it loads the SAME model app.py's own
+    load_embedding_model_info() resolves to, so surfacing this here gives
+    a single place to catch a mismatch before it shows up as confusingly
+    bad retrieval quality.
+
+    Mirrors app.py's own fallback: if the file doesn't exist (a
+    pre-existing vector_db/ built before multiple embedding models were
+    supported), assumes BGE-M3, since that was the only option that ever
+    existed before this file did."""
+    info_path = PROJECT_ROOT / "vector_db" / "embedding_model_info.json"
+
+    if info_path.exists():
+        try:
+            info = json.loads(info_path.read_text(encoding="utf-8"))
+            print(f"Embedding model  : {info.get('label', 'unknown')}")
+            return
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"Embedding model  : could not read {info_path} ({e})")
+            return
+
+    print(
+        "Embedding model  : BAAI/bge-m3 (assumed -- no "
+        "vector_db/embedding_model_info.json found; this is expected for "
+        "a vector_db/ built before scripts/07_generate_embeddings.py "
+        "supported choosing a model)"
+    )
+
+
+print_embedding_model_status()
 
 # --ctx-size: MUST exceed prompt_token + max_tokens or llama.cpp falls back
 # to context-shifting (re-evaluating large chunks of the prompt), which is
