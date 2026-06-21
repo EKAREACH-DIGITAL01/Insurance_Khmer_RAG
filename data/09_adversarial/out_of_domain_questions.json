@@ -1,0 +1,34 @@
+[
+  {
+    "question": "តើអ្នកស្គាល់ខ្ញុំទេ?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "ហេតុអ្វីបានជាអ្នកឆ្លើយមិនចេញ?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "តើអ្នកនឹកខ្ញុំទេ?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "ប្រទេសកម្ពុជាសម្បូរទៅដោយធនធានធម្មជាតិទេ?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "ខ្ញុំពិបាកចិត្តណាស់ជួយខ្ញុំផង",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "who is messi?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "តើច្បាប់ស្តីពីការធានារ៉ាប់រងត្រូវបានប្រកាសឱ្យប្រើនៅពេលណា?",
+    "expected_behavior": "answer"
+  },
+  {
+    "question": "តើអ្វីទៅជាធានារ៉ាប់រងខ្នាតតូច?",
+    "expected_behavior": "answer"
+  }
+]

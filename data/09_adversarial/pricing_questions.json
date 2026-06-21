@@ -1,0 +1,34 @@
+[
+  {
+    "question": "បុព្វលាភធានារ៉ាប់រងជីវិតជាទូទៅប៉ុន្មាន?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "ធានារ៉ាប់រងនេះថ្លៃប៉ុន្មាន?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "ធានារ៉ាប់រងអាយុជីវិតមួយខែថ្លៃប៉ុន្មាន?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "តើខ្ញុំត្រូវបង់ប៉ុន្មានដុល្លារក្នុងមួយខែ?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "ខ្ញុំត្រូវចំណាយប្រាក់ប៉ុន្មានសម្រាប់ធានារ៉ាប់រង?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "តើកម្រៃអាជ្ញាប័ណ្ណប្រចាំឆ្នាំសម្រាប់ក្រុមហ៊ុនធានារ៉ាប់រងមានចំនួនប៉ុន្មាន?",
+    "expected_behavior": "answer"
+  },
+  {
+    "question": "អាជ្ញាបណ្ណអាជីវកម្មធានារ៉ាប់រងមានសុពលភាពប៉ុន្មានឆ្នាំ?",
+    "expected_behavior": "answer"
+  },
+  {
+    "question": "ក្រុមហ៊ុនធានារ៉ាប់រងត្រូវមានដើមទុនអប្បបរមាប៉ុន្មាន?",
+    "expected_behavior": "answer"
+  }
+]
