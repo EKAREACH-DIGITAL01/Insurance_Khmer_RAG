@@ -804,15 +804,32 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-diag-src-main {{ flex: 1; min-width: 0; }}
 .kc-diag-src-name {{ font-family: 'Hanuman', sans-serif; font-size: 14px; color: var(--parchment-soft); line-height: 1.5; }}
 .kc-diag-src-id {{ font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--brass); margin-top: 4px; }}
-.kc-diag-src-score {{
-  font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--signal);
-  font-weight: 600; flex-shrink: 0;
-  text-align: right;
+.kc-diag-src-scores {{
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 92px;
 }}
-.kc-diag-src-score-label {{
-  font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; color: var(--mist);
-  opacity: 0.6; text-transform: uppercase; letter-spacing: 0.06em;
-  text-align: right; margin-top: 1px;
+.kc-diag-src-score-row {{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+}}
+.kc-diag-src-score-key {{
+  color: var(--mist);
+  opacity: 0.65;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}}
+.kc-diag-src-score-val {{ color: var(--parchment-soft); }}
+.kc-diag-src-score-row--rrf .kc-diag-src-score-key,
+.kc-diag-src-score-row--rrf .kc-diag-src-score-val {{
+  color: var(--signal);
+  font-weight: 600;
+  font-size: 13px;
 }}
 .kc-diag-src-bar {{ width: 100%; height: 5px; background: var(--ink-line); border-radius: 3px; overflow: hidden; margin-top: 10px; }}
 .kc-diag-src-fill {{
@@ -1355,6 +1372,18 @@ def run_pipeline_in_thread(
         fusion_time = time.time() - fusion_start
         hybrid_time = bm25_time + fusion_time
 
+        # Diagnostics-only: records each chunk's raw FAISS and/or BM25
+        # score (a chunk may appear in one list, the other, or both) so
+        # the diagnostics page can show provenance -- which ranker(s)
+        # actually surfaced this chunk -- alongside the fused RRF score.
+        # This is purely a lookup built for display; it has no effect on
+        # fused_results, context_results, or anything the LLM sees.
+        score_lookup = {}
+        for raw_score, chunk in results:
+            score_lookup.setdefault(chunk["chunk_id"], {})["faiss"] = float(raw_score)
+        for raw_score, chunk in bm25_results:
+            score_lookup.setdefault(chunk["chunk_id"], {})["bm25"] = float(raw_score)
+
         out_q.put(("phase", "building_context"))
         context_results = select_context_chunks(fused_results)
         context, context_length, context_time = build_context(context_results)
@@ -1413,6 +1442,7 @@ def run_pipeline_in_thread(
             "bm25_time": bm25_time,
             "fusion_time": fusion_time,
             "hybrid_time": hybrid_time,
+            "score_lookup": score_lookup,
             "context_length": context_length,
             "context_tokens": context_tokens,
             "context_time": context_time,
@@ -1940,6 +1970,7 @@ def handle_new_question(
             # fusion, the candidate pool, or context selection.
             "all_results": fused_results[:DIAG_DISPLAY_K],
             "faiss_results": results,
+            "score_lookup": final_payload["score_lookup"],
             "best_score": best_score,
             "low_confidence": best_score < MIN_SCORE,
             "interrupted": False,
@@ -2117,7 +2148,7 @@ def console_block(title, rows):
     )
 
 
-def render_diag_source_cards(results):
+def render_diag_source_cards(results, score_lookup):
     # Score bar is normalized relative to the TOP result in this specific
     # list, not assumed to live on a fixed 0-1 range. This list now holds
     # RRF fused scores (see reciprocal_rank_fusion), which are small
@@ -2133,6 +2164,30 @@ def render_diag_source_cards(results):
         chunk_id = html.escape(chunk["chunk_id"])
         pct = max(0.0, min(1.0, float(score) / max_score)) * 100
         delay = (rank - 1) * 0.05
+
+        # A chunk may have been surfaced by FAISS, by BM25, or by both --
+        # an em-dash means that particular ranker didn't return this chunk
+        # in its own top-K at all, which is itself useful diagnostic
+        # information (e.g. a chunk with FAISS "—" and a real BM25 score
+        # means lexical search alone found it; dense search missed it).
+        raw_scores = score_lookup.get(chunk["chunk_id"], {})
+        faiss_val = raw_scores.get("faiss")
+        bm25_val = raw_scores.get("bm25")
+        faiss_str = f"{faiss_val:.4f}" if faiss_val is not None else "—"
+        bm25_str = f"{bm25_val:.4f}" if bm25_val is not None else "—"
+
+        score_rows = "".join(
+            f'<div class="kc-diag-src-score-row{extra_class}">'
+            f'<span class="kc-diag-src-score-key">{label}</span>'
+            f'<span class="kc-diag-src-score-val">{value}</span>'
+            f"</div>"
+            for label, value, extra_class in [
+                ("FAISS", faiss_str, ""),
+                ("BM25", bm25_str, ""),
+                ("RRF", f"{score:.4f}", " kc-diag-src-score-row--rrf"),
+            ]
+        )
+
         card = (
             f'<div class="kc-diag-src-card" style="animation-delay:{delay:.2f}s">'
             f'<div class="kc-diag-src-top">'
@@ -2141,10 +2196,7 @@ def render_diag_source_cards(results):
             f'<div class="kc-diag-src-name">{doc_name}</div>'
             f'<div class="kc-diag-src-id">{chunk_id}</div>'
             f"</div>"
-            f'<div>'
-            f'<div class="kc-diag-src-score">{score:.4f}</div>'
-            f'<div class="kc-diag-src-score-label">RRF score</div>'
-            f'</div>'
+            f'<div class="kc-diag-src-scores">{score_rows}</div>'
             f"</div>"
             f'<div class="kc-diag-src-bar"><div class="kc-diag-src-fill" '
             f'style="--w:{pct:.1f}%; animation-delay:{delay:.2f}s"></div></div>'
@@ -2177,7 +2229,7 @@ def render_source_detail(rank, score, chunk):
         for k, v in rows
     )
     text = html.escape(chunk["text"])
-    with st.expander(f"Rank {rank} | {doc_name} | Score {score:.4f}"):
+    with st.expander(f"Rank {rank} - {doc_name}"):
         st.markdown(
             f'<div class="kc-detail-grid">{grid}</div><div class="kc-detail-text">{text}</div>',
             unsafe_allow_html=True,
@@ -2273,7 +2325,7 @@ def render_diagnostics_page():
             f'<div class="kc-console-title">&gt; CHUNKS (TOP {len(msg["all_results"])}, FUSED RANKING)</div>',
             unsafe_allow_html=True,
         )
-        render_diag_source_cards(msg["all_results"])
+        render_diag_source_cards(msg["all_results"], msg.get("score_lookup", {}))
 
     st.markdown(
         '<div class="kc-console-title" style="margin-top:18px">&gt; FULL SOURCE DETAILS</div>',
