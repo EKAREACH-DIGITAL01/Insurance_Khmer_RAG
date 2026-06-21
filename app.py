@@ -20,6 +20,7 @@ import requests
 import streamlit as st
 from PIL import Image
 from openai import OpenAI
+from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
 LLAMA_SERVER_URL = "http://localhost:8080/v1"
@@ -28,6 +29,20 @@ LLAMA_SERVER_ROOT = "http://localhost:8080"
 TOP_K = 10
 CONTEXT_K = 5  # how many chunks actually go into the LLM prompt (<= TOP_K)
 MAX_CHUNKS_PER_DOC = 1  # cap near-duplicate chunks from the same document
+BM25_TOP_K = TOP_K  # lexical candidate pool size, matched to FAISS's TOP_K
+                     # so neither ranker dominates the fused pool just by
+                     # having a bigger candidate list to draw from
+RRF_K = 60  # standard Reciprocal Rank Fusion constant from the IR
+            # literature (Cormack et al. 2009) -- not something tuned on
+            # this corpus, just the conventional default
+NGRAM_SIZE = 3  # character n-gram size for Khmer-script BM25 tokens
+DIAG_DISPLAY_K = 10  # how many fused chunks the diagnostics page SHOWS --
+                      # presentation-only. The fused candidate pool itself
+                      # (up to BM25_TOP_K + TOP_K unique chunks if FAISS and
+                      # BM25 barely overlap) and select_context_chunks()'s
+                      # CONTEXT_K selection are both untouched by this; it
+                      # only trims what's rendered in the "CHUNKS" cards and
+                      # "FULL SOURCE DETAILS" section below them.
 MIN_SCORE = 0.50
 # Hard floor below MIN_SCORE: scores under this are treated as "not even
 # in-domain" and skip the LLM call entirely (out-of-domain questions like
@@ -78,6 +93,44 @@ KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
 
 def contains_khmer_script(text):
     return bool(KHMER_SCRIPT_PATTERN.search(text))
+
+
+def khmer_aware_tokenize(text):
+    """BM25 tokenizer for mixed Khmer/Latin/numeric text.
+
+    Khmer has no spaces between words, so naive whitespace splitting
+    under-tokenizes a Khmer sentence into one giant "word" per run --
+    nearly useless for the exact term matching BM25 depends on. Without a
+    Khmer word segmenter available in this environment, this falls back to
+    character n-grams (size NGRAM_SIZE) for any whitespace-delimited token
+    that contains Khmer script. This is a standard fallback for CJK/
+    Khmer-adjacent scripts under BM25: it can't match whole words, but it
+    reliably matches shared substrings -- article numbers embedded in
+    Khmer text, repeated legal terminology, partial name matches -- which
+    is exactly the lexical signal dense embeddings tend to under-weight.
+
+    Latin words and digit runs (company names like "Prudential", article
+    numbers, dates) are kept as whole tokens rather than n-grammed, since
+    those already have natural word boundaries and benefit more from
+    exact whole-token match than from being shredded into n-grams.
+
+    NOTE: this is a first-pass tokenizer, not validated against a proper
+    Khmer word segmenter. If 08_evaluate_retrieval.py's hybrid numbers
+    don't show a real improvement over dense-only, this tokenizer -- not
+    necessarily the hybrid approach itself -- is the first thing to
+    re-examine."""
+    tokens = []
+    for word in text.split():
+        if KHMER_SCRIPT_PATTERN.search(word):
+            chars = list(word)
+            if len(chars) < NGRAM_SIZE:
+                tokens.append(word)
+            else:
+                for i in range(len(chars) - NGRAM_SIZE + 1):
+                    tokens.append("".join(chars[i : i + NGRAM_SIZE]))
+        else:
+            tokens.append(word.lower())
+    return tokens
 
 
 # ----------------------------------------------------------------------------
@@ -197,9 +250,6 @@ def is_scope_violation(text):
     return any(pattern.search(text) for pattern in SCOPE_VIOLATION_PATTERNS)
 
 
-USED_SOURCE_MARGIN = (
-    0.03  # how close a score must be to the top score to also count as "used"
-)
 MAX_USED_SOURCES = 3
 
 FAISS_PATH = "vector_db/khmer_insurance.index"
@@ -209,6 +259,8 @@ EMBEDDING_MODEL_PATH = "models/retriever/BAAI-BGE-M3"
 PHASES = [
     "encoding_query",
     "searching_faiss",
+    "searching_bm25",
+    "fusing_results",
     "building_context",
     "constructing_prompt",
     "preparing_response",
@@ -223,6 +275,14 @@ PHASE_LABELS = {
     "searching_faiss": (
         "<b>Searching FAISS Index</b> - "
         "<i>FAISS is searching the vector database for relevant chunks</i>"
+    ),
+    "searching_bm25": (
+        "<b>Searching BM25 Index</b> - "
+        "<i>Lexical keyword search is running alongside semantic search</i>"
+    ),
+    "fusing_results": (
+        "<b>Fusing Rankings</b> - "
+        "<i>Semantic and keyword rankings are being combined</i>"
     ),
     "building_context": (
         "<b>Building Retrieval Context</b> - "
@@ -747,6 +807,12 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-diag-src-score {{
   font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--signal);
   font-weight: 600; flex-shrink: 0;
+  text-align: right;
+}}
+.kc-diag-src-score-label {{
+  font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; color: var(--mist);
+  opacity: 0.6; text-transform: uppercase; letter-spacing: 0.06em;
+  text-align: right; margin-top: 1px;
 }}
 .kc-diag-src-bar {{ width: 100%; height: 5px; background: var(--ink-line); border-radius: 3px; overflow: hidden; margin-top: 10px; }}
 .kc-diag-src-fill {{
@@ -932,6 +998,30 @@ def load_metadata():
         return json.load(f)
 
 
+@st.cache_resource
+def load_bm25_index(_chunks):
+    """Builds the lexical BM25 index in memory at startup, directly from
+    the same chunk metadata FAISS already loads. Unlike the FAISS index
+    (built once offline by scripts/07_generate_embeddings.py and shipped
+    as a committed artifact in vector_db/), BM25 over a few hundred chunks
+    tokenizes and indexes in well under a second -- there's no real
+    benefit to persisting it to disk, and building it fresh here means it
+    can never silently go stale relative to the corpus the way a separate
+    committed BM25 artifact could if someone regenerates embeddings but
+    forgets to rebuild it.
+
+    The leading underscore on `_chunks` is Streamlit's convention for
+    cache_resource arguments that shouldn't be hashed for the cache key
+    (the chunk list is large; hashing it on every rerun would be
+    wasteful) -- it's still used completely normally inside the function.
+    """
+    corpus_tokens = [
+        khmer_aware_tokenize(chunk.get("embedding_text") or chunk["text"])
+        for chunk in _chunks
+    ]
+    return BM25Okapi(corpus_tokens)
+
+
 def encode_query(query, embedding_model):
     embed_start = time.time()
     query_embedding = embedding_model.encode(
@@ -955,6 +1045,53 @@ def search_faiss(query_embedding, index, chunks):
     search_time = time.time() - search_start
     results = [(score, chunks[idx]) for score, idx in zip(scores[0], indices[0])]
     return results, search_time
+
+
+def search_bm25(query, bm25_index, chunks):
+    search_start = time.time()
+    tokenized_query = khmer_aware_tokenize(query)
+    scores = bm25_index.get_scores(tokenized_query)
+    top_indices = np.argsort(scores)[::-1][:BM25_TOP_K]
+    results = [(float(scores[i]), chunks[i]) for i in top_indices]
+    search_time = time.time() - search_start
+    return results, search_time
+
+
+def reciprocal_rank_fusion(result_lists, k=RRF_K):
+    """Combines multiple ranked result lists -- each a list of (score,
+    chunk) tuples already sorted best-first -- into one fused ranking via
+    Reciprocal Rank Fusion: fused_score(chunk) = sum(1 / (k + rank)) over
+    every list the chunk appears in, where rank is that chunk's 1-indexed
+    position within each individual list.
+
+    RRF is used instead of blending the raw scores directly because FAISS
+    cosine similarity and BM25 scores live on completely different,
+    mutually incomparable numeric scales -- min-max normalizing and
+    weighting them against each other would need its own from-scratch
+    calibration (exactly the kind of fragile, corpus-specific tuning that
+    already cost real iteration here once already, see the
+    OUT_OF_DOMAIN_THRESHOLD calibration log above). RRF only cares about
+    RANK POSITION within each individual list, which needs no calibration
+    at all and is the standard, well-established way to fuse rankings
+    from heterogeneous retrievers.
+
+    IMPORTANT: the fused score this returns is NOT a similarity score and
+    is not comparable in scale to either FAISS cosine scores or BM25
+    scores -- it must never be used for the OUT_OF_DOMAIN_THRESHOLD /
+    MIN_SCORE safety gates, which stay calibrated against raw FAISS scores
+    only (see run_pipeline_in_thread -- best_score/min_score/spread_score
+    are computed from the raw FAISS `results` list before fusion ever
+    happens). Fusion only changes which chunks get selected as context."""
+    fused_scores = {}
+    chunk_lookup = {}
+    for result_list in result_lists:
+        for rank, (score, chunk) in enumerate(result_list, start=1):
+            chunk_id = chunk["chunk_id"]
+            chunk_lookup[chunk_id] = chunk
+            fused_scores[chunk_id] = fused_scores.get(chunk_id, 0.0) + 1.0 / (k + rank)
+
+    ranked_chunk_ids = sorted(fused_scores, key=fused_scores.get, reverse=True)
+    return [(fused_scores[cid], chunk_lookup[cid]) for cid in ranked_chunk_ids]
 
 
 def build_context(results):
@@ -1009,7 +1146,9 @@ reply with the "not found" message below instead of extracting a loosely
 related answer.
 """
 
-    not_found_message = f"រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។ {REDIRECT_TEXT}"
+    not_found_message = (
+        f"រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។ {REDIRECT_TEXT}"
+    )
 
     return f"""
 You are a Khmer legal assistant.
@@ -1062,15 +1201,33 @@ def select_context_chunks(results):
 
 
 def select_used_sources(results):
-    if not results:
-        return []
-    top_score = results[0][0]
-    selected = [r for r in results if (top_score - r[0]) <= USED_SOURCE_MARGIN]
-    return selected[:MAX_USED_SOURCES]
+    """The chunks shown as cited sources under an answer. This receives
+    context_results -- already capped to CONTEXT_K with at most
+    MAX_CHUNKS_PER_DOC per document, and ranked via hybrid RRF fusion
+    rather than raw FAISS cosine score (see reciprocal_rank_fusion) -- so
+    it's already a small, curated, genuinely-used set. Previously this
+    also filtered by how close each score was to the top result
+    (USED_SOURCE_MARGIN), back when it received the full raw TOP_K FAISS
+    list and needed a tighter subset. That margin was calibrated for
+    cosine similarity's 0-1 scale; RRF fused scores live on a completely
+    different, much smaller scale (see reciprocal_rank_fusion's docstring
+    for why those scales can't be compared), so reusing that margin here
+    would either over- or under-filter depending on the corpus. Simply
+    taking the top few of an already-curated list sidesteps needing a new
+    threshold calibrated against a fused score scale."""
+    return results[:MAX_USED_SOURCES]
 
 
 def run_pipeline_in_thread(
-    question, model_name, client, embedding_model, index, chunks, out_q, stop_event
+    question,
+    model_name,
+    client,
+    embedding_model,
+    index,
+    bm25_index,
+    chunks,
+    out_q,
+    stop_event,
 ):
     """Runs entirely in a background thread. Must never call any st.* API."""
     try:
@@ -1161,6 +1318,16 @@ def run_pipeline_in_thread(
             # corpus has nothing relevant for -- FAISS always returns k
             # results regardless of actual relevance, so a low top score
             # here is the signal, not the chunk content itself.
+            #
+            # This gate, and best_score/min_score/spread_score above, are
+            # intentionally computed from the RAW FAISS `results` list
+            # ONLY, before BM25/fusion ever run -- the OUT_OF_DOMAIN_THRESHOLD
+            # and MIN_SCORE calibration log above is calibrated against raw
+            # FAISS cosine scores specifically, and RRF fused scores live on
+            # a different, incomparable scale (see reciprocal_rank_fusion's
+            # docstring). Rejecting before BM25 search also means an
+            # already-rejected question never pays for the extra lexical
+            # search + fusion work at all.
             out_q.put(("phase", "completed"))
             out_q.put(
                 (
@@ -1179,8 +1346,17 @@ def run_pipeline_in_thread(
             )
             return
 
+        out_q.put(("phase", "searching_bm25"))
+        bm25_results, bm25_time = search_bm25(question, bm25_index, chunks)
+
+        out_q.put(("phase", "fusing_results"))
+        fusion_start = time.time()
+        fused_results = reciprocal_rank_fusion([results, bm25_results])
+        fusion_time = time.time() - fusion_start
+        hybrid_time = bm25_time + fusion_time
+
         out_q.put(("phase", "building_context"))
-        context_results = select_context_chunks(results)
+        context_results = select_context_chunks(fused_results)
         context, context_length, context_time = build_context(context_results)
         out_q.put(("phase", "constructing_prompt"))
         prompt = build_prompt(question, context, low_confidence=best_score < MIN_SCORE)
@@ -1226,6 +1402,7 @@ def run_pipeline_in_thread(
 
         payload = {
             "results": results,
+            "fused_results": fused_results,
             "context_results": context_results,
             "best_score": best_score,
             "min_score": min_score,
@@ -1233,6 +1410,9 @@ def run_pipeline_in_thread(
             "embed_time": embed_time,
             "search_time": search_time,
             "retrieval_time": retrieval_time,
+            "bm25_time": bm25_time,
+            "fusion_time": fusion_time,
+            "hybrid_time": hybrid_time,
             "context_length": context_length,
             "context_tokens": context_tokens,
             "context_time": context_time,
@@ -1489,7 +1669,9 @@ def render_message(msg):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def handle_new_question(question, model_name, client, embedding_model, index, chunks):
+def handle_new_question(
+    question, model_name, client, embedding_model, index, bm25_index, chunks
+):
     """Starts a NEW generation, or RESUMES one already in flight.
 
     Resuming happens when session_state["pipeline_out_q"] is already set --
@@ -1527,6 +1709,7 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
                 client,
                 embedding_model,
                 index,
+                bm25_index,
                 chunks,
                 out_q,
                 stop_event,
@@ -1731,6 +1914,7 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
     # generating/stop state with no way back short of restarting the app.
     try:
         results = final_payload["results"]
+        fused_results = final_payload["fused_results"]
         best_score = final_payload["best_score"]
         used_sources = select_used_sources(final_payload["context_results"])
 
@@ -1741,7 +1925,21 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
             "question": question,
             "answer": answer_text,
             "used_sources": used_sources,
-            "all_results": results,
+            # Diagnostics shows the FUSED ranking, not the raw FAISS-only
+            # list -- fused_results is what select_context_chunks() drew
+            # from inside run_pipeline_in_thread to build context_results
+            # (already computed, unaffected by the slice below). The raw
+            # FAISS list is still available via diag.best_score/min_score/
+            # spread_score (the numbers the safety gates actually used),
+            # just not as the chunk cards.
+            #
+            # Sliced to DIAG_DISPLAY_K here for DISPLAY ONLY -- the fused
+            # list can hold more than TOP_K unique chunks (FAISS's TOP_K
+            # and BM25's BM25_TOP_K overlap only partially), and this stays
+            # purely a presentation choice, not a change to retrieval,
+            # fusion, the candidate pool, or context selection.
+            "all_results": fused_results[:DIAG_DISPLAY_K],
+            "faiss_results": results,
             "best_score": best_score,
             "low_confidence": best_score < MIN_SCORE,
             "interrupted": False,
@@ -1753,6 +1951,9 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
                 "embed_time": final_payload["embed_time"],
                 "search_time": final_payload["search_time"],
                 "retrieval_time": final_payload["retrieval_time"],
+                "bm25_time": final_payload["bm25_time"],
+                "fusion_time": final_payload["fusion_time"],
+                "hybrid_time": final_payload["hybrid_time"],
                 "min_score": final_payload["min_score"],
                 "spread_score": final_payload["spread_score"],
                 "context_length": final_payload["context_length"],
@@ -1787,7 +1988,7 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
         st.session_state["active_run"] = None
 
 
-def render_chat_page(model_name, client, embedding_model, index, chunks):
+def render_chat_page(model_name, client, embedding_model, index, bm25_index, chunks):
     messages = st.session_state["messages"]
     pending = st.session_state["pending_question"]
 
@@ -1869,7 +2070,9 @@ def render_chat_page(model_name, client, embedding_model, index, chunks):
 
     if pending or resuming:
         st.session_state["pending_question"] = None
-        handle_new_question(pending, model_name, client, embedding_model, index, chunks)
+        handle_new_question(
+            pending, model_name, client, embedding_model, index, bm25_index, chunks
+        )
         st.markdown("</div>", unsafe_allow_html=True)
         st.session_state["is_generating"] = False
         st.session_state["stop_event"] = None
@@ -1915,12 +2118,20 @@ def console_block(title, rows):
 
 
 def render_diag_source_cards(results):
+    # Score bar is normalized relative to the TOP result in this specific
+    # list, not assumed to live on a fixed 0-1 range. This list now holds
+    # RRF fused scores (see reciprocal_rank_fusion), which are small
+    # numbers on a completely different scale than the old raw FAISS
+    # cosine scores this card was originally built for -- relative
+    # normalization works correctly for either scale without caring which
+    # one it's given.
+    max_score = max((float(score) for score, _ in results), default=0.0) or 1.0
     cards = []
     for rank, (score, chunk) in enumerate(results, start=1):
         metadata = chunk.get("metadata", {})
         doc_name = html.escape(metadata.get("document_name", "Unknown Document"))
         chunk_id = html.escape(chunk["chunk_id"])
-        pct = max(0.0, min(1.0, float(score))) * 100
+        pct = max(0.0, min(1.0, float(score) / max_score)) * 100
         delay = (rank - 1) * 0.05
         card = (
             f'<div class="kc-diag-src-card" style="animation-delay:{delay:.2f}s">'
@@ -1930,7 +2141,10 @@ def render_diag_source_cards(results):
             f'<div class="kc-diag-src-name">{doc_name}</div>'
             f'<div class="kc-diag-src-id">{chunk_id}</div>'
             f"</div>"
-            f'<span class="kc-diag-src-score">{score:.3f}</span>'
+            f'<div>'
+            f'<div class="kc-diag-src-score">{score:.4f}</div>'
+            f'<div class="kc-diag-src-score-label">RRF score</div>'
+            f'</div>'
             f"</div>"
             f'<div class="kc-diag-src-bar"><div class="kc-diag-src-fill" '
             f'style="--w:{pct:.1f}%; animation-delay:{delay:.2f}s"></div></div>'
@@ -1946,7 +2160,7 @@ def render_source_detail(rank, score, chunk):
     metadata = chunk.get("metadata", {})
     doc_name = metadata.get("document_name", "N/A")
     rows = [
-        ("similarity", f"{float(score):.4f}"),
+        ("fused score (rrf)", f"{float(score):.4f}"),
         ("document", doc_name),
         (
             "type",
@@ -2013,6 +2227,7 @@ def render_diagnostics_page():
                 ("generator endpoint", LLAMA_SERVER_URL),
                 ("retriever model", d["embedding_model"]),
                 ("retriever device", d["embedding_device"]),
+                ("retrieval mode", "hybrid (FAISS + BM25, RRF)"),
                 ("top k", d["top_k"]),
             ],
         )
@@ -2021,10 +2236,12 @@ def render_diagnostics_page():
             [
                 ("embed time", f'{d["embed_time"]:.4f}s'),
                 ("faiss time", f'{d["search_time"]:.4f}s'),
-                ("retrieval time", f'{d["retrieval_time"]:.4f}s'),
-                ("best score", f'{msg["best_score"]:.4f}'),
-                ("min score", f'{d["min_score"]:.4f}'),
-                ("spread score", f'{d["spread_score"]:.4f}'),
+                ("bm25 time", f'{d["bm25_time"]:.4f}s'),
+                ("fusion time", f'{d["fusion_time"]:.4f}s'),
+                ("total retrieval time", f'{d["retrieval_time"] + d["hybrid_time"]:.4f}s'),
+                ("best score (faiss, gate)", f'{msg["best_score"]:.4f}'),
+                ("min score (faiss)", f'{d["min_score"]:.4f}'),
+                ("spread score (faiss)", f'{d["spread_score"]:.4f}'),
             ],
         )
         console_block(
@@ -2053,7 +2270,7 @@ def render_diagnostics_page():
         )
     with col2:
         st.markdown(
-            f'<div class="kc-console-title">&gt; CHUNKS (TOP {len(msg["all_results"])})</div>',
+            f'<div class="kc-console-title">&gt; CHUNKS (TOP {len(msg["all_results"])}, FUSED RANKING)</div>',
             unsafe_allow_html=True,
         )
         render_diag_source_cards(msg["all_results"])
@@ -2085,8 +2302,9 @@ client = OpenAI(base_url=LLAMA_SERVER_URL, api_key="not-needed")
 embedding_model = load_embedding_model()
 index = load_index()
 chunks = load_metadata()
+bm25_index = load_bm25_index(chunks)
 
 if st.session_state["view"] == "diagnostics":
     render_diagnostics_page()
 else:
-    render_chat_page(MODEL_NAME, client, embedding_model, index, chunks)
+    render_chat_page(MODEL_NAME, client, embedding_model, index, bm25_index, chunks)
