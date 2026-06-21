@@ -344,6 +344,16 @@ st.set_page_config(
 PAGE_BG = "var(--ink)" if IS_DIAGNOSTICS else "var(--parchment)"
 PAGE_FG = "var(--mist)" if IS_DIAGNOSTICS else "var(--stone)"
 BUTTON_HOVER_COLOR = "var(--signal)" if IS_DIAGNOSTICS else "var(--lacquer)"
+# Streamlit's default block-container top padding is generous, sized for
+# chat's own fixed topbar/welcome layout -- the diagnostics page has
+# neither, so that default padding just reads as dead space above the
+# Back button. Scoped to IS_DIAGNOSTICS only, so chat's layout is
+# completely untouched.
+DIAG_TOP_PADDING_CSS = (
+    '[data-testid="stAppViewContainer"] .block-container { padding-top: 1.2rem !important; }'
+    if IS_DIAGNOSTICS
+    else ""
+)
 
 CSS = f"""
 <style>
@@ -380,6 +390,8 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   color: {PAGE_FG};
   font-family: 'IBM Plex Sans', sans-serif;
 }}
+
+{DIAG_TOP_PADDING_CSS}
 
 .kc-welcome-wrap {{ margin-top: 16vh; text-align: center; }}
 .kc-welcome-lockup {{
@@ -725,6 +737,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-diag-header {{
   text-align: center;
   border-bottom: 1px solid var(--ink-line);
+  margin-top: 22px;
   padding-bottom: 14px;
   margin-bottom: 18px;
 }}
@@ -742,6 +755,68 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   font-weight: 700;
   color: var(--brass);
 }}
+
+/* Provenance badge + legend -- each chunk card's badge is a miniature
+   seal showing which retrieval engine(s) "stamped" that chunk as
+   relevant: brass ring = FAISS only, lacquer ring = BM25 only, ring AND
+   center both split brass/lacquer = found and confirmed by both. */
+.kc-diag-src-name-row {{ display: flex; align-items: center; gap: 7px; }}
+.kc-diag-src-name-row svg {{ flex-shrink: 0; }}
+.kc-diag-legend {{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 16px 0;
+}}
+.kc-diag-legend-item {{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink-soft);
+  border: 1px solid var(--ink-line);
+  border-radius: 999px;
+  padding: 5px 12px 5px 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--mist);
+}}
+.kc-diag-legend-item svg {{ width: 16px; height: 16px; flex-shrink: 0; }}
+
+/* Pipeline rail -- the four SYSTEM/RETRIEVAL/CONTEXT/GENERATION blocks
+   read top-to-bottom as a real sequence (question -> vector -> ranking ->
+   context -> tokens), so this echoes the live progress ladder's visual
+   language (connecting line + dot per stage) for that same pipeline,
+   instead of presenting four unrelated cards.
+   The line is a background-image gradient (not border-left) specifically
+   so it can fade out softly at the bottom rather than ending in a hard
+   edge. The dot is a real flex element rendered by console_block() (see
+   kc-pipeline-dot below) with a deterministic negative margin computed
+   from this container's own padding-left + line width, rather than a
+   guessed absolute-position offset. */
+.st-key-kc_diag_pipeline {{
+  padding-left: 26px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to bottom, var(--brass-soft), var(--brass-soft) 85%, transparent);
+  background-repeat: no-repeat;
+  background-size: 2px 100%;
+  background-position: left top;
+}}
+.kc-pipeline-title {{ display: flex; align-items: center; }}
+.kc-pipeline-dot {{
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--brass);
+  margin-left: -30px;
+  margin-right: 14px;
+  box-shadow: 0 0 0 4px var(--ink), 0 0 8px rgba(182, 139, 76, 0.45);
+}}
+
 .kc-console-block {{
   background: var(--ink-soft);
   border: 1px solid var(--ink-line);
@@ -2136,15 +2211,79 @@ def render_chat_page(model_name, client, embedding_model, index, bm25_index, chu
 
 
 def console_block(title, rows):
+    """Renders one pipeline stage block. The title includes a real
+    kc-pipeline-dot element (not a CSS-only pseudo-element) so its
+    position on the rail is set by a deterministic negative margin (see
+    .kc-pipeline-dot CSS) rather than a guessed absolute offset. This
+    couples console_block to the pipeline rail in render_diagnostics_page
+    -- fine today since this is its only call site, but worth revisiting
+    if console_block is ever reused outside that railed container."""
     row_html = "".join(
         f'<div class="kc-row"><span class="kc-row-label">{html.escape(str(k))}</span>'
         f'<span class="kc-row-value">{html.escape(str(v))}</span></div>'
         for k, v in rows
     )
     st.markdown(
-        f'<div class="kc-console-title">&gt; {html.escape(title)}</div>'
+        f'<div class="kc-console-title kc-pipeline-title">'
+        f'<span class="kc-pipeline-dot"></span>&gt; {html.escape(title)}'
+        f"</div>"
         f'<div class="kc-console-block">{row_html}</div>',
         unsafe_allow_html=True,
+    )
+
+
+def render_provenance_badge(has_faiss, has_bm25):
+    """A small circular badge, deliberately styled like the app's own
+    SEAL_SVG header mark, showing which retrieval engine(s) actually
+    surfaced this chunk. The mapping is a literal nod to the physical
+    seals (ត្រា) stamped on real Cambodian legal documents -- here, a
+    chunk gets "stamped" by FAISS (semantic), by BM25 (lexical), or by
+    both, and when both rankers agree the ring AND the center dot split
+    half brass / half lacquer -- a literal half-and-half blend of the
+    two engines' colors, not a third unrelated color standing in for
+    "agreement".
+
+    Built as a faint outer ring plus a bolder inner colored ring (rather
+    than one thin ring), echoing SEAL_SVG's own concentric-ring
+    construction and giving the badge enough visual weight to still read
+    clearly at the ~13-18px size it's shown at in the legend.
+
+    Colors are hardcoded hex (not CSS var()) to match the existing
+    SEAL_SVG constant's own pattern, since SVG presentation attributes
+    don't reliably resolve custom properties across browsers."""
+    BRASS, LACQUER = "#B68B4C", "#9C2B1F"
+    OUTER_RING = "#3A4A41"  # quiet neutral ring, independent of provenance color
+
+    if has_faiss and has_bm25:
+        inner = (
+            f'<path d="M 3 10 A 7 7 0 0 1 17 10" fill="none" stroke="{BRASS}" '
+            'stroke-width="2.1" stroke-linecap="round"/>'
+            f'<path d="M 3 10 A 7 7 0 0 0 17 10" fill="none" stroke="{LACQUER}" '
+            'stroke-width="2.1" stroke-linecap="round"/>'
+        )
+        # Center dot split the same way as the ring (top brass, bottom
+        # lacquer) -- two filled half-discs sharing a flat diameter edge,
+        # not a single solid color, so "both" reads as a literal half-and-
+        # half blend of the two engines rather than a third, unrelated
+        # color.
+        dot = (
+            f'<path d="M 7.2 10 A 2.8 2.8 0 0 1 12.8 10 Z" fill="{BRASS}"/>'
+            f'<path d="M 7.2 10 A 2.8 2.8 0 0 0 12.8 10 Z" fill="{LACQUER}"/>'
+        )
+    elif has_faiss:
+        inner = f'<circle cx="10" cy="10" r="7" fill="none" stroke="{BRASS}" stroke-width="2.1"/>'
+        dot = f'<circle cx="10" cy="10" r="2.8" fill="{BRASS}"/>'
+    elif has_bm25:
+        inner = f'<circle cx="10" cy="10" r="7" fill="none" stroke="{LACQUER}" stroke-width="2.1"/>'
+        dot = f'<circle cx="10" cy="10" r="2.8" fill="{LACQUER}"/>'
+    else:
+        inner, dot = "", ""
+
+    return (
+        '<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">'
+        f'<circle cx="10" cy="10" r="9" fill="none" stroke="{OUTER_RING}" stroke-width="1"/>'
+        f"{inner}{dot}"
+        "</svg>"
     )
 
 
@@ -2175,6 +2314,7 @@ def render_diag_source_cards(results, score_lookup):
         bm25_val = raw_scores.get("bm25")
         faiss_str = f"{faiss_val:.4f}" if faiss_val is not None else "—"
         bm25_str = f"{bm25_val:.4f}" if bm25_val is not None else "—"
+        badge_svg = render_provenance_badge(faiss_val is not None, bm25_val is not None)
 
         score_rows = "".join(
             f'<div class="kc-diag-src-score-row{extra_class}">'
@@ -2193,7 +2333,8 @@ def render_diag_source_cards(results, score_lookup):
             f'<div class="kc-diag-src-top">'
             f'<span class="kc-diag-src-rank">{rank:02d}</span>'
             f'<div class="kc-diag-src-main">'
-            f'<div class="kc-diag-src-name">{doc_name}</div>'
+            f'<div class="kc-diag-src-name-row">{badge_svg}'
+            f'<div class="kc-diag-src-name">{doc_name}</div></div>'
             f'<div class="kc-diag-src-id">{chunk_id}</div>'
             f"</div>"
             f'<div class="kc-diag-src-scores">{score_rows}</div>'
@@ -2229,7 +2370,7 @@ def render_source_detail(rank, score, chunk):
         for k, v in rows
     )
     text = html.escape(chunk["text"])
-    with st.expander(f"Rank {rank} - {doc_name}"):
+    with st.expander(f"Rank {rank}  —  {doc_name}"):
         st.markdown(
             f'<div class="kc-detail-grid">{grid}</div><div class="kc-detail-text">{text}</div>',
             unsafe_allow_html=True,
@@ -2272,57 +2413,69 @@ def render_diagnostics_page():
 
     col1, col2 = st.columns([1.25, 2.15])
     with col1:
-        console_block(
-            "SYSTEM",
-            [
-                ("generator model", d["model"]),
-                ("generator endpoint", LLAMA_SERVER_URL),
-                ("retriever model", d["embedding_model"]),
-                ("retriever device", d["embedding_device"]),
-                ("retrieval mode", "hybrid (FAISS + BM25, RRF)"),
-                ("top k", d["top_k"]),
-            ],
-        )
-        console_block(
-            "RETRIEVAL",
-            [
-                ("embed time", f'{d["embed_time"]:.4f}s'),
-                ("faiss time", f'{d["search_time"]:.4f}s'),
-                ("bm25 time", f'{d["bm25_time"]:.4f}s'),
-                ("fusion time", f'{d["fusion_time"]:.4f}s'),
-                ("total retrieval time", f'{d["retrieval_time"] + d["hybrid_time"]:.4f}s'),
-                ("best score (faiss, gate)", f'{msg["best_score"]:.4f}'),
-                ("min score (faiss)", f'{d["min_score"]:.4f}'),
-                ("spread score (faiss)", f'{d["spread_score"]:.4f}'),
-            ],
-        )
-        console_block(
-            "CONTEXT",
-            [
-                ("context length", f'{d["context_length"]} chars'),
-                ("context token", tok(d["context_tokens"])),
-                ("context build time", f'{d["context_time"]:.4f}s'),
-                ("prompt length", f'{d["prompt_length"]} chars'),
-                ("prompt token", tok(d["prompt_tokens"])),
-            ],
-        )
-        console_block(
-            "GENERATION",
-            [
-                ("first token", f'{d["first_token_time"]:.4f}s'),
-                ("generation time", f'{d["generation_time"]:.4f}s'),
-                (
-                    "tokens/sec (decode)",
-                    f'{d["generated_tokens"]/max(d["generation_time"]-d["first_token_time"],0.001):.4f}',
-                ),
-                ("total time", f'{d["total_time"]:.4f}s'),
-                ("output token", tok(d["generated_tokens"])),
-                ("generated chars", d["generated_chars"]),
-            ],
-        )
+        with st.container(key="kc_diag_pipeline"):
+            console_block(
+                "SYSTEM",
+                [
+                    ("generator model", d["model"]),
+                    ("generator endpoint", LLAMA_SERVER_URL),
+                    ("retriever model", d["embedding_model"]),
+                    ("retriever device", d["embedding_device"]),
+                    ("retrieval mode", "hybrid (FAISS + BM25, RRF)"),
+                    ("top k", d["top_k"]),
+                ],
+            )
+            console_block(
+                "RETRIEVAL",
+                [
+                    ("embed time", f'{d["embed_time"]:.4f}s'),
+                    ("faiss time", f'{d["search_time"]:.4f}s'),
+                    ("bm25 time", f'{d["bm25_time"]:.4f}s'),
+                    ("fusion time", f'{d["fusion_time"]:.4f}s'),
+                    (
+                        "total retrieval time",
+                        f'{d["retrieval_time"] + d["hybrid_time"]:.4f}s',
+                    ),
+                    ("best score (faiss, gate)", f'{msg["best_score"]:.4f}'),
+                    ("min score (faiss)", f'{d["min_score"]:.4f}'),
+                    ("spread score (faiss)", f'{d["spread_score"]:.4f}'),
+                ],
+            )
+            console_block(
+                "CONTEXT",
+                [
+                    ("context length", f'{d["context_length"]} chars'),
+                    ("context token", tok(d["context_tokens"])),
+                    ("context build time", f'{d["context_time"]:.4f}s'),
+                    ("prompt length", f'{d["prompt_length"]} chars'),
+                    ("prompt token", tok(d["prompt_tokens"])),
+                ],
+            )
+            console_block(
+                "GENERATION",
+                [
+                    ("first token", f'{d["first_token_time"]:.4f}s'),
+                    ("generation time", f'{d["generation_time"]:.4f}s'),
+                    (
+                        "tokens/sec (decode)",
+                        f'{d["generated_tokens"]/max(d["generation_time"]-d["first_token_time"],0.001):.4f}',
+                    ),
+                    ("total time", f'{d["total_time"]:.4f}s'),
+                    ("output token", tok(d["generated_tokens"])),
+                    ("generated chars", d["generated_chars"]),
+                ],
+            )
     with col2:
         st.markdown(
             f'<div class="kc-console-title">&gt; CHUNKS (TOP {len(msg["all_results"])}, FUSED RANKING)</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="kc-diag-legend">'
+            f'<div class="kc-diag-legend-item">{render_provenance_badge(True, False)}<span>FAISS only</span></div>'
+            f'<div class="kc-diag-legend-item">{render_provenance_badge(False, True)}<span>BM25 only</span></div>'
+            f'<div class="kc-diag-legend-item">{render_provenance_badge(True, True)}<span>both (confirmed)</span></div>'
+            "</div>",
             unsafe_allow_html=True,
         )
         render_diag_source_cards(msg["all_results"], msg.get("score_lookup", {}))
