@@ -80,6 +80,84 @@ def contains_khmer_script(text):
     return bool(KHMER_SCRIPT_PATTERN.search(text))
 
 
+# ----------------------------------------------------------------------------
+# Disclaimer & scope-boundary text (Internship Proposal §6.5, §11)
+# ----------------------------------------------------------------------------
+# IMPORTANT: this Khmer wording is a first draft, not reviewed by a native
+# Khmer-speaking domain expert. Per the proposal's own §9.3 human evaluation
+# panel requirement, this text must be reviewed/corrected before any
+# external demonstration -- treat it as a placeholder for that review, not
+# as final legal-disclaimer copy.
+DISCLAIMER_TEXT = (
+    "ចំណាំ៖ ចម្លើយនេះមានគោលបំណងផ្តល់ព័ត៌មានទូទៅសម្រាប់ការអប់រំប៉ុណ្ណោះ "
+    "មិនមែនជាការផ្តល់ប្រឹក្សាផ្នែកហិរញ្ញវត្ថុ ឬច្បាប់ផ្ទាល់ខ្លួនទេ។ "
+    "សម្រាប់ករណីជាក់លាក់របស់អ្នក សូមទាក់ទងភ្នាក់ងារធានារ៉ាប់រងដែលមានអាជ្ញាប័ណ្ណ "
+    "ឬនិយ័តករធានារ៉ាប់រងកម្ពុជា (IRC)។"
+)
+
+REDIRECT_TEXT = (
+    "សូមទាក់ទងភ្នាក់ងារធានារ៉ាប់រងដែលមានអាជ្ញាប័ណ្ណ ឬនិយ័តករធានារ៉ាប់រងកម្ពុជា (IRC) "
+    "សម្រាប់ជំនួយបន្ថែម។"
+)
+
+# ----------------------------------------------------------------------------
+# Deterministic scope-violation gate
+# ----------------------------------------------------------------------------
+# Why this exists as a SEPARATE gate, not just prompt rules in build_prompt():
+# the OUT_OF_DOMAIN_THRESHOLD calibration log above already proved that
+# asking this 7B model to police itself via prompt instructions alone is
+# unreliable once retrieval finds TOPICALLY RELEVANT chunks -- e.g. "which
+# insurance company should I buy from" still retrieves real prakas/law text
+# about licensed insurers, so best_score stays well above both thresholds
+# and the low-confidence relevance-check instruction never even fires.
+# A scope violation (asking for a specific recommendation, advice framed as
+# "if you were me", or a personal monetary calculation) is a property of
+# the QUESTION ITSELF, not of how relevant the retrieved context is, so it
+# needs its own deterministic check -- same philosophy as the Khmer-script
+# and length gates above -- rather than depending on retrieval score or
+# trusting the prompt rules as the only line of defense. The in-prompt
+# rules in build_prompt() are kept as a second layer for phrasing this
+# gate doesn't catch, not removed.
+#
+# These patterns are a first pass based on observed failures during manual
+# testing, not an exhaustive adversarial test set -- expect to extend this
+# list as more bypass phrasings are found (see Internship Proposal §11's
+# requirement to test scope boundaries "under creative user queries").
+SCOPE_VIOLATION_PATTERNS = [
+    # "(please) recommend a company/product/plan" -- an imperative
+    # recommendation request directed AT the assistant. Deliberately
+    # requires "ណែនាំ" to co-occur near "ក្រុមហ៊ុន/ផលិតផល/គម្រោង" rather than
+    # triggering on "ណែនាំ" alone, since that word also appears constantly
+    # in this corpus's own document titles ("គោលការណ៍ណែនាំ" = "guidance").
+    re.compile(r"(សូម)?ណែនាំ.{0,30}(ក្រុមហ៊ុន|ផលិតផល|គម្រោង)"),
+    # "which company/product is the best / better"
+    re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,30}ល្អ(បំផុត|ជាង)"),
+    re.compile(r"មួយណា.{0,15}ល្អ(ជាង|បំផុត)?"),
+    # "should I buy/choose/use from which company"
+    re.compile(r"គួរ.{0,15}(ទិញ|ជ្រើសរើស|ប្រើ).{0,30}ក្រុមហ៊ុន"),
+    # "if you were me" -- explicitly asking for the assistant's own personal
+    # pick. This phrasing essentially never appears in regulatory text, so
+    # it's safe as a standalone trigger with no co-occurrence requirement.
+    re.compile(r"បើអ្នកជាខ្ញុំ"),
+    # "how much must I personally pay/spend" -- a personal monetary
+    # calculation request, as opposed to a question about a fee amount
+    # that IS stated as a fact in the corpus (e.g. "what is the annual
+    # license fee" is fine; "how much must I pay per month" is not, since
+    # nothing in the corpus states a personal monthly figure to retrieve).
+    re.compile(r"ត្រូវ(បង់|ចំណាយ|ខាត).{0,10}ប៉ុន្មាន"),
+]
+
+
+def is_scope_violation(text):
+    """Deterministic, score-independent check for questions asking the
+    assistant to do something explicitly out of scope per the Internship
+    Proposal's §4/§11 boundaries: recommend or compare a specific company
+    or product, give advice framed as a personal choice, or calculate a
+    personal monetary amount. See the comment block above for why this is
+    a separate gate rather than relying on prompt instructions alone."""
+    return any(pattern.search(text) for pattern in SCOPE_VIOLATION_PATTERNS)
+
+
 USED_SOURCE_MARGIN = (
     0.03  # how close a score must be to the top score to also count as "used"
 )
@@ -396,6 +474,17 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-source-chip .id {{ font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--brass); margin-top: 2px; }}
 
 .kc-msg-actions {{ margin-top: 10px; }}
+
+.kc-disclaimer {{
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11.5px;
+  color: var(--stone);
+  opacity: 0.65;
+  border-top: 1px dashed var(--brass-soft);
+  padding-top: 8px;
+  margin-top: 14px;
+  line-height: 1.6;
+}}
 
 [data-testid="stButton"] button {{
   background: transparent !important;
@@ -864,6 +953,9 @@ a question about the assistant itself, or unrelated small talk), you MUST
 reply with the "not found" message below instead of extracting a loosely
 related answer.
 """
+
+    not_found_message = f"រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។ {REDIRECT_TEXT}"
+
     return f"""
 You are a Khmer legal assistant.
 
@@ -877,9 +969,12 @@ Rules:
 - Provide a complete and detailed answer. If the context lists multiple conditions, sub-points, exceptions, or requirements, enumerate ALL of them.
 - Only combine information from multiple sources if EACH of them directly addresses the question asked. Do not stitch together unrelated facts from different sources just because they were retrieved -- if most of the retrieved sources don't actually answer the question, say so instead of forcing a combined answer out of all of them.
 - Do not reinterpret a number, rate, or statistic for a purpose other than what it was stated for in the source (for example, a mortality or incidence rate expressed "per 1,000 people" is NOT the same as a total population count -- never restate a rate's denominator as if it were the literal answer to a "how many" question).
-- If answer not found, reply:
+- Do not recommend, endorse, or compare any specific insurance product, company, or policy, even if the context mentions one and the question asks for a recommendation.
+- Do not calculate, estimate, or infer a premium, payout, deductible, or any monetary amount that is not stated explicitly and directly in the context for that exact purpose.
+- Do not give personalized financial or legal advice (e.g. "should I buy X", "what should I do in my situation"). If the question asks for a personal recommendation, a calculation, or advice tailored to the user's situation, decline and reply with the message below instead of attempting an answer.
+- If the answer is not found in the context, OR the question asks for a product recommendation, a premium/payout calculation, or personalized advice, reply EXACTLY with this message and nothing else:
 
-រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។
+{not_found_message}
 
 Context:
 {context}
@@ -950,6 +1045,30 @@ def run_pipeline_in_thread(
                     "out_of_domain",
                     {
                         "reason": "too_short",
+                        "results": [],
+                        "best_score": 0.0,
+                        "min_score": 0.0,
+                        "spread_score": 0.0,
+                        "embed_time": 0.0,
+                        "search_time": 0.0,
+                        "retrieval_time": 0.0,
+                    },
+                )
+            )
+            return
+
+        if is_scope_violation(question):
+            # Deterministic, pre-retrieval check -- see SCOPE_VIOLATION_PATTERNS
+            # comment block for why this can't wait for the score gate below:
+            # these questions often retrieve genuinely relevant chunks (real
+            # text about licensed insurers, real fee figures), so best_score
+            # stays high and OUT_OF_DOMAIN_THRESHOLD never fires.
+            out_q.put(("phase", "completed"))
+            out_q.put(
+                (
+                    "out_of_domain",
+                    {
+                        "reason": "scope_violation",
                         "results": [],
                         "best_score": 0.0,
                         "min_score": 0.0,
@@ -1221,6 +1340,17 @@ def render_used_sources(used_sources):
     )
 
 
+def render_disclaimer():
+    """Renders the mandatory disclaimer. Called from the single shared
+    render_message() call site so every answer path -- normal,
+    low-confidence, out-of-domain -- carries it structurally, and it's
+    never part of LLM-generated text a user's question could influence."""
+    st.markdown(
+        f'<div class="kc-disclaimer">{html.escape(DISCLAIMER_TEXT)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_message(msg):
     st.markdown(
         f'<div class="kc-msg-user-row"><div class="kc-msg-user">{html.escape(msg["question"])}</div></div>',
@@ -1261,6 +1391,14 @@ def render_message(msg):
                 "generation was skipped.</div>",
                 unsafe_allow_html=True,
             )
+        elif reason == "scope_violation":
+            st.markdown(
+                '<div class="kc-alert">Scope boundary &mdash; this assistant '
+                "cannot recommend or compare specific companies/products, give "
+                "personalized advice, or calculate personal monetary amounts, "
+                "so generation was skipped.</div>",
+                unsafe_allow_html=True,
+            )
         else:
             st.markdown(
                 f'<div class="kc-alert">Out of domain &mdash; best match score '
@@ -1285,6 +1423,14 @@ def render_message(msg):
             st.session_state["active_msg_id"] = msg["id"]
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
+
+    # Disclaimer is shown on every real answer path -- normal, low-confidence,
+    # and out-of-domain -- but not on interrupted/errored states, since those
+    # aren't actual answers. This is the one render_message() call site every
+    # message passes through, so there's no path that can skip it.
+    if not msg.get("interrupted") and not msg.get("errored"):
+        render_disclaimer()
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1464,10 +1610,25 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
     if out_of_domain_payload is not None:
         st.session_state["active_run"] = None
         score = out_of_domain_payload["best_score"]
-        canned_answer = (
-            "សំណួររបស់អ្នកហាក់ដូចជាមិនទាក់ទងនឹងច្បាប់ ឬបទប្បញ្ញត្តិធានារ៉ាប់រងកម្ពុជាទេ។ "
-            "ជំនួយការនេះអាចឆ្លើយបានតែសំណួរទាក់ទងនឹងច្បាប់ធានារ៉ាប់រងប៉ុណ្ណោះ។"
-        )
+        reason = out_of_domain_payload.get("reason", "low_score")
+
+        # Distinct wording per reason -- the previous single generic string
+        # ("your question doesn't relate to insurance law") was misleading
+        # for scope_violation in particular: that case IS about insurance,
+        # the assistant just can't recommend/calculate/personally-advise.
+        if reason == "scope_violation":
+            canned_answer = (
+                "សំណួររបស់អ្នកស្នើសុំការណែនាំ ឬប្រៀបធៀបក្រុមហ៊ុន/ផលិតផលជាក់លាក់ "
+                "ការផ្តល់ប្រឹក្សាផ្ទាល់ខ្លួន ឬការគណនាប្រាក់ផ្ទាល់ខ្លួន ដែលជំនួយការនេះ"
+                "មិនអាចផ្តល់បានទេ។ "
+                f"{REDIRECT_TEXT}"
+            )
+        else:
+            canned_answer = (
+                "សំណួររបស់អ្នកហាក់ដូចជាមិនទាក់ទងនឹងច្បាប់ ឬបទប្បញ្ញត្តិធានារ៉ាប់រងកម្ពុជាទេ។ "
+                "ជំនួយការនេះអាចឆ្លើយបានតែសំណួរទាក់ទងនឹងច្បាប់ធានារ៉ាប់រងប៉ុណ្ណោះ។ "
+                f"{REDIRECT_TEXT}"
+            )
         st.session_state["messages"].append(
             {
                 "id": str(uuid.uuid4()),
@@ -1479,9 +1640,7 @@ def handle_new_question(question, model_name, client, embedding_model, index, ch
                 "low_confidence": False,
                 "interrupted": False,
                 "out_of_domain": True,
-                "out_of_domain_reason": out_of_domain_payload.get(
-                    "reason", "low_score"
-                ),
+                "out_of_domain_reason": reason,
             }
         )
         return
