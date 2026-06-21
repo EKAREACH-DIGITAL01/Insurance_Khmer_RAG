@@ -73,12 +73,12 @@ PDF source documents
         v
 +------------------------------------------------------------+
 |                      app.py (Streamlit)                    |
-|                                                              |
-|  question -> Khmer-script check -> length check              |
-|           -> BGE-M3 embed -> FAISS search -> score gate       |
-|           -> build context (capped, deduped per document)     |
-|           -> prompt -> llama-server (SeaLLMs-v3-7B, GGUF)     |
-|           -> streamed answer + sources + diagnostics          |
+|                                                            |
+|  question -> Khmer-script check -> length check            |
+|           -> BGE-M3 embed -> FAISS search -> score gate    |
+|           -> build context (capped, deduped per document)  |
+|           -> prompt -> llama-server (SeaLLMs-v3-7B, GGUF)  |
+|           -> streamed answer + sources + diagnostics       |
 +------------------------------------------------------------+
 ```
 
@@ -105,56 +105,87 @@ Khmer-Rag-Chatbot/
 ├── app.py                         # The Streamlit chatbot
 ├── start_chatbot.py               # Entry point: launches llama-server + the app
 ├── requirements.txt
+│
 ├── assets/
 │   └── favicon.png
+│
 ├── data/
 │   ├── 01_source_documents/       # Raw input PDFs, by category
 │   │   ├── guidance/
 │   │   ├── laws/
 │   │   ├── prakas/
 │   │   └── sub_decrees/
+│   │
 │   ├── 02_page_images/            # PDF pages rendered to PNG (scripts/01)
 │   │   ├── guidance/
 │   │   ├── laws/
 │   │   ├── prakas/
 │   │   └── sub_decrees/
+│   │
 │   ├── 03_raw_pages/              # Gemini OCR output, one JSON/page (scripts/02)
 │   │   ├── guidance/
 │   │   ├── laws/
 │   │   ├── prakas/
 │   │   └── sub_decrees/
-│   ├── 04_cleaned_pages/          # OCR-artifact cleanup, per page (scripts/03)
+│   │
+│   ├── 04_cleaned_pages/          # Page Level Cleanup (scripts/03)
 │   │   ├── guidance/
 │   │   ├── laws/
 │   │   ├── prakas/
 │   │   └── sub_decrees/
+│   │
 │   ├── 05_merged_documents/       # Pages stitched into full documents (scripts/04)
 │   │   ├── guidance/
 │   │   ├── laws/
 │   │   ├── prakas/
 │   │   └── sub_decrees/
+│   │
 │   ├── 06_cleaned_documents/      # Document-level cleanup (scripts/05)
 │   │   ├── guidance/
 │   │   ├── laws/
 │   │   ├── prakas/
 │   │   └── sub_decrees/
+│   │
 │   ├── 07_chunked_documents/      # Final chunks ready for embedding (scripts/06)
 │   │   ├── guidance/
 │   │   ├── laws/
 │   │   ├── prakas/
 │   │   └── sub_decrees/
-│   ├── 08_evaluation/             # Hand-labeled gold questions per category
+│   │
+│   ├── 08_evaluation/             # Gold evaluation datasets
 │   │   ├── guidance/
+│   │   │   └── gold_questions.json
 │   │   ├── laws/
+│   │   │   └── gold_questions.json
 │   │   ├── prakas/
+│   │   │   └── gold_questions.json
 │   │   └── sub_decrees/
-│   └── document_metadata.json     # document_id -> name/type/release_date lookup
+│   │       └── gold_questions.json
+│   │
+│   ├── 09_adversarial/            # Safety / refusal test cases
+│   │   ├── recommendation_questions.json
+│   │   ├── pricing_questions.json
+│   │   ├── personal_advice_questions.json
+│   │   └── out_of_domain_questions.json
+│   │
+│   └── document_metadata.json     # document_id -> name/type/release_date
+│
+├── reports/                       # Generated evaluation artifacts
+│   ├── retrieval/                 # Output from 08_evaluate_retrieval.py
+│   ├── embeddings/                # Output from 09_compare_embeddings.py
+│   ├── generator/                 # Output from 10 & 11
+│   ├── hallucination_audit/       # Hallucination audit outputs
+│   └── data_card/                 # Corpus statistics and data card
+│
 ├── models/
 │   ├── .hf_cache/                 # Hugging Face download cache (created by scripts/09)
+│   │
 │   ├── generator/
-│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M.gguf
+│   │   └── SeaLLMs-v3-7B-Chat-Q4_K_M.gguf
+│   │
 │   └── retriever/
 │       └── BAAI-BGE-M3/
+│
 ├── scripts/
 │   ├── 01_convert_pdf_to_png.py
 │   ├── 02_extract_text_gemini.py
@@ -164,9 +195,14 @@ Khmer-Rag-Chatbot/
 │   ├── 06_chunk_documents.py
 │   ├── 07_generate_embeddings.py
 │   ├── 08_evaluate_retrieval.py
-│   └── 09_install_model.py
+│   ├── 09_compare_embeddings.py
+│   ├── 10_evaluate_generator.py
+│   ├── 11_compare_generators.py
+│   ├── 12_generate_data_card.py
+│   └── 13_install_models.py
+│
 └── vector_db/
-    ├── khmer_insurance.index       # FAISS index (built by scripts/07)
+    ├── khmer_insurance.index      # FAISS index (built by scripts/07)
     └── khmer_insurance_metadata.json
 ```
 

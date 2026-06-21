@@ -1,353 +1,405 @@
 [
     {
         "question": "ច្បាប់នេះមានគោលបំណងអ្វីខ្លះក្នុងការគ្រប់គ្រងពាណិជ្ជកម្មតាមប្រព័ន្ធអេឡិចត្រូនិក?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_0"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "ច្បាប់នេះមានគោលដៅអ្វីខ្លះពាក់ព័ន្ធនឹងការធានាភាពអាចជឿទុកចិត្តបាននៃទម្រង់អេឡិចត្រូនិក?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_1"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើសកម្មភាពឬប្រតិបត្តិការណាខ្លះមិនស្ថិតក្រោមការអនុវត្តនៃច្បាប់នេះ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_2"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "និយមន័យនៃពាក្យសព្ទសំខាន់ៗក្នុងច្បាប់នេះត្រូវស្វែងរកពីណា?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_3"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអាចបដិសេធសុពលភាពនៃទំនាក់ទំនងអេឡិចត្រូនិកដោយសារតែវាស្ថិតក្នុងទម្រង់អេឡិចត្រូនិកបានដែរឬទេ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_4"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "ក្នុងករណីច្បាប់តម្រូវឱ្យព័ត៌មានមានជាលាយលក្ខណ៍អក្សរ តើទម្រង់អេឡិចត្រូនិកត្រូវបំពេញលក្ខខណ្ឌអ្វីខ្លះ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_5"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើហត្ថលេខាអេឡិចត្រូនិកត្រូវមានលក្ខណៈដូចម្តេចដើម្បីបំពេញលក្ខខណ្ឌតម្រូវអំពីហត្ថលេខា?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_6"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើការរក្សាព័ត៌មានក្នុងទម្រង់អេឡិចត្រូនិកត្រូវបំពេញលក្ខខណ្ឌអ្វីខ្លះដើម្បីជំនួសការរក្សាទម្រង់ដើម",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_7"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "បើច្បាប់តម្រូវឱ្យប្រើទម្រង់បែបបទជាក់លាក់ តើទម្រង់អេឡិចត្រូនិកត្រូវមានលក្ខណៈអ្វីខ្លះ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_8"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើការរក្សាទុកកំណត់ត្រាអេឡិចត្រូនិកត្រូវបំពេញលក្ខខណ្ឌអ្វីខ្លះដើម្បីចាត់ទុកថាស្របច្បាប់?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_9"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើទំនាក់ទំនងអេឡិចត្រូនិកអាចត្រូវបានទទួលយកជាភស្តុតាងទោះបីមិនស្ថិតក្នុងទម្រង់ដើមដែរឬទេ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_10"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើកិច្ចសន្យាអេឡិចត្រូនិកមានសុពលភាពនៅពេលណា?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_11"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអ្នកផ្ញើនិងអ្នកទទួលអាចបដិសេធសុពលភាពនៃការបង្ហាញឆន្ទៈរបស់ខ្លួនក្នុងទំនាក់ទំនងអេឡិចត្រូនិកបានដែរឬទេ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_12"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើភាគីអាចព្រមព្រៀងមិនប្រើកំណត់ត្រាអេឡិចត្រូនិក ឬហត្ថលេខាអេឡិចត្រូនិកក្នុងប្រតិបត្តិការបានដែរឬទេ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_13"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើពេលវេលាទទួលបានព័ត៌មានអេឡិចត្រូនិកត្រូវកំណត់យ៉ាងដូចម្តេច?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_14"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើការស្នើសុំចុះកិច្ចសន្យាតាមប្រព័ន្ធអេឡិចត្រូនិកនៅពេលណាត្រូវចាត់ទុកថាជាសំណើបង្កើតកិច្ចសន្យា?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_15"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើកិច្ចសន្យាដែលបង្កើតឡើងតាមរយៈប្រព័ន្ធស្វ័យប្រវត្តិអាចត្រូវបដិសេធសុពលភាពដោយសារខ្វះការចូលរួមផ្ទាល់ពីមនុស្សដែរឬទេ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_16"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើបុគ្គលអាចកែតម្រូវឬដកព័ត៌មានដែលបញ្ចូលខុសក្នុងប្រព័ន្ធស្វ័យប្រវត្តិបានក្រោមលក្ខខណ្ឌអ្វីខ្លះ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_17"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើកំណត់ត្រាអេឡិចត្រូនិកត្រូវមានលក្ខណៈដូចម្តេចដើម្បីចាត់ទុកថាមានសុវត្ថិភាព?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_18"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើហត្ថលេខាអេឡិចត្រូនិកដែលមានសុវត្ថិភាពត្រូវបំពេញលក្ខខណ្ឌអ្វីខ្លះ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_19"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើមានការសន្មតអ្វីខ្លះចំពោះហត្ថលេខាអេឡិចត្រូនិកដែលមានសុវត្ថិភាព?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_20"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើការប្រើប្រាស់អត្តសញ្ញាណ ឬលេខសម្ងាត់របស់អ្នកដទៃដោយគ្មានការអនុញ្ញាតត្រូវបានអនុញ្ញាតដែរឬទេ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_21"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "ស្ថាប័នណាមានសមត្ថកិច្ចគ្រប់គ្រងនីតិវិធីសុវត្ថិភាពសម្រាប់កំណត់ត្រា និងហត្ថលេខាអេឡិចត្រូនិក?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_22"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើក្នុងករណីណាខ្លះអន្តរការី ឬអ្នកផ្តល់សេវាពាណិជ្ជកម្មអេឡិចត្រូនិកមិនទទួលខុសត្រូវចំពោះព័ត៌មានដែលឆ្លងកាត់សេវារបស់ខ្លួន?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_23"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "បើអន្តរការីដឹងថាព័ត៌មានមួយអាចបង្កការទទួលខុសត្រូវផ្នែករដ្ឋប្បវេណីឬព្រហ្មទណ្ឌ តើត្រូវចាត់វិធានការអ្វីខ្លះ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_24"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើលក្ខខណ្ឌអ្វីខ្លះដែលធ្វើឱ្យព័ត៌មានអេឡិចត្រូនិកអាចបំពេញតម្រូវការជាលាយលក្ខណ៍អក្សរ និងត្រូវបានទទួលយកជាភស្តុតាង?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_5",
             "law_01_chunk_10"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើហត្ថលេខាអេឡិចត្រូនិកត្រូវបំពេញលក្ខខណ្ឌអ្វីខ្លះដើម្បីស្របច្បាប់ និងមានសុវត្ថិភាព?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_6",
             "law_01_chunk_19"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើការរក្សាទុកព័ត៌មានអេឡិចត្រូនិកត្រូវមានលក្ខណៈអ្វីខ្លះទាក់ទងនឹងភាពពេញលេញ និងការចូលប្រើប្រាស់នាពេលក្រោយ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_7",
             "law_01_chunk_9"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើកិច្ចសន្យាអេឡិចត្រូនិកអាចបង្កើតបានដោយរបៀបណា ហើយនៅពេលណាមានសុពលភាព?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_11",
             "law_01_chunk_15"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើភាគីអាចកំណត់លក្ខខណ្ឌបន្ថែមលើទម្រង់ឬយថាភូតភាពនៃកិច្ចសន្យាបានដែរឬទេ ហើយច្បាប់អនុញ្ញាតយ៉ាងដូចម្តេច?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_13",
             "law_01_chunk_14"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើកំណត់ត្រាអេឡិចត្រូនិកដែលមានសុវត្ថិភាពត្រូវបានសន្មតយ៉ាងដូចម្តេចនៅក្នុងដំណើរការផ្លូវច្បាប់?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_18",
             "law_01_chunk_20"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអន្តរការីអាចរួចផុតពីការទទួលខុសត្រូវបានក្រោមលក្ខខណ្ឌអ្វីខ្លះ ហើយត្រូវអនុវត្តនីតិវិធីអ្វីនៅពេលដឹងពីព័ត៌មានខុសច្បាប់?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_23",
             "law_01_chunk_24"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអន្តរការី ឬអ្នកផ្តល់សេវាពាណិជ្ជកម្មអេឡិចត្រូនិកត្រូវស្នើសុំការអនុញ្ញាត ឬអាជ្ញាបណ្ណពីស្ថាប័នណាខ្លះ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_25",
             "law_01_chunk_22"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអន្តរការី និងអ្នកផ្តល់សេវាពាណិជ្ជកម្មអេឡិចត្រូនិកត្រូវគោរពក្រមសីលធម៌ និងបទប្បញ្ញត្តិដែលកំណត់ដោយស្ថាប័នណាខ្លះ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_26",
             "law_01_chunk_25"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអ្នកលក់តាមប្រព័ន្ធអេឡិចត្រូនិកត្រូវផ្តល់ព័ត៌មានអប្បបរមាអ្វីខ្លះដល់អ្នកប្រើប្រាស់?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_28",
             "law_01_chunk_32"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអ្នកប្រើប្រាស់ត្រូវមានជម្រើសអ្វីនៅពេលទទួលបានទំនាក់ទំនងពាណិជ្ជកម្មដែលមិនបានស្នើសុំ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_29",
             "law_01_chunk_28"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើសកម្មភាពណាខ្លះត្រូវបានហាមឃាត់ទាក់ទងនឹងការបង្កើតប្រព័ន្ធក្លែងបន្លំ និងការប្រើប្រាស់កូដព្យាបាទ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_30",
             "law_01_chunk_31"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើបុគ្គលដែលរក្សាទុកព័ត៌មានឯកជនតាមប្រព័ន្ធអេឡិចត្រូនិកមានកាតព្វកិច្ចអ្វីខ្លះក្នុងការការពារទិន្នន័យ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_31",
             "law_01_chunk_32"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើក្រសួងឬស្ថាប័នរដ្ឋអាចកំណត់អ្វីខ្លះនៅពេលសម្រេចប្រើទំនាក់ទំនងអេឡិចត្រូនិកសម្រាប់សេវាសាធារណៈ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_33",
             "law_01_chunk_22"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើកំណត់ត្រាអេឡិចត្រូនិកអាចត្រូវបានទទួលយកជាភស្តុតាងដោយមិនគិតថាវាស្ថិតក្នុងទម្រង់ដើមឬអត់ដែរឬទេ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_10",
             "law_01_chunk_34"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើច្បាប់នេះមានគោលបំណង និងគោលដៅអ្វីខ្លះក្នុងការលើកកម្ពស់ទំនុកចិត្ត និងសុវត្ថិភាពនៃពាណិជ្ជកម្មអេឡិចត្រូនិក?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_0",
             "law_01_chunk_1",
             "law_01_chunk_4"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើទំនាក់ទំនងអេឡិចត្រូនិកត្រូវបានទទួលស្គាល់ផ្នែកគតិយុត្តយ៉ាងដូចម្តេចចំពោះលិខិតជាលាយលក្ខណ៍អក្សរ ហត្ថលេខា និងកិច្ចសន្យា?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_4",
             "law_01_chunk_6",
             "law_01_chunk_11"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើលក្ខខណ្ឌអ្វីខ្លះត្រូវបំពេញសម្រាប់ការរក្សាព័ត៌មាន កំណត់ត្រា និងទម្រង់ដើមក្នុងបរិបទអេឡិចត្រូនិក?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_7",
             "law_01_chunk_8",
             "law_01_chunk_9"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើច្បាប់កំណត់យ៉ាងដូចម្តេចអំពីការទទួលយកភស្តុតាងអេឡិចត្រូនិក និងការសន្មតលើកំណត់ត្រាដែលមានសុវត្ថិភាព?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_10",
             "law_01_chunk_20",
             "law_01_chunk_34"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើកំហុសក្នុងការបញ្ចូលព័ត៌មានអាចត្រូវបានកែតម្រូវក្រោមលក្ខខណ្ឌអ្វីខ្លះ ហើយតើកិច្ចសន្យាដែលបង្កើតដោយប្រព័ន្ធស្វ័យប្រវត្តិមានសុពលភាពដែរឬទេ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_16",
             "law_01_chunk_17",
             "law_01_chunk_11"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអ្វីជាលក្ខណៈសម្គាល់នៃកំណត់ត្រាអេឡិចត្រូនិកដែលមានសុវត្ថិភាព ហត្ថលេខាអេឡិចត្រូនិកដែលមានសុវត្ថិភាព និងការសន្មតផ្លូវច្បាប់របស់វា?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_18",
             "law_01_chunk_19",
             "law_01_chunk_20"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើការលួចប្រើអត្តសញ្ញាណអេឡិចត្រូនិក និងការចូលប្រើឬកែប្រែទិន្នន័យដោយគ្មានការអនុញ្ញាតត្រូវបានហាមឃាត់យ៉ាងដូចម្តេច?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_21",
             "law_01_chunk_31",
             "law_01_chunk_30"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើស្ថាប័នណាគ្រប់គ្រងនីតិវិធីសុវត្ថិភាព ហើយអាចទទួលការជូនដំណឹងពីអន្តរការីនៅពេលមានព័ត៌មានខុសច្បាប់?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_22",
             "law_01_chunk_24",
             "law_01_chunk_23"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអន្តរការីអាចរួចផុតពីការទទួលខុសត្រូវក្នុងករណីណាខ្លះ ហើយត្រូវអនុវត្តវិធានការអ្វីនៅពេលដឹងអំពីព័ត៌មានខុសច្បាប់?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_23",
             "law_01_chunk_24",
             "law_01_chunk_26"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអន្តរការីនិងអ្នកផ្តល់សេវាពាណិជ្ជកម្មអេឡិចត្រូនិកត្រូវបំពេញតម្រូវការអ្វីខ្លះទាក់ទងនឹងអាជ្ញាបណ្ណ ក្រមសីលធម៌ និងកាតព្វកិច្ចពន្ធ?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_25",
             "law_01_chunk_26",
             "law_01_chunk_27"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើអ្នកលក់តាមប្រព័ន្ធអេឡិចត្រូនិកមានកាតព្វកិច្ចអ្វីខ្លះចំពោះអ្នកប្រើប្រាស់ ទាក់ទងនឹងព័ត៌មាន ការទំនាក់ទំនងពាណិជ្ជកម្ម និងការការពារអ្នកប្រើប្រាស់?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_28",
             "law_01_chunk_29",
             "law_01_chunk_32"
-        ]
+        ],
+        "expected_answer": ""
     },
     {
         "question": "តើក្រសួងឬស្ថាប័នរដ្ឋអាចប្រើទំនាក់ទំនងអេឡិចត្រូនិកសម្រាប់សកម្មភាពអ្វីខ្លះ ហើយអាចកំណត់នីតិវិធី និងលក្ខខណ្ឌអ្វីខ្លះសម្រាប់ការអនុវត្ត?",
-        "relevant_chunk_ids": [
+        "expected_chunks": [
             "law_01_chunk_33",
             "law_01_chunk_5",
             "law_01_chunk_6"
-        ]
+        ],
+        "expected_answer": ""
     }
 ]

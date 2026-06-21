@@ -203,7 +203,7 @@ def evaluate_retrieval(retrieve_fn):
         missing_chunk_ids = set()
 
         for item in gold_questions:
-            for chunk_id in item["relevant_chunk_ids"]:
+            for chunk_id in item["expected_chunks"]:
                 if chunk_id not in metadata_chunk_ids:
                     missing_chunk_ids.add(chunk_id)
 
@@ -217,16 +217,16 @@ def evaluate_retrieval(retrieve_fn):
 
         for item in gold_questions:
             question = item["question"]
-            relevant_chunk_ids = set(item["relevant_chunk_ids"])
+            expected_chunks = set(item["expected_chunks"])
 
-            if not relevant_chunk_ids:
-                print("\nSkipping question with no relevant_chunk_ids:")
+            if not expected_chunks:
+                print("\nSkipping question with no expected_chunks:")
                 print(question)
                 continue
 
             relevant_document_ids = set()
 
-            for chunk_id in relevant_chunk_ids:
+            for chunk_id in expected_chunks:
                 chunk = chunk_lookup.get(chunk_id)
 
                 if chunk:
@@ -251,17 +251,17 @@ def evaluate_retrieval(retrieve_fn):
                 top_k_chunks = retrieved_chunk_ids[:k]
                 top_k_documents = retrieved_document_ids[:k]
 
-                found_chunks = set(top_k_chunks).intersection(relevant_chunk_ids)
+                found_chunks = set(top_k_chunks).intersection(expected_chunks)
 
                 if found_chunks:
                     hit_sums[k] += 1
 
-                recall_sums[k] += len(found_chunks) / len(relevant_chunk_ids)
+                recall_sums[k] += len(found_chunks) / len(expected_chunks)
 
                 reciprocal_rank = 0
 
                 for rank, chunk_id in enumerate(top_k_chunks, start=1):
-                    if chunk_id in relevant_chunk_ids:
+                    if chunk_id in expected_chunks:
                         reciprocal_rank = 1 / rank
                         break
 
