@@ -252,15 +252,15 @@ def is_scope_violation(text):
 
 MAX_USED_SOURCES = 3
 
-FAISS_PATH = "vector_db/khmer_insurance.index"
-METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
-# Which embedding model built vector_db/ is recorded by
-# scripts/07_generate_embeddings.py at build time (it now supports
-# BGE-M3, jina-embeddings-v3, or MiniLM) -- the app loads whichever one
-# was actually used, since embeddings from a different model are not a
-# compatible vector space even when dimensions happen to match. See
-# load_embedding_model_info() below for the legacy-install fallback.
-EMBEDDING_MODEL_INFO_PATH = "vector_db/embedding_model_info.json"
+# Which precomputed vector_db/<subfolder>/ the live app loads. Change this
+# one line to switch embedding models -- scripts/07_generate_embeddings.py
+# builds all installed models into their own subfolders (vector_db/BAAI-BGE-M3/,
+# vector_db/jinaai-jina-embeddings-v3/, vector_db/MiniLM-paraphrase-multilingual-L12-v2/),
+# so switching here doesn't require rebuilding anything that's already
+# been generated -- just restart the app.
+ACTIVE_EMBEDDING_MODEL_DIR = "BAAI-BGE-M3"
+
+VECTOR_DB_ROOT = "vector_db"
 
 PHASES = [
     "encoding_query",
@@ -1081,46 +1081,113 @@ def get_loaded_model():
 
 
 @st.cache_resource(show_spinner=False)
-def load_embedding_model_info():
-    """Reads which embedding model actually built vector_db/, written by
-    scripts/07_generate_embeddings.py. Falls back to the original
-    hardcoded BGE-M3 default if the file is missing -- which is exactly
-    what every vector_db/ built before this file existed actually used,
-    since BGE-M3 was the only option before scripts/07 supported
-    choosing a model. A loud warning is shown in the UI either way (see
-    main section below) so this fallback doesn't silently mask a real
-    mismatch going forward."""
-    try:
-        with open(EMBEDDING_MODEL_INFO_PATH, "r", encoding="utf-8") as f:
-            return json.load(f), True
-    except FileNotFoundError:
-        return (
-            {
-                "label": "BAAI/bge-m3",
-                "hf_id": "BAAI/bge-m3",
-                "local_dir": "models/retriever/BAAI-BGE-M3",
-                "trust_remote_code": False,
-                "task_aware": False,
-            },
-            False,
+def resolve_vector_db():
+    """Figures out which vector_db/ layout is actually on disk and
+    resolves the FAISS index path, metadata path, and embedding model
+    info accordingly. Tries, in order:
+
+      1. New per-model subfolder layout -- vector_db/<ACTIVE_EMBEDDING_MODEL_DIR>/
+         -- what the current scripts/07_generate_embeddings.py builds.
+      2. Old flat layout with a top-level embedding_model_info.json --
+         what an earlier version of scripts/07 built (one model,
+         dynamically chosen, no subfolders).
+      3. Original flat layout with no info file at all -- assumes
+         BAAI/bge-m3, since that was the only option before multiple
+         embedding models existed.
+
+    Returns (faiss_path, metadata_path, embedding_model_info, found,
+    layout_note). `found` is True only for case 1 (the current, fully
+    correct layout) -- cases 2 and 3 still work, but return a
+    human-readable note explaining the situation so the UI can show it
+    rather than silently guessing forever."""
+    new_dir = f"{VECTOR_DB_ROOT}/{ACTIVE_EMBEDDING_MODEL_DIR}"
+    new_faiss = f"{new_dir}/khmer_insurance.index"
+    new_metadata = f"{new_dir}/khmer_insurance_metadata.json"
+    new_info = f"{new_dir}/embedding_model_info.json"
+
+    if os.path.exists(new_faiss) and os.path.exists(new_metadata):
+        if os.path.exists(new_info):
+            with open(new_info, "r", encoding="utf-8") as f:
+                info = json.load(f)
+            return new_faiss, new_metadata, info, True, None
+
+        # Subfolder exists but somehow no info file -- shouldn't happen
+        # from a normal scripts/07 run, but don't crash over it.
+        fallback_info = {
+            "label": ACTIVE_EMBEDDING_MODEL_DIR,
+            "local_dir": new_dir,
+            "trust_remote_code": False,
+            "task_aware": False,
+        }
+        note = (
+            f"Found {new_dir}/ but no embedding_model_info.json inside it -- "
+            "assuming a non-task-aware model. Re-run "
+            "scripts/07_generate_embeddings.py to fix."
         )
+        return new_faiss, new_metadata, fallback_info, False, note
+
+    # Fall back to the old flat layout (pre-dates per-model subfolders).
+    old_faiss = f"{VECTOR_DB_ROOT}/khmer_insurance.index"
+    old_metadata = f"{VECTOR_DB_ROOT}/khmer_insurance_metadata.json"
+    old_info = f"{VECTOR_DB_ROOT}/embedding_model_info.json"
+
+    if os.path.exists(old_faiss) and os.path.exists(old_metadata):
+        if os.path.exists(old_info):
+            with open(old_info, "r", encoding="utf-8") as f:
+                info = json.load(f)
+            note = (
+                f"Using a legacy flat vector_db/ layout built before "
+                f"per-model subfolders existed. Re-run "
+                f"scripts/07_generate_embeddings.py to migrate to "
+                f"vector_db/{ACTIVE_EMBEDDING_MODEL_DIR}/."
+            )
+            return old_faiss, old_metadata, info, False, note
+
+        fallback_info = {
+            "label": "BAAI/bge-m3",
+            "hf_id": "BAAI/bge-m3",
+            "local_dir": "models/retriever/BAAI-BGE-M3",
+            "trust_remote_code": False,
+            "task_aware": False,
+        }
+        note = (
+            "No embedding_model_info.json found anywhere -- assuming "
+            "BAAI/bge-m3 (the only option before multiple embedding "
+            "models were supported). Re-run "
+            f"scripts/07_generate_embeddings.py to build "
+            f"vector_db/{ACTIVE_EMBEDDING_MODEL_DIR}/ properly."
+        )
+        return old_faiss, old_metadata, fallback_info, False, note
+
+    raise FileNotFoundError(
+        f"No vector_db/ found at either {new_dir}/ or the legacy flat "
+        f"location. Run: python scripts/07_generate_embeddings.py"
+    )
+
+
+@st.cache_resource(show_spinner=False)
+def load_embedding_model_info():
+    _, _, info, found, note = resolve_vector_db()
+    return info, found, note
 
 
 @st.cache_resource(show_spinner=False)
 def load_embedding_model():
-    info, _ = load_embedding_model_info()
+    info, _, _ = load_embedding_model_info()
     kwargs = {"trust_remote_code": True} if info.get("trust_remote_code") else {}
     return SentenceTransformer(info["local_dir"], device="cpu", **kwargs)
 
 
 @st.cache_resource
 def load_index():
-    return faiss.read_index(FAISS_PATH)
+    faiss_path, _, _, _, _ = resolve_vector_db()
+    return faiss.read_index(faiss_path)
 
 
 @st.cache_resource
 def load_metadata():
-    with open(METADATA_PATH, "r", encoding="utf-8") as f:
+    _, metadata_path, _, _, _ = resolve_vector_db()
+    with open(metadata_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -2565,20 +2632,17 @@ if MODEL_NAME == "No Model Loaded":
     st.stop()
 
 client = OpenAI(base_url=LLAMA_SERVER_URL, api_key="not-needed")
-embedding_model_info, embedding_model_info_found = load_embedding_model_info()
+embedding_model_info, embedding_model_info_found, embedding_layout_note = (
+    load_embedding_model_info()
+)
 embedding_model = load_embedding_model()
 index = load_index()
 chunks = load_metadata()
 bm25_index = load_bm25_index(chunks)
 
-if not embedding_model_info_found:
+if embedding_layout_note:
     st.markdown(
-        '<div class="kc-alert">No vector_db/embedding_model_info.json found -- '
-        f"assuming this index was built with {html.escape(embedding_model_info['label'])} "
-        "(the only option before multiple embedding models were supported). "
-        "If that assumption is wrong, retrieval will be silently broken. "
-        "Regenerate vector_db/ with the current scripts/07_generate_embeddings.py "
-        "to remove this warning.</div>",
+        f'<div class="kc-alert">{html.escape(embedding_layout_note)}</div>',
         unsafe_allow_html=True,
     )
 

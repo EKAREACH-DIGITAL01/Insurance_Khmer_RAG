@@ -4,7 +4,7 @@ python-dotenv
 pillow
 pdf2image
 sentence-transformers
-transformers
+transformers<5.0
 huggingface-hub
 sentencepiece
 accelerate

@@ -21,14 +21,17 @@ DOCUMENT_TYPE_KH = {
 # Embedding model options
 # ----------------------------------------------------------------------------
 # Duplicated from scripts/13_install_models.py -- this project's scripts/
-# are each standalone, self-contained files with no shared utils module
-# (consistent with the rest of this pipeline). If you change one, change
-# the other.
+# are each standalone, self-contained files with no shared utils module.
+# If you change one, change the other.
 #
-# jina-embeddings-v3 needs `trust_remote_code=True` to load and a `task`
-# argument at encode time (its task-specific behavior is implemented via
-# LoRA adapters selected per-call, not a fixed architecture) -- BGE-M3
-# needs neither. See encode_documents() below for how that's handled.
+# Each model gets its own subfolder under vector_db/, named after its
+# local_dir's own folder name (e.g. vector_db/BAAI-BGE-M3/), so all three
+# can exist side by side and scripts/09_compare_embeddings.py never has
+# to re-encode the whole corpus to compare them -- it just loads whichever
+# precomputed indices are already here.
+#
+# This script no longer prompts for a single choice -- it builds (or
+# skips, if already built) ALL installed models in one run.
 EMBEDDING_MODELS = {
     "1": {
         "label": "BAAI/bge-m3",
@@ -53,92 +56,30 @@ EMBEDDING_MODELS = {
     },
 }
 
-# FAISS vector index used for similarity search retrieval
-faiss_output = output_root / "khmer_insurance.index"
-# Metadata used to map retrieved vectors back to chunks and citations
-metadata_output = output_root / "khmer_insurance_metadata.json"
-# Records WHICH embedding model built this index -- the live app (and any
-# evaluation script) must load the SAME model to embed queries, since
-# embeddings from two different models are not compatible vector spaces
-# even when the dimensions happen to match. Without this file, swapping
-# which model scripts/07 used would silently break retrieval the next
-# time the app starts with no error, just nonsense similarity scores.
-model_info_output = output_root / "embedding_model_info.json"
-
-# Skip if file already exists
-if faiss_output.exists() and metadata_output.exists():
-
-    print("\n========== EXISTING VECTOR DATABASE ==========")
-    print(f"FAISS Index : {faiss_output}")
-    print(f"Metadata    : {metadata_output}")
-
-    raise SystemExit(
-        "\nEmbeddings already exist.\n"
-        "Delete the existing files and run the script again if you want to regenerate them."
-    )
-
-# MODEL SELECTION
-print("""
-        ========================================
-        Embedding Model Selection
-        ========================================
-
-        Choose which model builds this vector database:
-
-        1. BAAI/bge-m3                          (~568M params)
-        2. jinaai/jina-embeddings-v3            (~572M params)
-        3. paraphrase-multilingual-MiniLM-L12-v2 (~118M params, smaller/faster)
-
-        Both are real, supported options -- not a "default vs.
-        experimental" choice. See reports/embeddings/ (after running
-        scripts/09_compare_embeddings.py) for a head-to-head comparison
-        on this corpus before deciding.
-        """)
-
-embed_choice = input("Enter choice: ").strip()
-
-if embed_choice not in EMBEDDING_MODELS:
-    raise SystemExit("Invalid choice.")
-
-selected = EMBEDDING_MODELS[embed_choice]
-
-print(f"\nSelected embedding model: {selected['label']}")
-
-print("Loading embedding model...")
-MODEL_PATH = selected["local_dir"]
-
-if not (MODEL_PATH / "modules.json").exists():
-    raise FileNotFoundError(
-        f"{selected['label']} not found at {MODEL_PATH}.\n"
-        "Run: python scripts/13_install_models.py"
-    )
-
-model_kwargs = {"trust_remote_code": True} if selected["trust_remote_code"] else {}
-model = SentenceTransformer(str(MODEL_PATH), **model_kwargs)
-
 
 def encode_documents(model, model_config, texts, **kwargs):
-    """Encodes corpus chunks as PASSAGES/DOCUMENTS, not queries -- matters
-    only for task-aware models. jina-embeddings-v3 uses a different LoRA
-    adapter for "this text will be searched against" (retrieval.passage)
-    vs. "this text is a search query" (retrieval.query); using the wrong
-    one doesn't error, it just silently produces worse retrieval. BGE-M3
-    has no such distinction and ignores this entirely."""
+    """Encodes corpus chunks as PASSAGES, not queries -- matters only for
+    task-aware models like jina-embeddings-v3, which use a different LoRA
+    adapter depending on which side of retrieval the text is on."""
     if model_config.get("task_aware"):
         kwargs["task"] = "retrieval.passage"
         kwargs["prompt_name"] = "retrieval.passage"
     return model.encode(texts, **kwargs)
 
 
-# Find all JSONs recursively
+# ----------------------------------------------------------------------------
+# Load and prepare chunks ONCE -- this part is identical regardless of
+# which model(s) end up embedding the text, so it happens outside the
+# per-model loop below rather than being redone three times.
+# ----------------------------------------------------------------------------
+
 chunk_files = sorted(input_root.rglob("*.json"))
 
 all_chunks = []
-start_time = time.time()
+load_start = time.time()
 
 print("Loading chunk files...")
 
-# Load all chunk files generated from the chunking pipeline
 for chunk_path in chunk_files:
     print(f"Loading: {chunk_path.relative_to(input_root)}")
 
@@ -154,13 +95,10 @@ for chunk_path in chunk_files:
 
 print(f"\nTotal chunks loaded: {len(all_chunks)}")
 
-# Build embedding text by combining metadata context with chunk content
 embedding_chunks = []
 
-# Convert chunk structure into embedding-ready format
 for chunk in all_chunks:
 
-    # Get English document type translated into Khmer
     metadata = chunk.get("metadata", {}).copy()
     document_type = metadata.get("document_type")
 
@@ -173,8 +111,6 @@ for chunk in all_chunks:
     if not text:
         continue
 
-    # Include document, chapter, section, and heading context in the embedding text
-    # so retrieval can match both content and document structure
     embedding_parts = []
 
     if metadata.get("document_name"):
@@ -208,18 +144,16 @@ for chunk in all_chunks:
 
     embedding_text = "\n".join(embedding_parts)
 
-    embedding_chunk = {
-        "chunk_id": chunk["chunk_id"],
-        "text": text,
-        "embedding_text": embedding_text,
-        "metadata": metadata,
-    }
-
-    embedding_chunks.append(embedding_chunk)
+    embedding_chunks.append(
+        {
+            "chunk_id": chunk["chunk_id"],
+            "text": text,
+            "embedding_text": embedding_text,
+            "metadata": metadata,
+        }
+    )
 
 all_chunks = embedding_chunks
-
-# Use enriched text for embedding generation
 texts = [chunk["embedding_text"] for chunk in all_chunks]
 
 if not texts:
@@ -234,85 +168,126 @@ print(f"Total Chunks        : {len(texts)}")
 print(f"Largest Chunk Size  : {max(chunk_lengths)} chars")
 print(f"Smallest Chunk Size : {min(chunk_lengths)} chars")
 print(f"Average Chunk Size  : {sum(chunk_lengths) / len(texts):.0f} chars")
-print(f"Device              : {model.device}")
 
-print("\nGenerating embeddings...")
-print("Starting encode...")
-encode_start = time.time()
+chunk_prep_time = time.time() - load_start
 
-# Generate normalized embeddings for cosine similarity search
-embeddings = encode_documents(
-    model,
-    selected,
-    texts,
-    batch_size=16,
-    show_progress_bar=True,
-    normalize_embeddings=True,
-)
+# ----------------------------------------------------------------------------
+# Build (or skip) each model's index
+# ----------------------------------------------------------------------------
 
-encode_time = time.time() - encode_start
+overall_start = time.time()
+built_count = 0
+skipped_count = 0
+unavailable_count = 0
 
-print(f"Encode time         : {encode_time:.2f} sec")
-print("Encode finished.")
+for key, model_config in EMBEDDING_MODELS.items():
+    label = model_config["label"]
+    model_dir_name = model_config["local_dir"].name
+    subfolder = output_root / model_dir_name
 
-embeddings = np.asarray(embeddings, dtype="float32")
+    faiss_output = subfolder / "khmer_insurance.index"
+    metadata_output = subfolder / "khmer_insurance_metadata.json"
+    model_info_output = subfolder / "embedding_model_info.json"
 
-# Use cosine similarity via normalized vectors + inner product index
-embedding_dimension = embeddings.shape[1]
+    print(f"\n{'=' * 70}")
+    print(f"MODEL: {label}")
+    print(f"{'=' * 70}")
 
-index = faiss.IndexFlatIP(embedding_dimension)
-index.add(embeddings)
+    if faiss_output.exists() and metadata_output.exists():
+        print(f"Already built -- skipping. ({subfolder}/)")
+        skipped_count += 1
+        continue
 
-# Save vector index to disk
-faiss.write_index(index, str(faiss_output))
+    if not (model_config["local_dir"] / "modules.json").exists():
+        print(
+            f"{label} is not installed at {model_config['local_dir']} -- skipping.\n"
+            "Run: python scripts/13_install_models.py"
+        )
+        unavailable_count += 1
+        continue
 
-with open(metadata_output, "w", encoding="utf-8") as f:
-    json.dump(all_chunks, f, ensure_ascii=False, indent=2)
+    subfolder.mkdir(parents=True, exist_ok=True)
 
-# Record which model built this index -- see model_info_output comment
-# above for why this matters beyond just bookkeeping.
-with open(model_info_output, "w", encoding="utf-8") as f:
-    json.dump(
-        {
-            "label": selected["label"],
-            "hf_id": selected["hf_id"],
-            "local_dir": str(selected["local_dir"]),
-            "trust_remote_code": selected["trust_remote_code"],
-            "task_aware": selected["task_aware"],
-            "embedding_dimension": int(embedding_dimension),
-        },
-        f,
-        ensure_ascii=False,
-        indent=2,
+    print("Loading embedding model...")
+    model_kwargs = (
+        {"trust_remote_code": True} if model_config["trust_remote_code"] else {}
+    )
+    model = SentenceTransformer(str(model_config["local_dir"]), **model_kwargs)
+    print(f"Device              : {model.device}")
+
+    print("Generating embeddings...")
+    encode_start = time.time()
+
+    embeddings = encode_documents(
+        model,
+        model_config,
+        texts,
+        batch_size=16,
+        show_progress_bar=True,
+        normalize_embeddings=True,
     )
 
-elapsed_time = time.time() - start_time
+    encode_time = time.time() - encode_start
+    print(f"Encode time         : {encode_time:.2f} sec")
 
-metadata_size_mb = metadata_output.stat().st_size / (1024 * 1024)
-faiss_size_mb = faiss_output.stat().st_size / (1024 * 1024)
-embedding_size_mb = embeddings.nbytes / (1024 * 1024)
+    embeddings = np.asarray(embeddings, dtype="float32")
+    embedding_dimension = embeddings.shape[1]
 
-print("\n========== EMBEDDING INFO ==========")
-print(f"Model               : {selected['label']} ({MODEL_PATH})")
-print(f"Device              : {model.device}")
-print(f"Embedding Shape     : {embeddings.shape}")
-print(f"Embedding Dtype     : {embeddings.dtype}")
-print(f"Embedding Dimension : {index.d}")
-print(f"Min Value           : {embeddings.min():.6f}")
-print(f"Max Value           : {embeddings.max():.6f}")
-print(f"Mean Value          : {embeddings.mean():.6f}")
-print(f"First Vector Norm   : {np.linalg.norm(embeddings[0]):.6f}")
+    index = faiss.IndexFlatIP(embedding_dimension)
+    index.add(embeddings)
 
-print("\n=========== FAISS INFO =============")
-print(f"Index Type          : {type(index).__name__}")
-print(f"Vector Count        : {index.ntotal}")
-print(f"Metadata File Size  : {metadata_size_mb:.2f} MB")
-print(f"FAISS File Size     : {faiss_size_mb:.2f} MB")
-print(f"Embedding RAM Size  : {embedding_size_mb:.2f} MB")
+    faiss.write_index(index, str(faiss_output))
 
-print("\n============= RUNTIME ==============")
-print(f"Encode Time         : {encode_time:.2f} sec")
-print(f"Total Runtime       : {elapsed_time:.2f} sec")
+    with open(metadata_output, "w", encoding="utf-8") as f:
+        json.dump(all_chunks, f, ensure_ascii=False, indent=2)
 
-print(f"\nModel info saved    : {model_info_output}")
-print("Embeddings and FAISS index created successfully.")
+    with open(model_info_output, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "label": label,
+                "hf_id": model_config["hf_id"],
+                "local_dir": str(model_config["local_dir"]),
+                "trust_remote_code": model_config["trust_remote_code"],
+                "task_aware": model_config["task_aware"],
+                "embedding_dimension": int(embedding_dimension),
+                "build_encode_time_sec": round(encode_time, 4),
+                "chunk_count": len(all_chunks),
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    metadata_size_mb = metadata_output.stat().st_size / (1024 * 1024)
+    faiss_size_mb = faiss_output.stat().st_size / (1024 * 1024)
+
+    print(f"\nEmbedding Dimension : {embedding_dimension}")
+    print(f"Vector Count        : {index.ntotal}")
+    print(f"FAISS File Size     : {faiss_size_mb:.2f} MB")
+    print(f"Metadata File Size  : {metadata_size_mb:.2f} MB")
+    print(f"Saved to            : {subfolder}/")
+
+    built_count += 1
+
+    # Free before the next model -- multiple multilingual transformer
+    # models in memory at once is unnecessary pressure on a machine that
+    # may also be running llama-server.
+    del model
+
+elapsed_time = time.time() - overall_start
+
+print(f"\n{'=' * 70}")
+print("SUMMARY")
+print(f"{'=' * 70}")
+print(f"Chunk preparation time : {chunk_prep_time:.2f} sec (done once, shared across all models)")
+print(f"Models built           : {built_count}")
+print(f"Models skipped (existing): {skipped_count}")
+print(f"Models unavailable      : {unavailable_count}")
+print(f"Total build runtime     : {elapsed_time:.2f} sec")
+
+if built_count == 0 and skipped_count == 0:
+    raise SystemExit(
+        "\nNo embedding models are installed. Run: python scripts/13_install_models.py"
+    )
+
+print("\nDone.")

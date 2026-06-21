@@ -18,12 +18,20 @@ from sentence_transformers import SentenceTransformer
 # This is deliberately a DENSE-ONLY comparison -- no BM25, no RRF fusion,
 # no hybrid retrieval. Mixing hybrid in here would make it impossible to
 # tell whether a score difference came from the embedding model itself or
-# from the lexical layer riding alongside it. The hybrid question is
-# already answered separately (see 08_evaluate_retrieval.py); this script
-# isolates ONE variable: which embedding model produces better vectors
-# for this corpus.
-METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
+# from the lexical layer riding alongside it.
+#
+# IMPORTANT: this script no longer encodes the corpus itself. It loads
+# the PRECOMPUTED index + metadata that scripts/07_generate_embeddings.py
+# already built into vector_db/<model_dir>/ for each installed model --
+# by far the most expensive step (encoding the whole corpus) happens
+# once, offline, in that script, not every time this comparison runs.
+# Only the gold questions (a few hundred short texts) get encoded fresh
+# here, since those need to be embedded as QUERIES at evaluation time
+# regardless. Run scripts/07_generate_embeddings.py first if a model's
+# index doesn't exist yet -- this script will tell you exactly which one
+# is missing rather than silently rebuilding it.
 EVALUATION_ROOT = Path("data/08_evaluation")
+VECTOR_DB_ROOT = Path("vector_db")
 REPORTS_DIR = Path("reports/embeddings")
 
 EVAL_KS = list(range(1, 11))
@@ -31,16 +39,8 @@ MAX_K = max(EVAL_KS)
 
 # Duplicated from scripts/13_install_models.py / scripts/07_generate_embeddings.py
 # -- this project's scripts/ are each standalone, self-contained files
-# with no shared utils module. If this changes in one place, change it in
-# all three.
-#
-# jina-embeddings-v3 needs `trust_remote_code=True` to load and a `task`
-# argument at encode time -- a DIFFERENT task for documents
-# ("retrieval.passage") vs. queries ("retrieval.query"). Using the wrong
-# one, or none at all, doesn't error -- it silently produces a worse
-# embedding via the wrong (or no) LoRA adapter, which would make this
-# comparison invalid for that model specifically. BGE-M3 and MiniLM
-# ignore the task argument entirely (task_aware=False below).
+# with no shared utils module. If this changes in one place, change it
+# in all three.
 EMBEDDING_MODELS = {
     "1": {
         "label": "BAAI/bge-m3",
@@ -80,25 +80,24 @@ metric_colalign = ("center",) * len(metric_headers)
 summary_colalign = ("center",) * len(summary_headers)
 
 
-for key, info in EMBEDDING_MODELS.items():
-    if not (info["local_dir"] / "modules.json").exists():
+def vector_db_subfolder(model_config):
+    return VECTOR_DB_ROOT / model_config["local_dir"].name
+
+
+# Fail fast and clearly if anything required is missing, before loading
+# any model into memory.
+for key, model_config in EMBEDDING_MODELS.items():
+    if not (model_config["local_dir"] / "modules.json").exists():
         raise FileNotFoundError(
-            f"{info['label']} not found at {info['local_dir']}.\n"
+            f"{model_config['label']} not installed at {model_config['local_dir']}.\n"
             "Run: python scripts/13_install_models.py"
         )
-
-
-print("Loading chunk metadata...")
-with open(METADATA_PATH, "r", encoding="utf-8") as f:
-    chunks = json.load(f)
-
-chunk_lookup = {chunk["chunk_id"]: chunk for chunk in chunks}
-metadata_chunk_ids = set(chunk_lookup.keys())
-
-# Same text every model embeds, identical to what 07_generate_embeddings.py
-# feeds the chosen model in production -- isolates the comparison to the
-# model only, not to differences in what text each model happened to see.
-embedding_texts = [chunk.get("embedding_text") or chunk["text"] for chunk in chunks]
+    subfolder = vector_db_subfolder(model_config)
+    if not ((subfolder / "khmer_insurance.index").exists() and (subfolder / "khmer_insurance_metadata.json").exists()):
+        raise FileNotFoundError(
+            f"No precomputed index for {model_config['label']} at {subfolder}/.\n"
+            "Run: python scripts/07_generate_embeddings.py"
+        )
 
 gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
 
@@ -106,62 +105,42 @@ if not gold_files:
     raise ValueError("No gold_questions.json files found.")
 
 
-def encode_documents(model, model_config, texts, **kwargs):
-    """Encodes corpus chunks as PASSAGES, not queries -- matters only for
-    task-aware models. See the EMBEDDING_MODELS comment block above."""
-    if model_config.get("task_aware"):
-        kwargs["task"] = "retrieval.passage"
-        kwargs["prompt_name"] = "retrieval.passage"
-    return model.encode(texts, **kwargs)
-
-
 def encode_queries(model, model_config, texts, **kwargs):
-    """Encodes search QUERIES, not documents -- the other half of the
-    asymmetric task pair for task-aware models."""
+    """Encodes search QUERIES (the gold questions), not documents -- the
+    corpus side was already encoded as PASSAGES once, offline, by
+    scripts/07_generate_embeddings.py. Task-aware models like
+    jina-embeddings-v3 need a different LoRA adapter for each side; using
+    the wrong one (or none) doesn't error, it just silently produces
+    worse retrieval."""
     if model_config.get("task_aware"):
         kwargs["task"] = "retrieval.query"
         kwargs["prompt_name"] = "retrieval.query"
     return model.encode(texts, **kwargs)
 
 
-def build_model_index(model_config):
-    """Loads a SentenceTransformer model and builds a fresh in-memory FAISS
-    index over the exact same corpus text the production index uses.
-    Nothing here touches vector_db/ -- this is a throwaway index that
-    exists only for the duration of this script."""
-    load_start = time.time()
-    kwargs = {"trust_remote_code": True} if model_config["trust_remote_code"] else {}
-    model = SentenceTransformer(str(model_config["local_dir"]), **kwargs)
-    load_time = time.time() - load_start
+def load_precomputed(model_config):
+    """Loads the FAISS index, chunk metadata, and build-time info that
+    scripts/07_generate_embeddings.py already produced for this model --
+    no encoding happens here."""
+    subfolder = vector_db_subfolder(model_config)
 
-    print(f"  Encoding {len(embedding_texts)} chunks (as passages)...")
-    encode_start = time.time()
-    embeddings = encode_documents(
-        model,
-        model_config,
-        embedding_texts,
-        batch_size=16,
-        show_progress_bar=True,
-        normalize_embeddings=True,
-    )
-    encode_time = time.time() - encode_start
+    index = faiss.read_index(str(subfolder / "khmer_insurance.index"))
 
-    embeddings = np.asarray(embeddings, dtype="float32")
-    index = faiss.IndexFlatIP(embeddings.shape[1])
-    index.add(embeddings)
+    with open(subfolder / "khmer_insurance_metadata.json", "r", encoding="utf-8") as f:
+        model_chunks = json.load(f)
 
-    return model, index, {
-        "load_time": load_time,
-        "encode_time": encode_time,
-        "embedding_dim": int(embeddings.shape[1]),
-    }
+    build_info = {}
+    info_path = subfolder / "embedding_model_info.json"
+    if info_path.exists():
+        with open(info_path, "r", encoding="utf-8") as f:
+            build_info = json.load(f)
+
+    return index, model_chunks, build_info
 
 
-def make_retrieve_fn(model, model_config, index):
+def make_retrieve_fn(model, model_config, index, model_chunks):
     """Returns a retrieve(question) function closed over this specific
-    model/index pair. Encodes the question as a QUERY (encode_queries),
-    not as a document -- this is the piece that was previously missing
-    entirely for jina-embeddings-v3."""
+    model/index/chunks trio."""
 
     def retrieve(question):
         query_embedding = encode_queries(
@@ -172,9 +151,9 @@ def make_retrieve_fn(model, model_config, index):
 
         results = []
         for idx, score in zip(indices[0], scores[0]):
-            if idx < 0 or idx >= len(chunks):
+            if idx < 0 or idx >= len(model_chunks):
                 continue
-            chunk = chunks[idx]
+            chunk = model_chunks[idx]
             results.append(
                 {
                     "chunk_id": chunk["chunk_id"],
@@ -187,10 +166,15 @@ def make_retrieve_fn(model, model_config, index):
     return retrieve
 
 
-def evaluate_retrieval(retrieve_fn):
+def evaluate_retrieval(retrieve_fn, chunk_lookup, metadata_chunk_ids):
     """Same gold-question evaluation harness as 08_evaluate_retrieval.py
     (duplicated rather than imported -- see that script's own comment on
-    this project's standalone-scripts convention)."""
+    this project's standalone-scripts convention). chunk_lookup and
+    metadata_chunk_ids are passed in explicitly rather than read from a
+    module-level global, since with three separate per-model chunk lists
+    now in play (content-identical, but structurally separate files) an
+    explicit parameter is less error-prone than an implicit shared global
+    left over from when there was only ever one."""
     summary_table = []
     hit_table = []
     recall_table = []
@@ -337,10 +321,6 @@ def print_mode_report(label, tables):
 
 
 def build_metric_comparison_table(model_results, metric_key):
-    """Category-by-model comparison at @5 for one metric ('hit' or
-    'recall') -- one row per category, one column per model. Generalizes
-    to any number of models, unlike a fixed before/after two-column
-    layout."""
     labels = list(model_results.keys())
     categories = [row[0] for row in next(iter(model_results.values()))["tables"][metric_key]]
 
@@ -359,10 +339,6 @@ def build_metric_comparison_table(model_results, metric_key):
 
 
 def rank_models(model_results):
-    """Ranks all models by macro-averaged Hit@5 + Recall@5 across every
-    category. Returns a list of (label, macro_hit5, macro_recall5,
-    combined_score) sorted best-first. Generalizes the old binary
-    A-vs-B winner logic to N models."""
     ranked = []
     for label, result in model_results.items():
         hit5_vals = [row[5] for row in result["tables"]["hit"]]
@@ -376,11 +352,6 @@ def rank_models(model_results):
 
 
 def build_recommendation(ranked):
-    """Builds the "justified recommendation" text the proposal's
-    deliverable asks for -- not just a bare winner name, but the full
-    ranking plus an honest flag when the top two are close enough that a
-    human should look at the per-category breakdown before trusting the
-    automatic pick."""
     lines = ["RANKING (by macro-avg Hit@5 + Recall@5 across all categories):"]
     for i, (label, hit5, recall5, combined) in enumerate(ranked, start=1):
         lines.append(
@@ -391,10 +362,9 @@ def build_recommendation(ranked):
         gap = ranked[0][3] - ranked[1][3]
         if gap < 0.02:
             lines.append(
-                f"\nNOTE: the top {2 if len(ranked) >= 2 else 1} models are close "
-                f"(combined-score gap {gap:.4f}). Manual review of the "
-                "per-category tables is recommended before trusting this "
-                "ranking alone."
+                f"\nNOTE: the top two models are close (combined-score gap "
+                f"{gap:.4f}). Manual review of the per-category tables is "
+                "recommended before trusting this ranking alone."
             )
 
     lines.append(f"\nRECOMMENDATION: {ranked[0][0]}")
@@ -428,13 +398,21 @@ def write_reports(model_results, hit_rows, hit_headers, recall_rows, recall_head
     md_parts.append(
         f"Compares {len(model_results)} embedding models (dense-only, no "
         "hybrid/BM25) on the full gold question set, per Internship "
-        "Proposal §6.3 / §12.\n\n"
+        "Proposal §6.3 / §12. Corpus encoding was precomputed by "
+        "scripts/07_generate_embeddings.py; only the gold questions were "
+        "encoded fresh here.\n\n"
     )
     for label, result in model_results.items():
         md_parts.append(f"## {label}\n\n")
-        md_parts.append(f"Model load time: {result['meta']['load_time']:.2f}s -- ")
-        md_parts.append(f"Encode time: {result['meta']['encode_time']:.2f}s -- ")
-        md_parts.append(f"Embedding dimension: {result['meta']['embedding_dim']}\n\n")
+        meta = result["meta"]
+        md_parts.append(f"Model load time (this run): {meta['model_load_time']:.2f}s -- ")
+        build_encode = meta.get("build_encode_time_sec")
+        md_parts.append(
+            f"Corpus encode time (at build, precomputed): "
+            f"{build_encode:.2f}s\n\n" if build_encode is not None
+            else "Corpus encode time (at build): unknown (no embedding_model_info.json)\n\n"
+        )
+        md_parts.append(f"Embedding dimension: {meta.get('embedding_dim', 'unknown')}\n\n")
         md_parts.append(md_table("Hit Rate @ K", result["tables"]["hit"], metric_headers))
         md_parts.append(md_table("Recall @ K", result["tables"]["recall"], metric_headers))
         md_parts.append(md_table("MRR @ K", result["tables"]["mrr"], metric_headers))
@@ -460,18 +438,31 @@ start_time = time.time()
 model_results = {}
 for key, model_config in EMBEDDING_MODELS.items():
     label = model_config["label"]
-    print(f"\n{'=' * SEPARATOR_WIDTH}\nLoading and encoding with: {label}\n{'=' * SEPARATOR_WIDTH}")
-    model, index, meta = build_model_index(model_config)
+    print(f"\n{'=' * SEPARATOR_WIDTH}\nLoading precomputed index for: {label}\n{'=' * SEPARATOR_WIDTH}")
 
-    retrieve_fn = make_retrieve_fn(model, model_config, index)
+    index, model_chunks, build_info = load_precomputed(model_config)
+    chunk_lookup = {c["chunk_id"]: c for c in model_chunks}
+    metadata_chunk_ids = set(chunk_lookup.keys())
 
-    print(f"Running gold-question evaluation for {label}...")
-    tables = evaluate_retrieval(retrieve_fn)
-    model_results[label] = {"tables": tables, "meta": meta}
+    load_start = time.time()
+    kwargs = {"trust_remote_code": True} if model_config["trust_remote_code"] else {}
+    model = SentenceTransformer(str(model_config["local_dir"]), **kwargs)
+    model_load_time = time.time() - load_start
 
-    # Free each model/index before loading the next -- three multilingual
-    # transformer models in memory simultaneously is unnecessary pressure
-    # on a machine that may also be running llama-server.
+    retrieve_fn = make_retrieve_fn(model, model_config, index, model_chunks)
+
+    print(f"Evaluating gold questions for {label} (encoding queries only -- corpus already embedded)...")
+    tables = evaluate_retrieval(retrieve_fn, chunk_lookup, metadata_chunk_ids)
+
+    model_results[label] = {
+        "tables": tables,
+        "meta": {
+            "model_load_time": model_load_time,
+            "build_encode_time_sec": build_info.get("build_encode_time_sec"),
+            "embedding_dim": build_info.get("embedding_dimension", index.d),
+        },
+    }
+
     del model, index
 
 for label, result in model_results.items():
@@ -501,4 +492,4 @@ write_reports(model_results, hit_rows, hit_headers, recall_rows, recall_headers,
 
 elapsed_time = time.time() - start_time
 print(f"\nTotal Runtime : {elapsed_time:.2f} seconds")
-print("Embedding comparison completed successfully.")
+print("Embedding comparison completed successfully (precomputed indices, no corpus re-encoding).")
