@@ -405,13 +405,13 @@ def print_mode_report(mode_label, tables):
     )
 
 
-def print_comparison_summary(dense_tables, hybrid_tables):
-    """The headline before/after numbers, front and center: Hit@5 and
-    Recall@5 per category for both modes plus the delta, instead of
-    requiring a manual diff across the full report above. These two
-    cutoffs are chosen because CONTEXT_K=5 in app.py is what actually
-    determines how many chunks reach the LLM prompt -- @5 is the number
-    that matters for real answer quality, not just for the report."""
+def build_comparison_rows(dense_tables, hybrid_tables):
+    """Computes the headline before/after numbers -- Hit@5 and Recall@5 per
+    category for both modes plus the delta -- as plain row data, reused by
+    both the stdout printer and the saved report writer. These two cutoffs
+    are chosen because CONTEXT_K=5 in app.py is what actually determines
+    how many chunks reach the LLM prompt -- @5 is the number that matters
+    for real answer quality, not just for the report."""
     rows = []
     dense_hit_by_cat = {row[0]: row[5] for row in dense_tables["hit"]}  # @5 is index 5
     hybrid_hit_by_cat = {row[0]: row[5] for row in hybrid_tables["hit"]}
@@ -444,11 +444,78 @@ def print_comparison_summary(dense_tables, hybrid_tables):
         "Recall@5 (hybrid)",
         "Δ Recall@5",
     ]
+    return rows, headers
+
+
+def print_comparison_summary(dense_tables, hybrid_tables):
+    rows, headers = build_comparison_rows(dense_tables, hybrid_tables)
     banner = "=" * SEPARATOR_WIDTH
     print(f"\n\n{banner}")
     print(f"{BOLD}BEFORE / AFTER -- DENSE-ONLY vs. HYBRID (FAISS + BM25, RRF){RESET}")
     print(banner)
     print(tabulate(rows, headers=headers, tablefmt="grid", colalign=("center",) * 7))
+
+
+REPORTS_DIR = Path("reports/retrieval")
+
+
+def write_reports(dense_tables, hybrid_tables, comparison_rows, comparison_headers):
+    """Saves both a raw JSON (full numeric data, re-analyzable later --
+    e.g. for the technical report's tables/charts) and a human-readable
+    Markdown report (same content as the stdout output, real Markdown
+    tables via tabulate's "github" format rather than the box-drawing
+    "grid" format used for the terminal) into reports/retrieval/. Printing
+    to stdout during a run is useful in the moment; these files are what
+    actually persist as a deliverable afterward."""
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    json_payload = {
+        "dense": dense_tables,
+        "hybrid": hybrid_tables,
+        "comparison": {
+            "headers": comparison_headers,
+            "rows": comparison_rows,
+        },
+        "eval_ks": EVAL_KS,
+        "metric_headers": metric_headers,
+    }
+    json_path = REPORTS_DIR / "retrieval_eval.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(json_payload, f, ensure_ascii=False, indent=2)
+
+    def md_table(title, rows, headers):
+        return f"### {title}\n\n" + tabulate(
+            rows, headers=headers, tablefmt="github", floatfmt=".4f"
+        ) + "\n\n"
+
+    md_parts = ["# Retrieval Evaluation Report\n\n"]
+    for mode_label, tables in [
+        ("Dense-Only (BGE-M3)", dense_tables),
+        ("Hybrid (BGE-M3 + BM25, RRF)", hybrid_tables),
+    ]:
+        md_parts.append(f"## {mode_label}\n\n")
+        md_parts.append(md_table("Hit Rate @ K", tables["hit"], metric_headers))
+        md_parts.append(md_table("Recall @ K", tables["recall"], metric_headers))
+        md_parts.append(md_table("MRR @ K", tables["mrr"], metric_headers))
+        md_parts.append(
+            md_table("File Hit Rate @ K", tables["file_hit"], metric_headers)
+        )
+        md_parts.append(
+            md_table("Dataset Summary", tables["summary"], summary_headers)
+        )
+
+    md_parts.append("## Before / After -- Dense-Only vs. Hybrid\n\n")
+    md_parts.append(
+        tabulate(comparison_rows, headers=comparison_headers, tablefmt="github")
+    )
+    md_parts.append("\n")
+
+    md_path = REPORTS_DIR / "retrieval_eval.md"
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write("".join(md_parts))
+
+    print(f"\nSaved JSON report : {json_path}")
+    print(f"Saved Markdown report : {md_path}")
 
 
 start_time = time.time()
@@ -462,6 +529,9 @@ hybrid_tables = evaluate_retrieval(retrieve_hybrid)
 print_mode_report("DENSE-ONLY (BGE-M3)", dense_tables)
 print_mode_report("HYBRID (BGE-M3 + BM25, RRF)", hybrid_tables)
 print_comparison_summary(dense_tables, hybrid_tables)
+
+comparison_rows, comparison_headers = build_comparison_rows(dense_tables, hybrid_tables)
+write_reports(dense_tables, hybrid_tables, comparison_rows, comparison_headers)
 
 elapsed_time = time.time() - start_time
 

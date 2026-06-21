@@ -19,8 +19,8 @@ data/07_chunked_documents/*
 !data/07_chunked_documents/.gitkeep
 
 # Ignore merged chunked documents
-data/09_merged_chunked_documents/*
-scripts/10_merge_chunked_documents.py
+data/10_merged_chunked_documents/*
+scripts/14_merge_chunked_documents.py
 
 # Local models
 models/
