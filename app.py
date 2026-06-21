@@ -133,8 +133,38 @@ SCOPE_VIOLATION_PATTERNS = [
     # "which company/product is the best / better"
     re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,30}ល្អ(បំផុត|ជាង)"),
     re.compile(r"មួយណា.{0,15}ល្អ(ជាង|បំផុត)?"),
+    # Popularity / ranking / reputation framing -- functionally the same as
+    # "which is best" but without the literal word "ល្អបំផុត"/"ណែនាំ", so the
+    # patterns above miss it (e.g. "which company is most commonly used",
+    # "which company has the best reputation"). Each still requires a
+    # company/product/plan word to co-occur, same precision trade-off as
+    # the patterns above.
+    re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,40}និយម.{0,15}ជាងគេ"),
+    re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,40}ពេញនិយម"),
+    re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,40}ល្បី.{0,15}ជាងគេ"),
+    re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,40}កេរ្តិ៍ឈ្មោះ.{0,10}ល្អ"),
     # "should I buy/choose/use from which company"
     re.compile(r"គួរ.{0,15}(ទិញ|ជ្រើសរើស|ប្រើ).{0,30}ក្រុមហ៊ុន"),
+    # First-person "what should I choose/buy/use/look for" -- personal
+    # product-selection advice framing, WITHOUT requiring a company to
+    # co-occur (catches generic phrasing like "what should I choose?").
+    # Deliberately anchored on literal "ខ្ញុំគួរ" ("I should") rather than
+    # "គួរ" alone, since the corpus answers regulatory facts in third
+    # person ("the insured may...", "the company must..."), so this is
+    # unlikely to false-positive on legitimate retrievable content.
+    #
+    # The verb list is deliberately narrower than "any verb" -- it's
+    # scoped to product-SELECTION verbs (choose/buy/use/look-at), not
+    # general "what should I do" framing. A future claims-process corpus
+    # (Internship Proposal §4's "step-by-step guidance on how to prepare
+    # a claim" sub-domain) would legitimately need to answer first-person
+    # "what should I do to file a claim" questions, which this pattern is
+    # intentionally narrow enough not to catch.
+    re.compile(r"ខ្ញុំគួរ.{0,20}(ជ្រើសរើស|ទិញ|ប្រើ|មើល)"),
+    # "I don't want personal advice, but..." -- saying this is itself a
+    # strong signal the question is advice-shaped, even when the user
+    # explicitly disclaims wanting advice while still asking for it.
+    re.compile(r"មិន.{0,10}(សុំ|ចង់បាន).{0,10}ប្រឹក្សា"),
     # "if you were me" -- explicitly asking for the assistant's own personal
     # pick. This phrasing essentially never appears in regulatory text, so
     # it's safe as a standalone trigger with no co-occurrence requirement.
@@ -145,6 +175,15 @@ SCOPE_VIOLATION_PATTERNS = [
     # license fee" is fine; "how much must I pay per month" is not, since
     # nothing in the corpus states a personal monthly figure to retrieve).
     re.compile(r"ត្រូវ(បង់|ចំណាយ|ខាត).{0,10}ប៉ុន្មាន"),
+    # "how much is the premium/price/cost" -- pricing and premium
+    # questions generally, not just personal-payment framing. Per the
+    # Internship Proposal's explicit scope boundary (no premium
+    # calculation), this blocks "how much is the premium" even when the
+    # corpus contains a real statutory rate that would otherwise be
+    # retrieved -- reciting a rate as if it answers "how much" risks the
+    # exact rate-vs-amount conflation the build_prompt() rules separately
+    # warn against, so it's safer to redirect than to answer here.
+    re.compile(r"(បុព្វលាភ|ថ្លៃ|តម្លៃ).{0,30}ប៉ុន្មាន"),
 ]
 
 
@@ -484,6 +523,22 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   padding-top: 8px;
   margin-top: 14px;
   line-height: 1.6;
+}}
+
+/* Streamlit wraps every element (markdown, button, etc.) in its own
+   container that carries built-in vertical spacing, and a st.button's
+   wrapper carries noticeably MORE of it than a plain st.markdown HTML
+   block does. That's what produced a large visible gap specifically
+   between the "Details" button and the disclaimer right below it --
+   compare to the out-of-domain answer path, which has no button between
+   the answer text and the disclaimer and looks fine as-is. The exact
+   wrapper testid Streamlit uses for this has varied across versions, so
+   this targets every plausible candidate rather than guessing one -- same
+   defensive multi-candidate approach as scroll_to_bottom() above. */
+[data-testid="stButton"],
+[data-testid="element-container"]:has([data-testid="stButton"]),
+[data-testid="stElementContainer"]:has([data-testid="stButton"]) {{
+  margin-bottom: -14px !important;
 }}
 
 [data-testid="stButton"] button {{
@@ -1297,7 +1352,7 @@ def render_input_bar():
             with col_input:
                 if is_gen:
                     st.markdown(
-                        '<div class="kc-stopbar-text">កំពុងបង្កើតចម្លើយ...</div>',
+                        '<div class="kc-stopbar-text">កំពុងឆ្លើយតប...</div>',
                         unsafe_allow_html=True,
                     )
                 else:
