@@ -4,11 +4,10 @@ python-dotenv
 pillow
 pdf2image
 sentence-transformers
-transformers<5.0
+transformers
 huggingface-hub
 sentencepiece
 accelerate
-einops
 faiss-cpu
 numpy
 torch

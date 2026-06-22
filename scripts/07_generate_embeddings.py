@@ -1,8 +1,17 @@
 import json
+import os
 import faiss
 import time
 import numpy as np
 from pathlib import Path
+
+# Set HF_HOME before any HF-related import (sentence_transformers,
+# transformers, huggingface_hub all read it at module-init time).
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_HF_CACHE_DIR = _PROJECT_ROOT / "models" / "retriever" / ".cache"
+_HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+os.environ["HF_HOME"] = str(_HF_CACHE_DIR)
+
 from sentence_transformers import SentenceTransformer
 
 input_root = Path("data/07_chunked_documents")
@@ -36,34 +45,56 @@ EMBEDDING_MODELS = {
     "1": {
         "label": "BAAI/bge-m3",
         "hf_id": "BAAI/bge-m3",
-        "local_dir": Path("models/retriever/BAAI-BGE-M3"),
+        "marker_dir": Path("models/retriever/BAAI-BGE-M3"),
         "trust_remote_code": False,
         "task_aware": False,
     },
     "2": {
-        "label": "jinaai/jina-embeddings-v3",
-        "hf_id": "jinaai/jina-embeddings-v3",
-        "local_dir": Path("models/retriever/jinaai-jina-embeddings-v3"),
-        "trust_remote_code": True,
-        "task_aware": True,
+        "label": "intfloat/multilingual-e5-large",
+        "hf_id": "intfloat/multilingual-e5-large",
+        "marker_dir": Path("models/retriever/multilingual-e5-large"),
+        "trust_remote_code": False,
+        "task_aware": False,
+        # e5 models require a short task prefix prepended to the raw text
+        # (not a kwarg to .encode()): "passage: " for corpus documents and
+        # "query: " for live questions. This is distinct from jina's LoRA
+        # adapter switching -- it's a pure text transformation, handled
+        # explicitly in encode_documents() and encode_queries() below.
+        "doc_prefix": "passage: ",
+        "query_prefix": "query: ",
     },
     "3": {
         "label": "paraphrase-multilingual-MiniLM-L12-v2",
         "hf_id": "paraphrase-multilingual-MiniLM-L12-v2",
-        "local_dir": Path("models/retriever/MiniLM-paraphrase-multilingual-L12-v2"),
+        "marker_dir": Path("models/retriever/MiniLM-paraphrase-multilingual-L12-v2"),
         "trust_remote_code": False,
         "task_aware": False,
     },
 }
 
 
+
+def is_model_installed(model_config):
+    """True if this embedding model has been installed by
+    scripts/13_install_models.py. All models now use INSTALLED.json as
+    their marker -- weights live in models/retriever/.cache/ (managed
+    by huggingface_hub), not in the marker_dir itself."""
+    return (model_config["marker_dir"] / "INSTALLED.json").exists()
+
+
 def encode_documents(model, model_config, texts, **kwargs):
-    """Encodes corpus chunks as PASSAGES, not queries -- matters only for
-    task-aware models like jina-embeddings-v3, which use a different LoRA
-    adapter depending on which side of retrieval the text is on."""
-    if model_config.get("task_aware"):
-        kwargs["task"] = "retrieval.passage"
-        kwargs["prompt_name"] = "retrieval.passage"
+    """Encodes corpus chunks as PASSAGES. For e5-style models (multilingual-e5-large),
+    this prepends a 'passage: ' prefix to every chunk -- e5 was trained with these
+    literal prefixes and retrieval quality degrades noticeably without them."""
+    if model_config.get("doc_prefix"):
+        texts = [model_config["doc_prefix"] + t for t in texts]
+    return model.encode(texts, **kwargs)
+
+
+def encode_queries(model, model_config, texts, **kwargs):
+    """Encodes search queries. For e5-style models, prepends 'query: ' prefix."""
+    if model_config.get("query_prefix"):
+        texts = [model_config["query_prefix"] + t for t in texts]
     return model.encode(texts, **kwargs)
 
 
@@ -182,7 +213,7 @@ unavailable_count = 0
 
 for key, model_config in EMBEDDING_MODELS.items():
     label = model_config["label"]
-    model_dir_name = model_config["local_dir"].name
+    model_dir_name = model_config["marker_dir"].name
     subfolder = output_root / model_dir_name
 
     faiss_output = subfolder / "khmer_insurance.index"
@@ -198,9 +229,9 @@ for key, model_config in EMBEDDING_MODELS.items():
         skipped_count += 1
         continue
 
-    if not (model_config["local_dir"] / "modules.json").exists():
+    if not is_model_installed(model_config):
         print(
-            f"{label} is not installed at {model_config['local_dir']} -- skipping.\n"
+            f"{label} not installed -- run: python scripts/13_install_models.py\n"
             "Run: python scripts/13_install_models.py"
         )
         unavailable_count += 1
@@ -209,10 +240,15 @@ for key, model_config in EMBEDDING_MODELS.items():
     subfolder.mkdir(parents=True, exist_ok=True)
 
     print("Loading embedding model...")
-    model_kwargs = (
+
+    # All three models use plain SentenceTransformer loaded by Hub ID.
+    # Weights are served from models/retriever/.cache/ (already downloaded
+    # during 13_install_models.py) -- no network hit after first install.
+    kwargs = (
         {"trust_remote_code": True} if model_config["trust_remote_code"] else {}
     )
-    model = SentenceTransformer(str(model_config["local_dir"]), **model_kwargs)
+    model = SentenceTransformer(model_config["hf_id"], **kwargs)
+
     print(f"Device              : {model.device}")
 
     print("Generating embeddings...")
@@ -246,9 +282,10 @@ for key, model_config in EMBEDDING_MODELS.items():
             {
                 "label": label,
                 "hf_id": model_config["hf_id"],
-                "local_dir": str(model_config["local_dir"]),
+                "hf_cache_dir": str(_HF_CACHE_DIR),
                 "trust_remote_code": model_config["trust_remote_code"],
                 "task_aware": model_config["task_aware"],
+                "native_hf": model_config.get("native_hf", False),
                 "embedding_dimension": int(embedding_dimension),
                 "build_encode_time_sec": round(encode_time, 4),
                 "chunk_count": len(all_chunks),
@@ -273,6 +310,23 @@ for key, model_config in EMBEDDING_MODELS.items():
     # models in memory at once is unnecessary pressure on a machine that
     # may also be running llama-server.
     del model
+
+    # Explicitly flush MPS (Apple Silicon GPU) memory. Without this,
+    # Metal's lazy deallocation means the deleted model's GPU allocation
+    # can linger until the next MPS sync point -- and if the next model
+    # (e.g. jina-v3-hf loading on CPU) touches any MPS code path while
+    # that allocation is still pending, it can trigger a segfault rather
+    # than a clean OOM error. gc.collect() + mps.empty_cache() forces
+    # immediate reclamation, making the GPU memory actually available
+    # before the next model starts loading.
+    import gc
+    gc.collect()
+    try:
+        import torch
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+    except Exception:
+        pass
 
 elapsed_time = time.time() - overall_start
 

@@ -1,10 +1,12 @@
 # Embedding Comparison Report
 
-Compares retrieval quality (dense-only, no hybrid/BM25) across embedding models on the full gold question set, per Internship Proposal §6.3 / §12.
+Compares 3 embedding models (dense-only, no hybrid/BM25) on the full gold question set, per Internship Proposal §6.3 / §12. Corpus encoding was precomputed by scripts/07_generate_embeddings.py; only the gold questions were encoded fresh here.
 
-## BGE-M3 (current)
+## BAAI/bge-m3
 
-Model load time: 3.72s -- Encode time: 111.07s -- Embedding dimension: 1024
+Model load time (this run): 14.08s -- Corpus encode time (at build, precomputed): 153.33s
+
+Embedding dimension: 1024
 
 ### Hit Rate @ K
 
@@ -51,9 +53,62 @@ Model load time: 3.72s -- Encode time: 111.07s -- Embedding dimension: 1024
 | prakas      |               51 |                51 |                   0 |                0 | None                |
 | sub_decrees |               54 |                54 |                   0 |                0 | None                |
 
-## MiniLM (paraphrase-multilingual-MiniLM-L12-v2)
+## intfloat/multilingual-e5-large
 
-Model load time: 2.36s -- Encode time: 6.14s -- Embedding dimension: 384
+Model load time (this run): 14.87s -- Corpus encode time (at build, precomputed): 138.42s
+
+Embedding dimension: 1024
+
+### Hit Rate @ K
+
+| Category    |     @1 |     @2 |     @3 |     @4 |     @5 |     @6 |     @7 |     @8 |     @9 |    @10 |
+|-------------|--------|--------|--------|--------|--------|--------|--------|--------|--------|--------|
+| guidance    | 0.3600 | 0.4600 | 0.5000 | 0.5400 | 0.5600 | 0.5600 | 0.5600 | 0.6200 | 0.6800 | 0.7200 |
+| laws        | 0.7500 | 0.8462 | 0.8846 | 0.8846 | 0.8846 | 0.8846 | 0.8846 | 0.8846 | 0.8846 | 0.8846 |
+| prakas      | 0.3137 | 0.4118 | 0.4510 | 0.4706 | 0.4706 | 0.5098 | 0.5294 | 0.5294 | 0.5294 | 0.5490 |
+| sub_decrees | 0.3704 | 0.4444 | 0.5556 | 0.5741 | 0.5741 | 0.5926 | 0.6111 | 0.6111 | 0.6481 | 0.6481 |
+
+### Recall @ K
+
+| Category    |     @1 |     @2 |     @3 |     @4 |     @5 |     @6 |     @7 |     @8 |     @9 |    @10 |
+|-------------|--------|--------|--------|--------|--------|--------|--------|--------|--------|--------|
+| guidance    | 0.2567 | 0.3167 | 0.3500 | 0.3933 | 0.4133 | 0.4233 | 0.4233 | 0.4633 | 0.5133 | 0.5467 |
+| laws        | 0.5032 | 0.6314 | 0.6731 | 0.6891 | 0.6955 | 0.6955 | 0.7115 | 0.7179 | 0.7308 | 0.7404 |
+| prakas      | 0.1830 | 0.2663 | 0.3088 | 0.3284 | 0.3284 | 0.3742 | 0.4003 | 0.4003 | 0.4003 | 0.4199 |
+| sub_decrees | 0.2461 | 0.3110 | 0.3819 | 0.3912 | 0.3912 | 0.4066 | 0.4221 | 0.4221 | 0.4406 | 0.4406 |
+
+### MRR @ K
+
+| Category    |     @1 |     @2 |     @3 |     @4 |     @5 |     @6 |     @7 |     @8 |     @9 |    @10 |
+|-------------|--------|--------|--------|--------|--------|--------|--------|--------|--------|--------|
+| guidance    | 0.3600 | 0.4100 | 0.4233 | 0.4333 | 0.4373 | 0.4373 | 0.4373 | 0.4448 | 0.4515 | 0.4555 |
+| laws        | 0.7500 | 0.7981 | 0.8109 | 0.8109 | 0.8109 | 0.8109 | 0.8109 | 0.8109 | 0.8109 | 0.8109 |
+| prakas      | 0.3137 | 0.3627 | 0.3758 | 0.3807 | 0.3807 | 0.3873 | 0.3901 | 0.3901 | 0.3901 | 0.3920 |
+| sub_decrees | 0.3704 | 0.4074 | 0.4444 | 0.4491 | 0.4491 | 0.4522 | 0.4548 | 0.4548 | 0.4589 | 0.4589 |
+
+### File Hit Rate @ K
+
+| Category    |     @1 |     @2 |     @3 |     @4 |     @5 |     @6 |     @7 |     @8 |     @9 |    @10 |
+|-------------|--------|--------|--------|--------|--------|--------|--------|--------|--------|--------|
+| guidance    | 0.4800 | 0.6400 | 0.6400 | 0.6800 | 0.7200 | 0.7400 | 0.7600 | 0.8200 | 0.8200 | 0.8600 |
+| laws        | 0.9231 | 0.9615 | 0.9615 | 0.9615 | 0.9808 | 0.9808 | 0.9808 | 0.9808 | 0.9808 | 0.9808 |
+| prakas      | 0.5294 | 0.6667 | 0.7647 | 0.8235 | 0.8235 | 0.8235 | 0.8627 | 0.9020 | 0.9412 | 0.9608 |
+| sub_decrees | 0.5000 | 0.6111 | 0.7222 | 0.7407 | 0.7407 | 0.7593 | 0.8148 | 0.8148 | 0.8704 | 0.8704 |
+
+### Dataset Summary
+
+| Category    |   Gold Questions |   Valid Questions |   Skipped Questions |   Missing Chunks | Missing Chunk IDs   |
+|-------------|------------------|-------------------|---------------------|------------------|---------------------|
+| guidance    |               50 |                50 |                   0 |                0 | None                |
+| laws        |               52 |                52 |                   0 |                0 | None                |
+| prakas      |               51 |                51 |                   0 |                0 | None                |
+| sub_decrees |               54 |                54 |                   0 |                0 | None                |
+
+## paraphrase-multilingual-MiniLM-L12-v2
+
+Model load time (this run): 11.47s -- Corpus encode time (at build, precomputed): 7.80s
+
+Embedding dimension: 384
 
 ### Hit Rate @ K
 
@@ -100,15 +155,31 @@ Model load time: 2.36s -- Encode time: 6.14s -- Embedding dimension: 384
 | prakas      |               51 |                51 |                   0 |                0 | None                |
 | sub_decrees |               54 |                54 |                   0 |                0 | None                |
 
-## Before / After Comparison (Hit@5 / Recall@5)
+## Comparison -- Hit@5 by Category
 
-| Category    |   Hit@5 (BGE-M3 (current)) |   Hit@5 (MiniLM (paraphrase-multilingual-MiniLM-L12-v2)) |   Δ Hit@5 |   Recall@5 (BGE-M3 (current)) |   Recall@5 (MiniLM (paraphrase-multilingual-MiniLM-L12-v2)) |   Δ Recall@5 |
-|-------------|----------------------------|----------------------------------------------------------|-----------|-------------------------------|-------------------------------------------------------------|--------------|
-| guidance    |                     0.9    |                                                   0.04   |   -0.86   |                        0.71   |                                                      0.03   |      -0.68   |
-| laws        |                     0.9808 |                                                   0.0962 |   -0.8846 |                        0.8686 |                                                      0.0641 |      -0.8045 |
-| prakas      |                     0.9608 |                                                   0.0196 |   -0.9412 |                        0.7876 |                                                      0.0196 |      -0.768  |
-| sub_decrees |                     0.9259 |                                                   0      |   -0.9259 |                        0.6597 |                                                      0      |      -0.6597 |
+| Category    |   BAAI/bge-m3 |   intfloat/multilingual-e5-large |   paraphrase-multilingual-MiniLM-L12-v2 |
+|-------------|---------------|----------------------------------|-----------------------------------------|
+| guidance    |        0.9    |                           0.56   |                                  0.04   |
+| laws        |        0.9808 |                           0.8846 |                                  0.0962 |
+| prakas      |        0.9608 |                           0.4706 |                                  0.0196 |
+| sub_decrees |        0.9259 |                           0.5741 |                                  0      |
+
+## Comparison -- Recall@5 by Category
+
+| Category    |   BAAI/bge-m3 |   intfloat/multilingual-e5-large |   paraphrase-multilingual-MiniLM-L12-v2 |
+|-------------|---------------|----------------------------------|-----------------------------------------|
+| guidance    |        0.71   |                           0.4133 |                                  0.03   |
+| laws        |        0.8686 |                           0.6955 |                                  0.0641 |
+| prakas      |        0.7876 |                           0.3284 |                                  0.0196 |
+| sub_decrees |        0.6597 |                           0.3912 |                                  0      |
 
 ## Recommendation
 
-RECOMMENDATION: BGE-M3 (current) -- macro-avg Hit@5 0.9419 and Recall@5 0.7565 across all categories, versus 0.0389 / 0.0284 for the other model.
+```
+RANKING (by macro-avg Hit@5 + Recall@5 across all categories):
+  1. BAAI/bge-m3 -- Hit@5=0.9419, Recall@5=0.7565, combined=1.6983
+  2. intfloat/multilingual-e5-large -- Hit@5=0.6223, Recall@5=0.4571, combined=1.0794
+  3. paraphrase-multilingual-MiniLM-L12-v2 -- Hit@5=0.0389, Recall@5=0.0284, combined=0.0674
+
+RECOMMENDATION: BAAI/bge-m3
+```

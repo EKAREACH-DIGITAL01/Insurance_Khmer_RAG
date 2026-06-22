@@ -1,0 +1,11 @@
+{
+  "label": "intfloat/multilingual-e5-large",
+  "hf_id": "intfloat/multilingual-e5-large",
+  "hf_cache_dir": "/Users/benjamin/Documents/Khmer-Rag-Insurance-Chatbot/models/retriever/.cache",
+  "trust_remote_code": false,
+  "task_aware": false,
+  "native_hf": false,
+  "embedding_dimension": 1024,
+  "build_encode_time_sec": 138.4201,
+  "chunk_count": 1435
+}

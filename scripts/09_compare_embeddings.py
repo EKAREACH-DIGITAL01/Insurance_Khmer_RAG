@@ -1,9 +1,16 @@
 import json
+import os
 import time
 import faiss
 import numpy as np
 from pathlib import Path
 from tabulate import tabulate
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_HF_CACHE_DIR = _PROJECT_ROOT / "models" / "retriever" / ".cache"
+_HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+os.environ["HF_HOME"] = str(_HF_CACHE_DIR)
+
 from sentence_transformers import SentenceTransformer
 
 # ----------------------------------------------------------------------------
@@ -44,23 +51,39 @@ MAX_K = max(EVAL_KS)
 EMBEDDING_MODELS = {
     "1": {
         "label": "BAAI/bge-m3",
-        "local_dir": Path("models/retriever/BAAI-BGE-M3"),
+        "hf_id": "BAAI/bge-m3",
+        "marker_dir": Path("models/retriever/BAAI-BGE-M3"),
         "trust_remote_code": False,
         "task_aware": False,
     },
     "2": {
-        "label": "jinaai/jina-embeddings-v3",
-        "local_dir": Path("models/retriever/jinaai-jina-embeddings-v3"),
-        "trust_remote_code": True,
-        "task_aware": True,
+        "label": "intfloat/multilingual-e5-large",
+        "hf_id": "intfloat/multilingual-e5-large",
+        "marker_dir": Path("models/retriever/multilingual-e5-large"),
+        "trust_remote_code": False,
+        "task_aware": False,
+        # e5 models require a short task prefix prepended to the raw text
+        # (not a kwarg to .encode()): "passage: " for corpus documents and
+        # "query: " for live questions. This is distinct from jina's LoRA
+        # adapter switching -- it's a pure text transformation, handled
+        # explicitly in encode_documents() and encode_queries() below.
+        "doc_prefix": "passage: ",
+        "query_prefix": "query: ",
     },
     "3": {
         "label": "paraphrase-multilingual-MiniLM-L12-v2",
-        "local_dir": Path("models/retriever/MiniLM-paraphrase-multilingual-L12-v2"),
+        "hf_id": "paraphrase-multilingual-MiniLM-L12-v2",
+        "marker_dir": Path("models/retriever/MiniLM-paraphrase-multilingual-L12-v2"),
         "trust_remote_code": False,
         "task_aware": False,
     },
 }
+
+
+def is_model_installed(model_config):
+    """All models now use INSTALLED.json as their marker."""
+    return (model_config["marker_dir"] / "INSTALLED.json").exists()
+
 
 BOLD = "\033[1m"
 RESET = "\033[0m"
@@ -81,19 +104,19 @@ summary_colalign = ("center",) * len(summary_headers)
 
 
 def vector_db_subfolder(model_config):
-    return VECTOR_DB_ROOT / model_config["local_dir"].name
+    return VECTOR_DB_ROOT / model_config["marker_dir"].name
 
 
-# Fail fast and clearly if anything required is missing, before loading
-# any model into memory.
 for key, model_config in EMBEDDING_MODELS.items():
-    if not (model_config["local_dir"] / "modules.json").exists():
+    if not is_model_installed(model_config):
         raise FileNotFoundError(
-            f"{model_config['label']} not installed at {model_config['local_dir']}.\n"
-            "Run: python scripts/13_install_models.py"
+            f"{model_config['label']} not installed -- run: python scripts/13_install_models.py"
         )
     subfolder = vector_db_subfolder(model_config)
-    if not ((subfolder / "khmer_insurance.index").exists() and (subfolder / "khmer_insurance_metadata.json").exists()):
+    if not (
+        (subfolder / "khmer_insurance.index").exists()
+        and (subfolder / "khmer_insurance_metadata.json").exists()
+    ):
         raise FileNotFoundError(
             f"No precomputed index for {model_config['label']} at {subfolder}/.\n"
             "Run: python scripts/07_generate_embeddings.py"
@@ -104,17 +127,10 @@ gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
 if not gold_files:
     raise ValueError("No gold_questions.json files found.")
 
-
 def encode_queries(model, model_config, texts, **kwargs):
-    """Encodes search QUERIES (the gold questions), not documents -- the
-    corpus side was already encoded as PASSAGES once, offline, by
-    scripts/07_generate_embeddings.py. Task-aware models like
-    jina-embeddings-v3 need a different LoRA adapter for each side; using
-    the wrong one (or none) doesn't error, it just silently produces
-    worse retrieval."""
-    if model_config.get("task_aware"):
-        kwargs["task"] = "retrieval.query"
-        kwargs["prompt_name"] = "retrieval.query"
+    """Encodes search QUERIES. For e5-style models, prepends 'query: ' prefix."""
+    if model_config.get("query_prefix"):
+        texts = [model_config["query_prefix"] + t for t in texts]
     return model.encode(texts, **kwargs)
 
 
@@ -445,8 +461,11 @@ for key, model_config in EMBEDDING_MODELS.items():
     metadata_chunk_ids = set(chunk_lookup.keys())
 
     load_start = time.time()
+
+    # All three models use plain SentenceTransformer loaded by Hub ID.
     kwargs = {"trust_remote_code": True} if model_config["trust_remote_code"] else {}
-    model = SentenceTransformer(str(model_config["local_dir"]), **kwargs)
+    model = SentenceTransformer(model_config["hf_id"], **kwargs)
+
     model_load_time = time.time() - load_start
 
     retrieve_fn = make_retrieve_fn(model, model_config, index, model_chunks)

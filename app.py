@@ -3,6 +3,14 @@ import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OMP_NUM_THREADS"] = "1"
 
+# Set HF_HOME before any HF import so all HF assets stay inside the
+# project folder. See scripts/13_install_models.py for the full
+# explanation of why this must come before the imports below.
+_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+_HF_CACHE_DIR = os.path.join(_APP_DIR, "models", "retriever", ".cache")
+os.makedirs(_HF_CACHE_DIR, exist_ok=True)
+os.environ["HF_HOME"] = _HF_CACHE_DIR
+
 import faiss
 
 faiss.omp_set_num_threads(1)
@@ -1115,7 +1123,7 @@ def resolve_vector_db():
         # from a normal scripts/07 run, but don't crash over it.
         fallback_info = {
             "label": ACTIVE_EMBEDDING_MODEL_DIR,
-            "local_dir": new_dir,
+            "hf_id": None,
             "trust_remote_code": False,
             "task_aware": False,
         }
@@ -1146,7 +1154,6 @@ def resolve_vector_db():
         fallback_info = {
             "label": "BAAI/bge-m3",
             "hf_id": "BAAI/bge-m3",
-            "local_dir": "models/retriever/BAAI-BGE-M3",
             "trust_remote_code": False,
             "task_aware": False,
         }
@@ -1175,7 +1182,7 @@ def load_embedding_model_info():
 def load_embedding_model():
     info, _, _ = load_embedding_model_info()
     kwargs = {"trust_remote_code": True} if info.get("trust_remote_code") else {}
-    return SentenceTransformer(info["local_dir"], device="cpu", **kwargs)
+    return SentenceTransformer(info["hf_id"], device="cpu", **kwargs)
 
 
 @st.cache_resource
@@ -1216,19 +1223,12 @@ def load_bm25_index(_chunks):
 
 
 def encode_query(query, embedding_model, embedding_model_info):
-    """Encodes the live user question as a QUERY, not a document --
-    matters only for task-aware models (jina-embeddings-v3). The corpus
-    chunks were already encoded as PASSAGES once, offline, by
-    scripts/07_generate_embeddings.py's encode_documents(); this is the
-    other half of that same asymmetric task pair. Using the wrong task
-    (or none) doesn't error, it just silently produces worse retrieval --
-    the same risk documented in 07/09's encode_documents()."""
+    """Encodes the live user question as a QUERY. For e5-style models
+    (multilingual-e5-large), prepends 'query: ' prefix to the raw question."""
     embed_start = time.time()
-    kwargs = {"normalize_embeddings": True}
-    if embedding_model_info.get("task_aware"):
-        kwargs["task"] = "retrieval.query"
-        kwargs["prompt_name"] = "retrieval.query"
-    query_embedding = embedding_model.encode([query], **kwargs)
+    if embedding_model_info.get("query_prefix"):
+        query = embedding_model_info["query_prefix"] + query
+    query_embedding = embedding_model.encode([query], normalize_embeddings=True)
     query_embedding = np.asarray(
         query_embedding,
         dtype=np.float32,
