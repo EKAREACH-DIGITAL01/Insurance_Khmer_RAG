@@ -2,6 +2,7 @@ import os
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OMP_NUM_THREADS"] = "1"
+MODEL = os.getenv("CHATBOT_MODEL", "Generator")
 
 # Set HF_HOME before any HF import so all HF assets stay inside the
 # project folder. See scripts/13_install_models.py for the full
@@ -308,11 +309,11 @@ PHASE_LABELS = {
     ),
     "preparing_response": (
         "<b>Preparing Response</b> - "
-        "<i>SeaLLMs is processing the prompt and preparing the first token</i>"
+        "<i>{MODEL} is processing the prompt and preparing the first token</i>"
     ),
     "generating_response": (
         "<b>Generating Response</b> - "
-        "<i>SeaLLMs is generating the answer from retrieved context</i>"
+        "<i>{MODEL} is generating the answer from retrieved context</i>"
     ),
     "completed": ("<b>Completed</b>"),
 }

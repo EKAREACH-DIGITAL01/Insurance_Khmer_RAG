@@ -7,8 +7,9 @@ guidance documents.
 
 Built with a local embedding model (BGE-M3), a local FAISS vector index,
 hybrid retrieval (FAISS + BM25, Reciprocal Rank Fusion), and a local
-quantized LLM (SeaLLMs-v3-7B) served via `llama.cpp` — no external API
-calls happen at chat time.
+quantized generator LLM (choice of SeaLLM v3 7B, Qwen 3.5 9B, Gemma 4 E4B,
+or Llama 3.1 8B Instruct) served via `llama.cpp` — no external API calls
+happen at chat time.
 
 ---
 
@@ -95,13 +96,13 @@ PDF source documents
 |  question → Khmer-script check → length check → scope gate      |
 |           → BGE-M3 embed → FAISS search + BM25 search → RRF     |
 |           → score gate → build context (capped, deduped)         |
-|           → prompt → llama-server (SeaLLMs-v3-7B, GGUF)         |
+|           → prompt → llama-server (selected generator, GGUF)         |
 |           → streamed answer + sources + diagnostics              |
 +------------------------------------------------------------------+
 ```
 
 `start_chatbot.py` is the entry point for actually *using* the assistant:
-it launches `llama-server` with the chosen quantization, waits for it to
+it launches `llama-server` with the chosen generator model, waits for it to
 report healthy, patches the browser tab's title/favicon, and then launches
 the Streamlit app.
 
@@ -167,11 +168,13 @@ Khmer-Rag-Chatbot/
 │
 ├── models/
 │   ├── generator/
-│   │   └── SeaLLMs-v3-7B-Chat-Q4_K_M.gguf   # (and other quantizations)
+│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M.gguf
+│   │   ├── Qwen3.5-9B-Q4_K_M.gguf
+│   │   ├── gemma-4-E4B-it-Q4_K_M.gguf
+│   │   └── Llama-3.1-8B-Instruct-Q4_K_M.gguf
 │   │
 │   └── retriever/
-│       ├── .cache/                  # Hugging Face model weights (one copy,
-│       │                            # all three models live here via HF cache)
+│       ├── .cache/                  # Hugging Face model weights (one copy, all three models live here via HF cache)
 │       ├── BAAI-BGE-M3/
 │       │   └── INSTALLED.json       # Marker file only (weights are in .cache/)
 │       ├── multilingual-e5-large/
@@ -189,7 +192,7 @@ Khmer-Rag-Chatbot/
 │   ├── 07_generate_embeddings.py    # Builds all installed models' indices
 │   ├── 08_compare_embedding_models.py    # 3-model embedding comparison
 │   ├── 09_compare_retrieval_modes.py     # Hybrid vs. dense retrieval comparison
-│   ├── 10_compare_generator_models.py    # SeaLLM quantization comparison
+│   ├── 10_compare_generator_models.py    # Generator model comparison
 │   ├── 11_evaluate_rag.py                # End-to-end RAG evaluation (RAGAS-style)
 │   ├── 12_generate_data_card.py     # Auto-generate corpus statistics
 │   └── 13_install_models.py         # Download all models
@@ -236,8 +239,8 @@ Khmer-Rag-Chatbot/
 - **`llama.cpp`** with `llama-server` on your `PATH`
   (`brew install llama.cpp` on macOS, or build from source)
 - **At least 16 GB RAM** — 8 GB machines are extremely slow or may fail
-- **~15 GB free disk space** for the embedding models + generator
-  quantization(s)
+- **~15 GB free disk space** for the embedding models + one generator
+  model (more space if you install more than one generator model)
 - A **Gemini API key** — only needed for `scripts/02` to OCR new source
   documents; not required to run the chatbot
 - (Optional but recommended) Apple Silicon or a CUDA GPU — `start_chatbot.py`
@@ -267,7 +270,7 @@ python scripts/13_install_models.py
 ```
 
 `scripts/13_install_models.py` will ask which embedding model(s) and
-generator quantization to download:
+generator model to download:
 
 **Embedding models** (choose one or more; all three are needed for the
 embedding comparison report):
@@ -278,14 +281,14 @@ embedding comparison report):
 | 2 | intfloat/multilingual-e5-large | ~1.1 GB | Comparison only |
 | 3 | paraphrase-multilingual-MiniLM-L12-v2 | ~470 MB | Comparison only |
 
-**Generator quantizations** (choose one; more can be added later):
+**Generator models** (choose one; more can be added later):
 
-| Choice | Quantization | Size | Notes |
-|---|---|---|---|
-| 1 | Q4_K_M | ~4.8 GB | Fastest, recommended starting point |
-| 2 | Q5_K_M | ~5.5 GB | Best speed/quality balance |
-| 3 | Q6_K | ~6.3 GB | Higher quality |
-| 4 | Q8_0 | ~8.1 GB | Highest quality, slowest |
+| Choice | Model | Size |
+|---|---|---|
+| 1 | SeaLLM v3 7B Q4_K_M | 4.68 GB |
+| 2 | Qwen 3.5 9B Q4_K_M | 5.68 GB |
+| 3 | Gemma 4 E4B Q4_K_M | 4.98 GB |
+| 4 | Llama 3.1 8B Instruct Q4_K_M | 4.92 GB |
 
 All models are downloaded into `models/retriever/.cache/` (one copy,
 no duplication). Re-running the installer safely skips anything already
@@ -300,7 +303,7 @@ python start_chatbot.py
 ```
 
 This will:
-1. Ask which generator quantization to load.
+1. Ask which generator model to load.
 2. Start `llama-server` on `localhost:8080` and wait for it to report
    healthy (up to 120 seconds).
 3. Launch the Streamlit app on `localhost:8501` and open it in your

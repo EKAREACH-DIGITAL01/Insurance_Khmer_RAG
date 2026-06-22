@@ -7,6 +7,7 @@ import time
 import requests
 import platform
 import shutil
+import os
 from pathlib import Path
 
 OS_NAME = platform.system()
@@ -30,10 +31,22 @@ if LLAMA_SERVER is None:
 print(f"llama-server: {LLAMA_SERVER}")
 
 MODELS = {
-    "1": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
-    "2": "SeaLLMs-v3-7B-Chat-Q5_K_M.gguf",
-    "3": "SeaLLMs-v3-7B-Chat-Q6_K.gguf",
-    "4": "SeaLLMs-v3-7B-Chat-Q8_0.gguf",
+    "1": {
+        "file": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
+        "name": "SeaLLM",
+    },
+    "2": {
+        "file": "Qwen3.5-9B-Q4_K_M.gguf",
+        "name": "Qwen",
+    },
+    "3": {
+        "file": "gemma-4-E4B-it-Q4_K_M.gguf",
+        "name": "Gemma",
+    },
+    "4": {
+        "file": "Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+        "name": "Llama",
+    },
 }
 
 print("""
@@ -44,9 +57,9 @@ Khmer Legal Chatbot
 Choose model:
 
 1. SeaLLMs-v3-7B-Chat-Q4_K_M.gguf
-2. SeaLLMs-v3-7B-Chat-Q5_K_M.gguf
-3. SeaLLMs-v3-7B-Chat-Q6_K.gguf
-4. SeaLLMs-v3-7B-Chat-Q8_0.gguf
+2. Qwen3.5-9B-Q4_K_M.gguf
+3. gemma-4-E4B-it-Q4_K_M.gguf
+4. Llama-3.1-8B-Instruct-Q4_K_M.gguf
 """)
 
 choice = input("Choice: ").strip()
@@ -54,7 +67,13 @@ choice = input("Choice: ").strip()
 if choice not in MODELS:
     raise SystemExit("Invalid choice.")
 
-model = MODELS[choice]
+selected = MODELS[choice]
+
+model = selected["file"]
+model_name = selected["name"]
+
+os.environ["CHATBOT_MODEL"] = model_name
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 MODEL_PATH = PROJECT_ROOT / "models" / "generator" / model

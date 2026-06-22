@@ -84,24 +84,28 @@ LLM_DIR.mkdir(parents=True, exist_ok=True)
 
 LLM_MODELS = {
     "1": {
+        "repo_id": "mradermacher/SeaLLM3-7B-Chat-GGUF",
         "hf_filename": "SeaLLM3-7B-Chat.Q4_K_M.gguf",
         "local_filename": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
-        "label": "SeaLLMs-v3-7B Q4_K_M (~4.8 GB) - Fast / Recommended",
+        "label": "SeaLLM-v3-7B-Q4_K_M (4.68 GB)",
     },
     "2": {
-        "hf_filename": "SeaLLM3-7B-Chat.Q5_K_M.gguf",
-        "local_filename": "SeaLLMs-v3-7B-Chat-Q5_K_M.gguf",
-        "label": "SeaLLMs-v3-7B Q5_K_M (~5.5 GB) - Best Balance",
+        "repo_id": "unsloth/Qwen3.5-9B-GGUF",
+        "hf_filename": "Qwen3.5-9B-Q4_K_M.gguf",
+        "local_filename": "Qwen3.5-9B-Q4_K_M.gguf",
+        "label": "Qwen-3.5-9B-Q4_K_M (5.68 GB)",
     },
     "3": {
-        "hf_filename": "SeaLLM3-7B-Chat.Q6_K.gguf",
-        "local_filename": "SeaLLMs-v3-7B-Chat-Q6_K.gguf",
-        "label": "SeaLLMs-v3-7B Q6_K   (~6.3 GB) - Higher Quality",
+        "repo_id": "unsloth/gemma-4-E4B-it-GGUF",
+        "hf_filename": "gemma-4-E4B-it-Q4_K_M.gguf",
+        "local_filename": "gemma-4-E4B-it-Q4_K_M.gguf",
+        "label": "Gemma-4-E4B-Q4_K_M (4.98 GB)",
     },
     "4": {
-        "hf_filename": "SeaLLM3-7B-Chat.Q8_0.gguf",
-        "local_filename": "SeaLLMs-v3-7B-Chat-Q8_0.gguf",
-        "label": "SeaLLMs-v3-7B Q8_0   (~8.1 GB) - Highest Quality / Slower",
+        "repo_id": "unsloth/Llama-3.1-8B-Instruct-GGUF",
+        "hf_filename": "Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+        "local_filename": "Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+        "label": "Llama-3.1-8B-Instruct-Q4_K_M (4.92 GB)",
     },
 }
 
@@ -153,12 +157,11 @@ else:
         "Any can be used to build the production vector_db/ index.\n"
     )
     for key, info in EMBEDDING_MODELS.items():
-        tag = "  [already installed]" if installed_status[key] else ""
-        print(f"        {key}. {info['label']} ({info['note']}){tag}")
+        print(f"        {key}. {info['label']} ({info['note']})")
     print()
 
     raw = input(
-        "Install which model(s)? Comma-separated (e.g. 1,3), or 'all': "
+        "Install which model(s)? Comma-separated (e.g. 1, 2, 3), or 'all': "
     ).strip().lower()
 
     if raw == "all":
@@ -201,51 +204,67 @@ else:
             print("Re-run this installer later to retry.")
 
 
-# INSTALL SEALLM GENERATOR
-print("\n========== SeaLLM Generator ==========")
+# INSTALL GENERATOR MODEL(S)
+print("\n========== Generator Model(s) ==========")
 
 installed_llm = {
     key: (LLM_DIR / info["local_filename"]).exists()
     for key, info in LLM_MODELS.items()
 }
 
-selected_llm = None
-
 if all(installed_llm.values()):
-    print("All SeaLLM quantizations already installed -- nothing to choose.")
+    print("All generator models already installed -- nothing to do.")
     for info in LLM_MODELS.values():
         print(f"  - {info['local_filename']}")
 else:
-    print("\nChoose a Generator Model:\n")
+    print(
+        f"\n{len(LLM_MODELS)} generator models available. "
+        "Any can be used by start_chatbot.py.\n"
+    )
     for key, info in LLM_MODELS.items():
-        tag = "  [already installed]" if installed_llm[key] else ""
-        print(f"        {key}. {info['label']}{tag}")
+        print(f"        {key}. {info['label']}")
     print()
 
-    choice = input("Enter choice: ").strip()
+    raw = input(
+        "Install which model(s)? Comma-separated (e.g. 1, 2, 3, 4), or 'all': "
+    ).strip().lower()
 
-    if choice not in LLM_MODELS:
-        raise SystemExit("Invalid choice.")
-
-    model_info = LLM_MODELS[choice]
-    selected_llm = LLM_DIR / model_info["local_filename"]
-
-    print(f"\nSelected: {model_info['local_filename']}")
-
-    if selected_llm.exists():
-        print("Already installed.")
+    if raw == "all":
+        to_install = list(LLM_MODELS.keys())
     else:
-        print(f"Downloading {model_info['local_filename']}...")
-        downloaded = hf_hub_download(
-            repo_id="mradermacher/SeaLLM3-7B-Chat-GGUF",
-            filename=model_info["hf_filename"],
-            local_dir=str(LLM_DIR),
-        )
-        downloaded_path = Path(downloaded)
-        if downloaded_path.name != model_info["local_filename"]:
-            downloaded_path.rename(selected_llm)
-        print("SeaLLM installed successfully.")
-        print(f"  Location: {selected_llm}")
+        to_install = [
+            t.strip() for t in raw.split(",") if t.strip() in LLM_MODELS
+        ]
+
+    if not to_install:
+        print("No valid selection -- skipping generator model installation.")
+
+    for key in to_install:
+        info = LLM_MODELS[key]
+        target_path = LLM_DIR / info["local_filename"]
+
+        if installed_llm[key]:
+            print(f"\n{info['label']} already installed.")
+            continue
+
+        print(f"\nInstalling {info['label']}...")
+
+        try:
+            downloaded = hf_hub_download(
+                repo_id=info["repo_id"],
+                filename=info["hf_filename"],
+                local_dir=str(LLM_DIR),
+            )
+            downloaded_path = Path(downloaded)
+            if downloaded_path.name != info["local_filename"]:
+                downloaded_path.rename(target_path)
+
+            print(f"{info['label']} installed successfully.")
+            print(f"  Location: {target_path}")
+
+        except Exception as e:
+            print(f"{info['label']} installation failed, continuing anyway: {e}")
+            print("Re-run this installer later to retry.")
 
 
 # SUMMARY
@@ -264,7 +283,7 @@ for info in EMBEDDING_MODELS.values():
 if not any_embed:
     print("  - none")
 
-print("\nInstalled LLMs:")
+print("\nInstalled generator models:")
 any_llm = False
 for info in LLM_MODELS.values():
     llm_file = LLM_DIR / info["local_filename"]
@@ -274,10 +293,8 @@ for info in LLM_MODELS.values():
 
 if not any_embed:
     raise SystemExit("\nNo embedding model installed.")
-if selected_llm is not None and not selected_llm.exists():
-    raise SystemExit(f"\nSeaLLM installation failed: {selected_llm.name}")
 if not any_llm:
-    raise SystemExit("\nNo SeaLLM generator model installed.")
+    raise SystemExit("\nNo generator model installed.")
 
 print("\nSetup completed successfully.")
 print(f"\nVerify no files leaked to ~/.cache/huggingface:")
