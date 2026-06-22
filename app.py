@@ -309,11 +309,11 @@ PHASE_LABELS = {
     ),
     "preparing_response": (
         "<b>Preparing Response</b> - "
-        "<i>{MODEL} is processing the prompt and preparing the first token</i>"
+        f"<i>{MODEL} is processing the prompt and preparing the first token</i>"
     ),
     "generating_response": (
         "<b>Generating Response</b> - "
-        "<i>{MODEL} is generating the answer from retrieved context</i>"
+        f"<i>{MODEL} is generating the answer from retrieved context</i>"
     ),
     "completed": ("<b>Completed</b>"),
 }

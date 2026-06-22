@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import time
 import faiss
@@ -6,38 +7,38 @@ import numpy as np
 from pathlib import Path
 from tabulate import tabulate
 from rank_bm25 import BM25Okapi
+
+# Set HF_HOME before any HF import -- models live in retriever/.cache/,
+# loaded by Hub ID. See scripts/13_install_models.py for the full explanation.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_HF_CACHE_DIR = _PROJECT_ROOT / "models" / "retriever" / ".cache"
+_HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+os.environ["HF_HOME"] = str(_HF_CACHE_DIR)
+
 from sentence_transformers import SentenceTransformer
 
-INDEX_PATH = "vector_db/khmer_insurance.index"
-METADATA_PATH = "vector_db/khmer_insurance_metadata.json"
-EVALUATION_ROOT = Path("data/08_evaluation")
+# Active embedding model -- must match ACTIVE_EMBEDDING_MODEL_DIR in app.py
+EMBEDDING_HF_ID = "BAAI/bge-m3"
+ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
 
-# Evaluate retrieval performance across multiple top-K cutoffs
+INDEX_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
+METADATA_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
+EVALUATION_ROOT = Path("data/08_evaluation")
+REPORTS_DIR = Path("reports/retrieval")
+
 EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
 
 # ----------------------------------------------------------------------------
 # Hybrid retrieval (BM25 + FAISS, Reciprocal Rank Fusion)
 # ----------------------------------------------------------------------------
-# NOTE: khmer_aware_tokenize, RRF_K, and NGRAM_SIZE are intentionally
-# duplicated from app.py rather than imported. This project's scripts/ and
-# app.py are each standalone, self-contained files with no shared utils
-# module (consistent with the rest of this pipeline -- see e.g.
-# DOCUMENT_TYPE_KH being redefined independently in multiple scripts), so
-# this follows that existing convention. If this tokenizer changes in
-# app.py, it must be changed here too -- there is no single source of
-# truth enforcing that today.
-RRF_K = 60  # standard Reciprocal Rank Fusion constant (Cormack et al. 2009)
-NGRAM_SIZE = 3  # character n-gram size for Khmer-script BM25 tokens
+RRF_K = 60
+NGRAM_SIZE = 3
 
 KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
 
 
 def khmer_aware_tokenize(text):
-    """BM25 tokenizer for mixed Khmer/Latin/numeric text -- see app.py's
-    khmer_aware_tokenize for the full rationale. Character n-grams for
-    Khmer-script tokens (no word segmenter available), whole tokens kept
-    for Latin/numeric runs (company names, article numbers, dates)."""
     tokens = []
     for word in text.split():
         if KHMER_SCRIPT_PATTERN.search(word):
@@ -53,11 +54,6 @@ def khmer_aware_tokenize(text):
 
 
 def reciprocal_rank_fusion(rankings, k=RRF_K):
-    """Fuses multiple ranked lists of result dicts (each dict must have a
-    'chunk_id' and 'document_id' key) into one ranking via Reciprocal Rank
-    Fusion. See app.py's reciprocal_rank_fusion docstring for why RRF
-    (rank-based) is used instead of blending raw scores (FAISS cosine and
-    BM25 scores are on incomparable scales)."""
     fused_scores = {}
     lookup = {}
     for ranking in rankings:
@@ -65,7 +61,6 @@ def reciprocal_rank_fusion(rankings, k=RRF_K):
             chunk_id = item["chunk_id"]
             lookup.setdefault(chunk_id, item)
             fused_scores[chunk_id] = fused_scores.get(chunk_id, 0.0) + 1.0 / (k + rank)
-
     ranked_ids = sorted(fused_scores, key=fused_scores.get, reverse=True)
     return [
         {
@@ -77,15 +72,17 @@ def reciprocal_rank_fusion(rankings, k=RRF_K):
     ]
 
 
-print("Loading embedding model...")
-MODEL_PATH = Path("models/retriever/BAAI-BGE-M3")
-
-if not MODEL_PATH.exists():
+# Check vector_db subfolder exists
+if not Path(INDEX_PATH).exists():
     raise FileNotFoundError(
-        "BAAI/BGE-M3 not found.\n" "Run: python scripts/09_install_models.py"
+        f"FAISS index not found at {INDEX_PATH}.\n"
+        "Run: python scripts/07_generate_embeddings.py"
     )
 
-embedding_model = SentenceTransformer(str(MODEL_PATH))
+print("Loading embedding model...")
+# Load by Hub ID -- weights served from models/retriever/.cache/ (no local
+# save copy; see architecture redesign in scripts/13_install_models.py).
+embedding_model = SentenceTransformer(EMBEDDING_HF_ID)
 
 print("Loading FAISS index...")
 index = faiss.read_index(INDEX_PATH)
@@ -101,7 +98,6 @@ bm25_corpus_tokens = [
 ]
 bm25_index = BM25Okapi(bm25_corpus_tokens)
 
-# Fast lookup table used to map chunk IDs back to metadata
 chunk_lookup = {chunk["chunk_id"]: chunk for chunk in chunks}
 metadata_chunk_ids = set(chunk_lookup.keys())
 
@@ -111,33 +107,15 @@ if not gold_files:
     raise ValueError("No gold_questions.json files found.")
 
 
-# Run the production DENSE retrieval pipeline exactly as the live app does
-# for the safety gates: question -> BGE-M3 embedding -> FAISS similarity
-# search. This is the pre-hybrid baseline.
 def retrieve_dense(question):
-    query_embedding = embedding_model.encode(
-        [question],
-        normalize_embeddings=True,
-    )
-
-    query_embedding = np.asarray(
-        query_embedding,
-        dtype="float32",
-    )
-
-    scores, indices = index.search(
-        query_embedding,
-        k=MAX_K,
-    )
-
+    query_embedding = embedding_model.encode([question], normalize_embeddings=True)
+    query_embedding = np.asarray(query_embedding, dtype="float32")
+    scores, indices = index.search(query_embedding, k=MAX_K)
     results = []
-
     for idx, score in zip(indices[0], scores[0]):
         if idx < 0 or idx >= len(chunks):
             continue
-
         chunk = chunks[idx]
-
         results.append(
             {
                 "chunk_id": chunk["chunk_id"],
@@ -145,17 +123,13 @@ def retrieve_dense(question):
                 "score": float(score),
             }
         )
-
     return results
 
 
-# Lexical-only retrieval via BM25, used both standalone (for inspection)
-# and as one half of the hybrid fusion below.
 def retrieve_bm25(question):
     tokenized_query = khmer_aware_tokenize(question)
     scores = bm25_index.get_scores(tokenized_query)
     top_indices = np.argsort(scores)[::-1][:MAX_K]
-
     results = []
     for idx in top_indices:
         chunk = chunks[idx]
@@ -166,12 +140,9 @@ def retrieve_bm25(question):
                 "score": float(scores[idx]),
             }
         )
-
     return results
 
 
-# The actual hybrid pipeline the live app uses: dense + lexical, fused via
-# Reciprocal Rank Fusion, truncated back to MAX_K candidates.
 def retrieve_hybrid(question):
     dense_results = retrieve_dense(question)
     bm25_results = retrieve_bm25(question)
@@ -180,11 +151,6 @@ def retrieve_hybrid(question):
 
 
 def evaluate_retrieval(retrieve_fn):
-    """Runs the full gold-question evaluation using the given retrieve_fn
-    (retrieve_dense or retrieve_hybrid) and returns the same table data
-    structures the original single-mode version of this script produced,
-    so both modes can be run back-to-back and printed for a direct
-    before/after comparison."""
     summary_table = []
     hit_table = []
     recall_table = []
@@ -201,7 +167,6 @@ def evaluate_retrieval(retrieve_fn):
             raise ValueError(f"{gold_file} is empty.")
 
         missing_chunk_ids = set()
-
         for item in gold_questions:
             for chunk_id in item["expected_chunks"]:
                 if chunk_id not in metadata_chunk_ids:
@@ -225,13 +190,10 @@ def evaluate_retrieval(retrieve_fn):
                 continue
 
             relevant_document_ids = set()
-
             for chunk_id in expected_chunks:
                 chunk = chunk_lookup.get(chunk_id)
-
                 if chunk:
                     document_id = chunk["metadata"].get("document_id")
-
                     if document_id:
                         relevant_document_ids.add(document_id)
 
@@ -243,34 +205,25 @@ def evaluate_retrieval(retrieve_fn):
 
             retrieved_results = retrieve_fn(question)
             retrieved_chunk_ids = [result["chunk_id"] for result in retrieved_results]
-            retrieved_document_ids = [
-                result["document_id"] for result in retrieved_results
-            ]
+            retrieved_document_ids = [result["document_id"] for result in retrieved_results]
 
             for k in EVAL_KS:
                 top_k_chunks = retrieved_chunk_ids[:k]
                 top_k_documents = retrieved_document_ids[:k]
 
                 found_chunks = set(top_k_chunks).intersection(expected_chunks)
-
                 if found_chunks:
                     hit_sums[k] += 1
-
                 recall_sums[k] += len(found_chunks) / len(expected_chunks)
 
                 reciprocal_rank = 0
-
                 for rank, chunk_id in enumerate(top_k_chunks, start=1):
                     if chunk_id in expected_chunks:
                         reciprocal_rank = 1 / rank
                         break
-
                 mrr_sums[k] += reciprocal_rank
 
-                found_documents = set(top_k_documents).intersection(
-                    relevant_document_ids
-                )
-
+                found_documents = set(top_k_documents).intersection(relevant_document_ids)
                 if found_documents:
                     file_hit_sums[k] += 1
 
@@ -322,7 +275,6 @@ summary_headers = [
     "Missing Chunks",
     "Missing Chunk IDs",
 ]
-
 metric_colalign = ("center",) * len(metric_headers)
 summary_colalign = ("center",) * len(summary_headers)
 
@@ -341,79 +293,32 @@ def print_mode_report(mode_label, tables):
     print(f"\n{SEPARATOR}")
     print(f"\t\t\t{BOLD}HIT RATE @ K{RESET} - At least one relevant chunk was retrieved.")
     print(SEPARATOR)
-    print(
-        tabulate(
-            tables["hit"],
-            headers=metric_headers,
-            tablefmt="grid",
-            floatfmt=".4f",
-            colalign=metric_colalign,
-        )
-    )
+    print(tabulate(tables["hit"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
 
     print(f"\n{SEPARATOR}")
     print(f"\t\t\t{BOLD}RECALL @ K{RESET} - Proportion of relevant chunks retrieved.")
     print(SEPARATOR)
-    print(
-        tabulate(
-            tables["recall"],
-            headers=metric_headers,
-            tablefmt="grid",
-            floatfmt=".4f",
-            colalign=metric_colalign,
-        )
-    )
+    print(tabulate(tables["recall"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
 
     print(f"\n{SEPARATOR}")
     print(f"\t\t\t{BOLD}MRR @ K{RESET} - Ranking position of the first relevant chunk.")
     print(SEPARATOR)
-    print(
-        tabulate(
-            tables["mrr"],
-            headers=metric_headers,
-            tablefmt="grid",
-            floatfmt=".4f",
-            colalign=metric_colalign,
-        )
-    )
+    print(tabulate(tables["mrr"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
 
     print(f"\n{SEPARATOR}")
-    print(
-        f"\t\t{BOLD}FILE HIT RATE @ K{RESET} - At least one chunk from the correct document was retrieved."
-    )
+    print(f"\t\t{BOLD}FILE HIT RATE @ K{RESET} - At least one chunk from the correct document was retrieved.")
     print(SEPARATOR)
-    print(
-        tabulate(
-            tables["file_hit"],
-            headers=metric_headers,
-            tablefmt="grid",
-            floatfmt=".4f",
-            colalign=metric_colalign,
-        )
-    )
+    print(tabulate(tables["file_hit"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
 
     print(f"\n{SEPARATOR}============")
     print(f"\t\t\t\t\t\t{BOLD}DATASET SUMMARY{RESET}")
     print(f"{SEPARATOR}============")
-    print(
-        tabulate(
-            tables["summary"],
-            headers=summary_headers,
-            tablefmt="grid",
-            colalign=summary_colalign,
-        )
-    )
+    print(tabulate(tables["summary"], headers=summary_headers, tablefmt="grid", colalign=summary_colalign))
 
 
 def build_comparison_rows(dense_tables, hybrid_tables):
-    """Computes the headline before/after numbers -- Hit@5 and Recall@5 per
-    category for both modes plus the delta -- as plain row data, reused by
-    both the stdout printer and the saved report writer. These two cutoffs
-    are chosen because CONTEXT_K=5 in app.py is what actually determines
-    how many chunks reach the LLM prompt -- @5 is the number that matters
-    for real answer quality, not just for the report."""
     rows = []
-    dense_hit_by_cat = {row[0]: row[5] for row in dense_tables["hit"]}  # @5 is index 5
+    dense_hit_by_cat = {row[0]: row[5] for row in dense_tables["hit"]}
     hybrid_hit_by_cat = {row[0]: row[5] for row in hybrid_tables["hit"]}
     dense_recall_by_cat = {row[0]: row[5] for row in dense_tables["recall"]}
     hybrid_recall_by_cat = {row[0]: row[5] for row in hybrid_tables["recall"]}
@@ -456,17 +361,7 @@ def print_comparison_summary(dense_tables, hybrid_tables):
     print(tabulate(rows, headers=headers, tablefmt="grid", colalign=("center",) * 7))
 
 
-REPORTS_DIR = Path("reports/retrieval")
-
-
 def write_reports(dense_tables, hybrid_tables, comparison_rows, comparison_headers):
-    """Saves both a raw JSON (full numeric data, re-analyzable later --
-    e.g. for the technical report's tables/charts) and a human-readable
-    Markdown report (same content as the stdout output, real Markdown
-    tables via tabulate's "github" format rather than the box-drawing
-    "grid" format used for the terminal) into reports/retrieval/. Printing
-    to stdout during a run is useful in the moment; these files are what
-    actually persist as a deliverable afterward."""
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     json_payload = {
@@ -497,17 +392,11 @@ def write_reports(dense_tables, hybrid_tables, comparison_rows, comparison_heade
         md_parts.append(md_table("Hit Rate @ K", tables["hit"], metric_headers))
         md_parts.append(md_table("Recall @ K", tables["recall"], metric_headers))
         md_parts.append(md_table("MRR @ K", tables["mrr"], metric_headers))
-        md_parts.append(
-            md_table("File Hit Rate @ K", tables["file_hit"], metric_headers)
-        )
-        md_parts.append(
-            md_table("Dataset Summary", tables["summary"], summary_headers)
-        )
+        md_parts.append(md_table("File Hit Rate @ K", tables["file_hit"], metric_headers))
+        md_parts.append(md_table("Dataset Summary", tables["summary"], summary_headers))
 
     md_parts.append("## Before / After -- Dense-Only vs. Hybrid\n\n")
-    md_parts.append(
-        tabulate(comparison_rows, headers=comparison_headers, tablefmt="github")
-    )
+    md_parts.append(tabulate(comparison_rows, headers=comparison_headers, tablefmt="github"))
     md_parts.append("\n")
 
     md_path = REPORTS_DIR / "retrieval_eval.md"
