@@ -774,10 +774,8 @@ def summarise(results, label):
     valid = [r for r in results if "error" not in r and r.get("scores")]
 
     def avg_metric(key):
-        # BUG FIX: only include entries where the key is both present AND
-        # not None -- answer_correctness is None when expected_answer is
-        # missing, and including None values in the average would crash or
-        # silently produce wrong numbers.
+        # Only include entries where the key is both present AND not None --
+        # answer_correctness is None when expected_answer is missing.
         vals = [
             r["scores"][key]
             for r in valid
@@ -785,39 +783,99 @@ def summarise(results, label):
         ]
         return round(sum(vals) / len(vals), 4) if vals else None
 
-    def avg_timing(key):
-        # BUG FIX: error entries have timing={} so r["timing"][key] would
-        # KeyError. Use .get() on both the timing dict and the key itself.
-        vals = [
+    def timing_vals(key):
+        # Error entries have timing={} -- guard with .get() on both levels.
+        return [
             r["timing"].get(key)
             for r in valid
             if r.get("timing") and r["timing"].get(key) is not None
         ]
+
+    def avg_timing(key):
+        vals = timing_vals(key)
         return round(sum(vals) / len(vals), 4) if vals else None
+
+    def percentile(vals, p):
+        """Returns the p-th percentile of a sorted list of floats."""
+        if not vals:
+            return None
+        s = sorted(vals)
+        idx = (p / 100) * (len(s) - 1)
+        lo, hi = int(idx), min(int(idx) + 1, len(s) - 1)
+        return round(s[lo] + (s[hi] - s[lo]) * (idx - lo), 4)
 
     scores_avg = {k: avg_metric(k) for k in WEIGHTS}
 
-    # Combined average uses the same normalised weighted_combined logic --
-    # call it once per entry and average, so it stays consistent with the
-    # per-question combined score stored in each JSONL entry.
+    # Combined average -- average the per-question combined scores directly
+    # so it stays consistent with the normalised weighted_combined per entry.
     combined_vals = [r["combined"] for r in valid if r.get("combined") is not None]
     combined_avg  = round(sum(combined_vals) / len(combined_vals), 4) if combined_vals else 0.0
 
-    # Per-category breakdown
+    # Timing detail
+    ttft_vals     = timing_vals("first_token_time")
+    gentime_vals  = timing_vals("generation_time")
+    tokps_vals    = timing_vals("tokens_per_sec")
+    tokout_vals   = [
+        r["timing"].get("tokens_out")
+        for r in valid
+        if r.get("timing") and r["timing"].get("tokens_out") is not None
+    ]
+
+    timing_detail = {
+        "first_token_time_avg": avg_timing("first_token_time"),
+        "first_token_time_p50": percentile(ttft_vals, 50),
+        "first_token_time_p95": percentile(ttft_vals, 95),
+        "generation_time_avg":  avg_timing("generation_time"),
+        "tokens_per_sec_avg":   avg_timing("tokens_per_sec"),
+        "tokens_out_avg":       round(sum(tokout_vals) / len(tokout_vals), 1) if tokout_vals else None,
+        "tokens_out_min":       min(tokout_vals) if tokout_vals else None,
+        "tokens_out_max":       max(tokout_vals) if tokout_vals else None,
+    }
+
+    # Per-category breakdown -- scores AND timing so you can see if
+    # certain document categories are consistently slower (e.g. laws
+    # questions tend to have longer legal-unit chunks → bigger context
+    # → slower prefill → higher TTFT).
     categories   = sorted({r["category"] for r in valid})
     per_category = {}
     for cat in categories:
-        cat_results = [r for r in valid if r["category"] == cat]
-        per_category[cat] = {}
+        cat_valid = [r for r in valid if r["category"] == cat]
+
+        cat_scores = {}
         for k in WEIGHTS:
             cat_vals = [
                 r["scores"][k]
-                for r in cat_results
+                for r in cat_valid
                 if r["scores"].get(k) is not None
             ]
-            per_category[cat][k] = (
+            cat_scores[k] = (
                 round(sum(cat_vals) / len(cat_vals), 4) if cat_vals else None
             )
+
+        cat_ttft = [
+            r["timing"].get("first_token_time")
+            for r in cat_valid
+            if r.get("timing") and r["timing"].get("first_token_time") is not None
+        ]
+        cat_gentime = [
+            r["timing"].get("generation_time")
+            for r in cat_valid
+            if r.get("timing") and r["timing"].get("generation_time") is not None
+        ]
+        cat_tokout = [
+            r["timing"].get("tokens_out")
+            for r in cat_valid
+            if r.get("timing") and r["timing"].get("tokens_out") is not None
+        ]
+
+        per_category[cat] = {
+            "scores": cat_scores,
+            "timing": {
+                "first_token_time_avg": round(sum(cat_ttft) / len(cat_ttft), 4) if cat_ttft else None,
+                "generation_time_avg":  round(sum(cat_gentime) / len(cat_gentime), 4) if cat_gentime else None,
+                "tokens_out_avg":       round(sum(cat_tokout) / len(cat_tokout), 1) if cat_tokout else None,
+            },
+        }
 
     truncated_count = sum(
         1 for r in valid
@@ -833,11 +891,14 @@ def summarise(results, label):
         "scores_avg":        scores_avg,
         "combined_avg":      combined_avg,
         "per_category":      per_category,
+        # Keep timing_avg as a flat dict for backward compat with anything
+        # that reads the summary JSON -- timing_detail has the full picture.
         "timing_avg": {
-            "first_token_time": avg_timing("first_token_time"),
-            "generation_time":  avg_timing("generation_time"),
-            "tokens_per_sec":   avg_timing("tokens_per_sec"),
+            "first_token_time": timing_detail["first_token_time_avg"],
+            "generation_time":  timing_detail["generation_time_avg"],
+            "tokens_per_sec":   timing_detail["tokens_per_sec_avg"],
         },
+        "timing_detail": timing_detail,
     }
 
     # Save summary JSON for this model immediately
@@ -861,6 +922,7 @@ def print_model_summary(summary):
     print(f"{BOLD}GENERATOR: {summary['label']}{RESET}")
     print(banner)
 
+    # --- Quality scores ---
     score_rows = [
         [k.replace("_", " ").title(), f"{v:.4f}" if v is not None else "N/A"]
         for k, v in summary["scores_avg"].items()
@@ -872,19 +934,48 @@ def print_model_summary(summary):
     print(SEPARATOR)
     print(tabulate(score_rows, headers=["Metric", "Avg Score"], tablefmt="grid"))
 
-    timing = summary["timing_avg"]
+    # --- Latency detail ---
+    td = summary.get("timing_detail", {})
+
+    def fmt(v, decimals=2):
+        return f"{v:.{decimals}f}" if v is not None else "N/A"
+
     print(f"\n{SEPARATOR}")
-    print(f"\t\t\t{BOLD}TIMING{RESET}")
+    print(f"\t\t\t{BOLD}LATENCY & THROUGHPUT{RESET}")
     print(SEPARATOR)
     print(tabulate(
         [
-            ["Avg first-token time (s)",      f"{timing['first_token_time']:.4f}" if timing['first_token_time'] else "N/A"],
-            ["Avg total generation time (s)", f"{timing['generation_time']:.4f}"  if timing['generation_time']  else "N/A"],
-            ["Avg decode speed (tok/s)",      f"{timing['tokens_per_sec']:.4f}"   if timing['tokens_per_sec']   else "N/A"],
-            ["Truncated answers",             summary["truncated_answers"]],
+            ["Avg first-token time (s)",    fmt(td.get("first_token_time_avg"), 2)],
+            ["P50 first-token time (s)",    fmt(td.get("first_token_time_p50"), 2)],
+            ["P95 first-token time (s)",    fmt(td.get("first_token_time_p95"), 2)],
+            ["Avg total generation time (s)", fmt(td.get("generation_time_avg"), 2)],
+            ["Avg decode speed (tok/s)",    fmt(td.get("tokens_per_sec_avg"), 2)],
+            ["Avg tokens out",              fmt(td.get("tokens_out_avg"), 1)],
+            ["Min tokens out",              str(td.get("tokens_out_min", "N/A"))],
+            ["Max tokens out",              str(td.get("tokens_out_max", "N/A"))],
+            ["Truncated answers",           summary["truncated_answers"]],
             ["Valid / Failed / Total",
              f"{summary['valid_questions']} / {summary['failed_questions']} / {summary['total_questions']}"],
         ],
+        tablefmt="grid",
+    ))
+
+    # --- Per-category timing breakdown ---
+    print(f"\n{SEPARATOR}")
+    print(f"\t\t{BOLD}PER-CATEGORY TIMING (avg, seconds){RESET}")
+    print(SEPARATOR)
+    cat_timing_rows = []
+    for cat, data in sorted(summary["per_category"].items()):
+        t = data.get("timing", {})
+        cat_timing_rows.append([
+            cat,
+            fmt(t.get("first_token_time_avg"), 2),
+            fmt(t.get("generation_time_avg"),  2),
+            fmt(t.get("tokens_out_avg"),        1),
+        ])
+    print(tabulate(
+        cat_timing_rows,
+        headers=["Category", "Avg TTFT (s)", "Avg Gen Time (s)", "Avg Tokens Out"],
         tablefmt="grid",
     ))
 
@@ -900,6 +991,10 @@ def print_final_comparison(summaries):
 
     labels = [s["label"] for s in summaries]
 
+    def fmt(v, decimals=2):
+        return f"{v:.{decimals}f}" if v is not None else "N/A"
+
+    # --- Quality metrics ---
     metric_keys = list(WEIGHTS.keys()) + ["combined_avg"]
     metric_display = {
         "context_relevance":  "Context Relevance",
@@ -915,16 +1010,46 @@ def print_final_comparison(summaries):
         row = [metric_display[key]]
         for s in summaries:
             if key == "combined_avg":
-                row.append(f"{s['combined_avg']:.4f}")
+                row.append(fmt(s["combined_avg"], 4))
             else:
                 v = s["scores_avg"].get(key)
-                row.append(f"{v:.4f}" if v is not None else "N/A")
+                row.append(fmt(v, 4) if v is not None else "N/A")
         rows.append(row)
 
+    # --- Latency metrics ---
+    rows.append(
+        ["── Avg TTFT (s) ──"] + [
+            fmt(s.get("timing_detail", {}).get("first_token_time_avg"))
+            for s in summaries
+        ]
+    )
+    rows.append(
+        ["── P50 TTFT (s) ──"] + [
+            fmt(s.get("timing_detail", {}).get("first_token_time_p50"))
+            for s in summaries
+        ]
+    )
+    rows.append(
+        ["── P95 TTFT (s) ──"] + [
+            fmt(s.get("timing_detail", {}).get("first_token_time_p95"))
+            for s in summaries
+        ]
+    )
+    rows.append(
+        ["── Avg gen time (s) ──"] + [
+            fmt(s.get("timing_detail", {}).get("generation_time_avg"))
+            for s in summaries
+        ]
+    )
     rows.append(
         ["── Avg tok/s ──"] + [
-            f"{s['timing_avg']['tokens_per_sec']:.2f}"
-            if s["timing_avg"].get("tokens_per_sec") else "N/A"
+            fmt(s.get("timing_detail", {}).get("tokens_per_sec_avg"))
+            for s in summaries
+        ]
+    )
+    rows.append(
+        ["── Avg tokens out ──"] + [
+            fmt(s.get("timing_detail", {}).get("tokens_out_avg"), 1)
             for s in summaries
         ]
     )
@@ -940,16 +1065,19 @@ def print_final_comparison(summaries):
         colalign=("left",) + ("center",) * len(labels),
     ))
 
-    # Ranking
+    # --- Ranking ---
     ranked = sorted(summaries, key=lambda s: s["combined_avg"], reverse=True)
     print(f"\n{banner}")
     print(f"{BOLD}RANKING (by weighted combined score){RESET}")
     print(banner)
     for i, s in enumerate(ranked, start=1):
-        tok  = s["timing_avg"].get("tokens_per_sec") or 0.0
+        td   = s.get("timing_detail", {})
+        tok  = td.get("tokens_per_sec_avg") or 0.0
+        ttft = td.get("first_token_time_avg") or 0.0
         print(
             f"  {i}. {s['label']} -- "
             f"combined={s['combined_avg']:.4f} | "
+            f"avg TTFT={ttft:.1f}s | "
             f"tok/s={tok:.2f} | "
             f"truncated={s['truncated_answers']}"
         )
@@ -959,7 +1087,7 @@ def print_final_comparison(summaries):
         if gap < 0.05:
             print(
                 f"\n  NOTE: top two models are close (gap={gap:.4f}). "
-                "Check tok/s and truncated counts as tiebreakers."
+                "Check TTFT, tok/s, and truncated counts as tiebreakers."
             )
 
     print(f"\n  {BOLD}RECOMMENDATION: {ranked[0]['label']}{RESET}")
@@ -1003,6 +1131,8 @@ def write_final_report(summaries):
 # ----------------------------------------------------------------------------
 
 def main():
+    wall_clock_start = time.time()
+
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     if not Path(INDEX_PATH).exists():
@@ -1146,7 +1276,13 @@ def main():
         for s in all_summaries
         if s["timing_avg"].get("generation_time")
     )
+
+    wall_clock_total = time.time() - wall_clock_start
+    hours, rem       = divmod(int(wall_clock_total), 3600)
+    minutes, seconds = divmod(rem, 60)
+
     print(f"\nApprox total generation time : {total_gen_time / 60:.1f} minutes")
+    print(f"Total wall-clock runtime     : {hours}h {minutes}m {seconds}s")
     print("Generator comparison completed successfully.")
 
 
