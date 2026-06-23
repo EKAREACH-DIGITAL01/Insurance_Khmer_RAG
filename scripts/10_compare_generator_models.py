@@ -11,10 +11,7 @@ import numpy as np
 import requests
 from openai import OpenAI
 from rank_bm25 import BM25Okapi
-from tabulate import tabulate
 
-# Set HF_HOME before any HF import -- models live in retriever/.cache/,
-# loaded by Hub ID. See scripts/13_install_models.py for the full explanation.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _HF_CACHE_DIR = _PROJECT_ROOT / "models" / "retriever" / ".cache"
 _HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -23,86 +20,122 @@ os.environ["HF_HOME"] = str(_HF_CACHE_DIR)
 from sentence_transformers import SentenceTransformer
 
 # ----------------------------------------------------------------------------
-# Fully Automated Generator Comparison (RAGAS-style proxy metrics)
+# Generator Model Comparison (fully automated, no human scoring)
 # ----------------------------------------------------------------------------
-# PURPOSE: pick a winner among the 4 installed generators, with ZERO human
-# scoring time, across the FULL gold question set (no sampling, no
-# max_tokens cap -- every answer is generated exactly as the live app
-# would generate it).
+# PURPOSE: rank all installed generator models against each other on the full
+# gold question set (25 questions × 4 categories = 100 questions per model)
+# using five automated proxy metrics. The winning model is then used for the
+# human-scored RAGAS evaluation in scripts/11_evaluate_rag.py.
 #
-# This is NOT the rigorous, human-verified RAGAS evaluation -- it's a
-# fast, fully programmatic PROXY for all four metrics, good enough to
-# rank 4 models against each other. scripts/11_evaluate_rag.py is where
-# the WINNING model (and only that one) gets the full human-scoring
-# treatment, compared side by side against this same proxy to check
-# whether the proxy can be trusted going forward.
+# METRICS (all automated, no LLM judge):
 #
-# How each of the four RAGAS-style metrics is approximated WITHOUT a
-# human or an LLM judge in the loop:
+#   Context Relevance  -- deterministic chunk-ID overlap between
+#                         expected_chunks and the CONTEXT_K chunks actually
+#                         sent to the LLM. Exact, not a proxy.
 #
-#   Context Relevance  -- deterministic. Exact chunk_id overlap between
-#                          expected_chunks and the actual CONTEXT_K=5
-#                          chunks sent to the LLM (identical to the
-#                          earlier version of this script). No proxy
-#                          needed -- this one was never approximate.
+#   Faithfulness       -- Arabic + Khmer numeral overlap between the generated
+#                         answer and the retrieved context. Catches fabricated
+#                         dates, fees, article numbers -- the highest-risk
+#                         hallucination type in a legal domain. Returns a
+#                         1-5 score based on fraction of answer numbers that
+#                         are grounded in context.
 #
-#   Answer Correctness -- embedding cosine similarity between the
-#                          generated answer and expected_answer, using
-#                          BGE-M3 (the same model already loaded for
-#                          retrieval -- no second model to load). This
-#                          mirrors RAGAS's own "Answer Semantic
-#                          Similarity" metric exactly: cosine similarity
-#                          between generated-answer and ground-truth
-#                          embeddings, thresholded into a 1-5 bucket.
+#   Answer Correctness -- BGE-M3 cosine similarity between generated answer
+#                         and expected_answer. Mirrors RAGAS's own Answer
+#                         Semantic Similarity metric exactly.
 #
-#   Answer Relevance   -- embedding cosine similarity between the
-#                          generated answer and the ORIGINAL QUESTION
-#                          (not the expected answer). Real RAGAS computes
-#                          this via an LLM generating hypothetical
-#                          questions from the answer and comparing THOSE
-#                          to the real question -- that extra LLM step is
-#                          skipped here to keep this fully programmatic;
-#                          comparing the answer directly to the question
-#                          is a cruder but zero-LLM proxy for "does this
-#                          answer's content actually address what was
-#                          asked".
+#   Answer Relevance   -- BGE-M3 cosine similarity between generated answer
+#                         and the original question. Crude but zero-LLM proxy
+#                         for "does this answer address what was asked".
 #
-#   Faithfulness        -- NOT approximated via embedding similarity.
-#                          Two semantically-similar texts can still
-#                          disagree on a specific fact (an invented date,
-#                          a wrong fee figure, a fabricated article
-#                          number) -- exactly the failure mode embedding
-#                          similarity is least able to catch, since a
-#                          hallucinated number sits right next to real,
-#                          on-topic legal text. Instead: every number
-#                          (Arabic or Khmer numeral) in the generated
-#                          answer is checked against the retrieved
-#                          CONTEXT_K chunks. Any number in the answer that
-#                          does NOT appear anywhere in the context is a
-#                          potential fabricated figure -- this is a
-#                          deterministic, zero-LLM, zero-embedding check
-#                          that directly targets the highest-risk
-#                          hallucination type in a legal-citation domain
-#                          (dates, fees, article/prakas numbers), even
-#                          though it can't catch every kind of
-#                          unfaithfulness (e.g. a fabricated *qualitative*
-#                          claim with no numbers in it would slip through
-#                          -- this is a proxy, not a substitute for the
-#                          human review scripts/11 still performs on the
-#                          winning model).
+#   Completeness       -- Checks (a) whether the answer ends with a Khmer
+#                         sentence-final punctuation mark (។ or ៕), and (b)
+#                         the length ratio of generated vs expected answer.
+#                         Penalises truncated answers that hit max_tokens
+#                         mid-sentence -- a real failure mode on longer
+#                         answers that cosine similarity alone won't catch
+#                         (a 60%-complete answer still embeds close to the
+#                         full expected answer).
+#                         Score 1-5: 5 = ends cleanly AND length >= 80% of
+#                         expected, 1 = truncated AND length < 40% of expected.
 #
-# Thresholds for converting cosine similarity into a 1-5 bucket are
-# calibrated conservatively rather than assuming an even 0.0-1.0 spread:
-# multilingual sentence embeddings (BGE-M3 included) tend to compress
-# unrelated-text similarity into a higher-than-naively-expected range, so
-# a flat linear mapping would systematically over-score weak answers.
-# These thresholds are a reasonable starting point, NOT empirically
-# tuned against this corpus -- if scripts/11's human scores on the
-# winning model disagree systematically with this script's proxy scores
-# (e.g. humans consistently rate something a 2 that this script scores a
-# 4), that's the signal to revisit these specific cutoffs, the same way
-# OUT_OF_DOMAIN_THRESHOLD in app.py was calibrated empirically rather
-# than guessed once and trusted forever.
+# WEIGHTS (legal domain priorities):
+#   Context Relevance  0.20  -- retrieval correctness
+#   Faithfulness       0.25  -- fabricated numbers are actively harmful
+#   Answer Correctness 0.25  -- semantic match to ground truth
+#   Answer Relevance   0.15  -- addresses the question
+#   Completeness       0.15  -- full answer, not truncated mid-sentence
+#
+# REAL-TIME WRITING: every generated answer is written to disk immediately
+# after generation. If the run is interrupted (laptop dies, crash), every
+# completed answer is already saved and the run can be restarted from where
+# it left off (the script skips questions already answered for a given model).
+#
+# DRY RUN: pass --dry-run to run exactly 1 question per model and print the
+# raw answer to the terminal. Use this to verify all 4 models behave
+# technically correctly before committing to the full ~13-hour run.
+#
+# USAGE:
+#   python scripts/10_compare_generator_models.py            # full run
+#   python scripts/10_compare_generator_models.py --dry-run  # 1 question/model
+# ----------------------------------------------------------------------------
+
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--dry-run",
+    action="store_true",
+    help=(
+        "Run exactly 1 question per model and print the raw answer. "
+        "Use this to verify all models behave correctly before the full run."
+    ),
+)
+args = parser.parse_args()
+DRY_RUN = args.dry_run
+
+# ----------------------------------------------------------------------------
+# Config -- mirrors app.py exactly so evaluation matches production behaviour
+# ----------------------------------------------------------------------------
+EMBEDDING_HF_ID  = "BAAI/bge-m3"
+ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
+INDEX_PATH       = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
+METADATA_PATH    = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
+EVALUATION_ROOT  = Path("data/08_evaluation")
+REPORTS_DIR      = Path("reports/generator")
+LLM_DIR          = Path("models/generator")
+
+LLAMA_SERVER_URL             = "http://localhost:8080/v1"
+LLAMA_SERVER_ROOT            = "http://localhost:8080"
+LLAMA_SERVER_STARTUP_TIMEOUT = 120
+
+# Mirrors app.py constants exactly
+TOP_K             = 10
+CONTEXT_K         = 5
+MAX_CHUNKS_PER_DOC = 1
+BM25_TOP_K        = TOP_K
+RRF_K             = 60
+NGRAM_SIZE        = 3
+MAX_TOKENS        = 1024  # same as live app -- evaluate under production conditions
+
+# Metric weights -- must sum to 1.0
+WEIGHTS = {
+    "context_relevance":  0.20,
+    "faithfulness":       0.25,
+    "answer_correctness": 0.25,
+    "answer_relevance":   0.15,
+    "completeness":       0.15,
+}
+
+# Khmer sentence-final punctuation -- used by completeness check
+KHMER_END_PUNCT = {"។", "៕"}
+
+# Arabic + Khmer numeral runs -- used by faithfulness proxy
+NUMBER_PATTERN = re.compile(r"[0-9]+|[០១២៣៤៥៦៧៨៩]+")
+
+KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
+
+# Cosine similarity → 1-5 bucket thresholds
 SIMILARITY_THRESHOLDS = [
     (0.85, 5),
     (0.75, 4),
@@ -111,81 +144,45 @@ SIMILARITY_THRESHOLDS = [
     (0.00, 1),
 ]
 
-# Active embedding model -- must match ACTIVE_EMBEDDING_MODEL_DIR in app.py
-EMBEDDING_HF_ID = "BAAI/bge-m3"
-ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
-
-INDEX_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
-METADATA_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
-EVALUATION_ROOT = Path("data/08_evaluation")
-REPORTS_DIR = Path("reports/generator")
-LLM_DIR = Path("models/generator")
-
-LLAMA_SERVER_URL = "http://localhost:8080/v1"
-LLAMA_SERVER_ROOT = "http://localhost:8080"
-LLAMA_SERVER_STARTUP_TIMEOUT = 120
-
-# Mirrors app.py exactly -- context selection and prompt construction must
-# be IDENTICAL to the live app, or this evaluation is testing a different
-# pipeline than what users actually experience. No sampling, no token cap:
-# every gold question, full max_tokens, exactly as the live app behaves.
-TOP_K = 10
-CONTEXT_K = 5
-MAX_CHUNKS_PER_DOC = 1
-BM25_TOP_K = TOP_K
-RRF_K = 60
-NGRAM_SIZE = 3
-MAX_TOKENS = 1024
-
-KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
-
-# Arabic digit runs (1, 2, 3, ...) and Khmer numeral runs (១, ២, ៣, ...)
-# -- used by the Faithfulness number-overlap proxy below. Runs rather
-# than single digits, so "16384" is checked as one token, not five.
-NUMBER_PATTERN = re.compile(r"[0-9]+|[០១២៣៤៥៦៧៨៩]+")
-
-# ----------------------------------------------------------------------------
-# Generator model registry
-# ----------------------------------------------------------------------------
-# Duplicated from scripts/13_install_models.py and start_chatbot.py -- see
-# either for the full explanation of why this project's scripts/ each
-# duplicate shared registries rather than importing a common module.
-# extra_args mirrors start_chatbot.py's per-model llama-server flags
-# exactly (Qwen3.5 needs --jinja --reasoning off or its <think> block can
-# consume the entire MAX_TOKENS budget and the visible answer is never
-# generated -- see start_chatbot.py's comment for the full explanation).
-LLM_MODELS = {
-    "1": {
-        "local_filename": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
-        "label": "SeaLLM v3 7B Q4_K_M",
-        "extra_args": ["--jinja"],
-    },
-    "2": {
-        "local_filename": "Qwen3.5-9B-Q4_K_M.gguf",
-        "label": "Qwen 3.5 9B Q4_K_M",
-        "extra_args": ["--jinja", "--reasoning", "off"],
-    },
-    "3": {
-        "local_filename": "gemma-4-E4B-it-Q4_K_M.gguf",
-        "label": "Gemma 4 E4B Q4_K_M",
-        "extra_args": ["--jinja"],
-    },
-    "4": {
-        "local_filename": "Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        "label": "Llama 3.1 8B Instruct Q4_K_M",
-        "extra_args": ["--jinja"],
-    },
-}
-
-BOLD = "\033[1m"
+BOLD  = "\033[1m"
 RESET = "\033[0m"
 SEPARATOR_WIDTH = 105
 SEPARATOR = "=" * SEPARATOR_WIDTH
 
+# ----------------------------------------------------------------------------
+# Generator model registry
+# Duplicated from start_chatbot.py -- standalone scripts convention.
+# extra_args mirrors start_chatbot.py exactly (Qwen needs --reasoning off).
+# ----------------------------------------------------------------------------
+LLM_MODELS = {
+    "1": {
+        "local_filename": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
+        "label": "SeaLLM v3 7B",
+        "extra_args": ["--jinja"],
+    },
+    "2": {
+        "local_filename": "Qwen3.5-9B-Q4_K_M.gguf",
+        "label": "Qwen 3.5 9B",
+        "extra_args": ["--jinja", "--reasoning", "off"],
+    },
+    "3": {
+        "local_filename": "gemma-4-E4B-it-Q4_K_M.gguf",
+        "label": "Gemma 4 E4B",
+        "extra_args": ["--jinja"],
+    },
+    "4": {
+        "local_filename": "Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+        "label": "Llama 3.1 8B",
+        "extra_args": ["--jinja"],
+    },
+}
+
+
+# ----------------------------------------------------------------------------
+# Retrieval -- identical to app.py
+# ----------------------------------------------------------------------------
 
 def khmer_aware_tokenize(text):
-    """Identical to app.py / scripts/09 -- see either for the full
-    docstring on why Khmer needs character n-grams under BM25."""
     tokens = []
     for word in text.split():
         if KHMER_SCRIPT_PATTERN.search(word):
@@ -201,9 +198,6 @@ def khmer_aware_tokenize(text):
 
 
 def reciprocal_rank_fusion(result_lists, k=RRF_K):
-    """Identical fusion logic to app.py's reciprocal_rank_fusion() --
-    see app.py for the full docstring on why RRF (rank-based) rather
-    than raw score blending is used."""
     fused_scores = {}
     chunk_lookup = {}
     for result_list in result_lists:
@@ -211,15 +205,11 @@ def reciprocal_rank_fusion(result_lists, k=RRF_K):
             chunk_id = chunk["chunk_id"]
             chunk_lookup[chunk_id] = chunk
             fused_scores[chunk_id] = fused_scores.get(chunk_id, 0.0) + 1.0 / (k + rank)
-    ranked_chunk_ids = sorted(fused_scores, key=fused_scores.get, reverse=True)
-    return [(fused_scores[cid], chunk_lookup[cid]) for cid in ranked_chunk_ids]
+    ranked_ids = sorted(fused_scores, key=fused_scores.get, reverse=True)
+    return [(fused_scores[cid], chunk_lookup[cid]) for cid in ranked_ids]
 
 
 def select_context_chunks(results):
-    """Identical to app.py's select_context_chunks() -- caps CONTEXT_K
-    total, MAX_CHUNKS_PER_DOC per document. This is what actually reaches
-    the LLM, and what Context Relevance / Faithfulness are scored
-    against below."""
     selected = []
     per_doc_count = {}
     for score, chunk in results:
@@ -234,17 +224,14 @@ def select_context_chunks(results):
 
 
 def build_context(results):
-    """Identical to app.py's build_context()."""
     context_parts = []
     for rank, (score, chunk) in enumerate(results, start=1):
-        metadata = chunk.get("metadata", {})
-        doc_name = metadata.get("document_name", "N/A")
-        doc_type = metadata.get(
-            "document_type_kh", metadata.get("document_type", "N/A")
-        )
-        chapter = metadata.get("chapter_title", metadata.get("chapter", "N/A"))
-        section = metadata.get("section_title", metadata.get("section", "N/A"))
-        legal_unit = metadata.get("legal_unit", "N/A")
+        metadata     = chunk.get("metadata", {})
+        doc_name     = metadata.get("document_name", "N/A")
+        doc_type     = metadata.get("document_type_kh", metadata.get("document_type", "N/A"))
+        chapter      = metadata.get("chapter_title", metadata.get("chapter", "N/A"))
+        section      = metadata.get("section_title", metadata.get("section", "N/A"))
+        legal_unit   = metadata.get("legal_unit", "N/A")
         release_date = metadata.get("release_date", "N/A")
         header = (
             f"[Source {rank}] {doc_name} ({doc_type}, {release_date}) | "
@@ -254,13 +241,19 @@ def build_context(results):
     return "\n\n".join(context_parts)
 
 
+# ----------------------------------------------------------------------------
+# Prompt -- duplicated from app.py's build_prompt().
+# If you update the prompt in app.py, update it here too.
+# The low_confidence branch is omitted -- script 10 generates for every
+# gold question unconditionally (no score gating during evaluation).
+# ----------------------------------------------------------------------------
+
 def build_prompt(question, context):
-    """Identical core prompt to app.py's build_prompt() (low_confidence
-    relevance-check branch omitted -- this script unconditionally
-    generates for every valid gold question regardless of best_score,
-    since the point here is comparing generators on identical inputs,
-    not replicating the live out-of-domain gating)."""
-    not_found_message = "រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។"
+    not_found_message = (
+        "រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។ "
+        "សូមទាក់ទងភ្នាក់ងារធានារ៉ាប់រងដែលមានអាជ្ញាប័ណ្ណ "
+        "ឬនិយ័តករធានារ៉ាប់រងកម្ពុជា (IRC) សម្រាប់ជំនួយបន្ថែម។"
+    )
     return f"""
 You are a Khmer legal assistant.
 
@@ -291,636 +284,871 @@ Answer:
 """
 
 
+# ----------------------------------------------------------------------------
+# Automated proxy metrics
+# ----------------------------------------------------------------------------
+
+def cosine_similarity(vec_a, vec_b):
+    """Both vectors are L2-normalised so dot product == cosine similarity."""
+    return float(np.dot(vec_a, vec_b))
+
+
+def similarity_to_score(sim):
+    for threshold, score in SIMILARITY_THRESHOLDS:
+        if sim >= threshold:
+            return score
+    return 1
+
+
+def score_context_relevance(context_chunk_ids, expected_chunks):
+    """Deterministic: fraction of expected chunks present in context, → 1-5."""
+    if not expected_chunks:
+        return None
+    found  = set(context_chunk_ids) & set(expected_chunks)
+    recall = len(found) / len(expected_chunks)
+    return round(1 + recall * 4)
+
+
+def score_faithfulness(generated_answer, context):
+    """Number-overlap proxy: what fraction of numbers in the generated answer
+    also appear in the retrieved context? Returns (score_1_to_5, grounded,
+    total, ungrounded_list)."""
+    answer_numbers = set(NUMBER_PATTERN.findall(generated_answer))
+    if not answer_numbers:
+        # No numbers to check -- neutral score, not automatic 5
+        return 4, 0, 0, []
+    context_numbers = set(NUMBER_PATTERN.findall(context))
+    grounded   = answer_numbers & context_numbers
+    ungrounded = sorted(answer_numbers - context_numbers)
+    fraction   = len(grounded) / len(answer_numbers)
+    if fraction == 1.0:
+        score = 5
+    elif fraction >= 0.75:
+        score = 4
+    elif fraction >= 0.50:
+        score = 3
+    elif fraction > 0:
+        score = 2
+    else:
+        score = 1
+    return score, len(grounded), len(answer_numbers), ungrounded
+
+
+def score_completeness(generated_answer, expected_answer):
+    """Checks two things:
+    1. Does the answer end with Khmer sentence-final punctuation (។ or ៕)?
+       Answers that end mid-word/mid-sentence hit max_tokens and are incomplete.
+    2. Length ratio: len(generated) / len(expected). A very short answer
+       relative to the expected answer is likely incomplete even if it ends
+       with punctuation.
+    Score 1-5:
+       5 = ends cleanly AND length ratio >= 0.80
+       4 = ends cleanly AND length ratio >= 0.60
+       3 = ends cleanly AND length ratio >= 0.40, OR truncated but ratio >= 0.80
+       2 = truncated AND ratio >= 0.40
+       1 = truncated AND ratio < 0.40
+    """
+    stripped     = generated_answer.strip()
+    ends_cleanly = bool(stripped) and stripped[-1] in KHMER_END_PUNCT
+
+    if not expected_answer or len(expected_answer) == 0:
+        # No expected answer to compare against -- score only on punctuation
+        return (5 if ends_cleanly else 2), ends_cleanly, None
+
+    length_ratio = len(stripped) / len(expected_answer)
+
+    if ends_cleanly:
+        if length_ratio >= 0.80:
+            score = 5
+        elif length_ratio >= 0.60:
+            score = 4
+        else:
+            score = 3
+    else:
+        if length_ratio >= 0.80:
+            score = 3
+        elif length_ratio >= 0.40:
+            score = 2
+        else:
+            score = 1
+
+    return score, ends_cleanly, round(length_ratio, 4)
+
+
+def weighted_combined(scores):
+    """Weighted sum of the five proxy metric scores (each 1-5).
+    Returns a value in [1, 5].
+
+    BUG FIX: when expected_answer is missing, answer_correctness is None and
+    skipped. If we used the full weight denominator (1.0) the combined score
+    would be artificially low because we'd be dividing a partial sum by 1.0
+    instead of the sum of weights that actually had values. We normalise by
+    the sum of the weights that contributed, so the result stays on the
+    correct [1, 5] scale regardless of which metrics are available."""
+    total        = 0.0
+    weight_sum   = 0.0
+    for key, weight in WEIGHTS.items():
+        val = scores.get(key)
+        if val is not None:
+            total      += val * weight
+            weight_sum += weight
+    if weight_sum == 0:
+        return 0.0
+    # Normalise so the result is always on [1, 5] regardless of missing metrics
+    return round(total / weight_sum, 4)
+
+
+# ----------------------------------------------------------------------------
+# llama-server lifecycle
+# ----------------------------------------------------------------------------
+
 def is_installed(info):
     return (LLM_DIR / info["local_filename"]).exists()
 
 
 def start_llama_server(info):
-    """Launches llama-server for one generator model, mirroring
-    start_chatbot.py's flags exactly. Returns the Popen handle so the
-    caller can terminate() it once this model's evaluation is done and
-    move on to the next one."""
-    llama_server_bin = shutil.which("llama-server")
-    if llama_server_bin is None:
-        raise SystemExit(
-            "llama-server not found. Please install llama.cpp and add it to PATH."
-        )
+    llama_bin = shutil.which("llama-server")
+    if llama_bin is None:
+        raise SystemExit("llama-server not found. Install llama.cpp and add it to PATH.")
 
     model_path = LLM_DIR / info["local_filename"]
-
     process = subprocess.Popen(
         [
-            llama_server_bin,
-            "-m",
-            str(model_path),
-            "-ngl",
-            "999",
-            "--ctx-size",
-            "16384",
-            "--flash-attn",
-            "on",
-            "--cache-type-k",
-            "q8_0",
-            "--cache-type-v",
-            "q8_0",
-            "--host",
-            "0.0.0.0",
-            "--port",
-            "8080",
-        ]
-        + info["extra_args"],
+            llama_bin, "-m", str(model_path),
+            "-ngl", "999",
+            "--ctx-size", "16384",
+            "--flash-attn", "on",
+            "--cache-type-k", "q8_0",
+            "--cache-type-v", "q8_0",
+            "--host", "0.0.0.0",
+            "--port", "8080",
+        ] + info["extra_args"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-
-    start_time = time.time()
+    start = time.time()
     while True:
-        if time.time() - start_time > LLAMA_SERVER_STARTUP_TIMEOUT:
+        if time.time() - start > LLAMA_SERVER_STARTUP_TIMEOUT:
             process.kill()
             raise SystemExit(
                 f"llama-server failed to start within "
                 f"{LLAMA_SERVER_STARTUP_TIMEOUT}s for {info['label']}."
             )
         try:
-            response = requests.get(f"{LLAMA_SERVER_ROOT}/v1/models", timeout=5)
-            if response.status_code == 200:
+            r = requests.get(f"{LLAMA_SERVER_ROOT}/v1/models", timeout=5)
+            if r.status_code == 200:
                 break
         except Exception:
             pass
         time.sleep(1)
-
     return process
 
 
 def stop_llama_server(process):
-    """Mirrors start_chatbot.py's shutdown -- terminate() rather than
-    kill() so llama-server can release the model's memory cleanly before
-    the next model in the sweep loads."""
     process.terminate()
     try:
         process.wait(timeout=15)
     except subprocess.TimeoutExpired:
         process.kill()
         process.wait()
-    # Give the OS a moment to actually reclaim GPU/RAM before the next
-    # model's llama-server tries to load -- without this, two server
-    # processes can briefly overlap and double the memory footprint.
+    # Give the OS a moment to reclaim GPU/RAM before the next model loads
     time.sleep(2)
 
 
 # ----------------------------------------------------------------------------
-# Proxy metric scoring
+# Per-question generation + scoring
 # ----------------------------------------------------------------------------
 
+def generate_answer(client, model_name, prompt):
+    """Streams the answer from llama-server. Returns (answer_text,
+    first_token_time, generation_time, tokens_out)."""
+    gen_start        = time.time()
+    first_token_time = None
+    answer_text      = ""
+    tokens_out       = 0
 
-def cosine_similarity(vec_a, vec_b):
-    """Both vectors are already L2-normalized by encode_for_scoring()
-    (normalize_embeddings=True), so the dot product alone IS the cosine
-    similarity -- no need to divide by norms again."""
-    return float(np.dot(vec_a, vec_b))
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2,
+        max_tokens=MAX_TOKENS,
+        stream=True,
+    )
+    for chunk in response:
+        delta = chunk.choices[0].delta.content
+        if delta:
+            answer_text += delta
+            tokens_out  += 1
+            if first_token_time is None:
+                first_token_time = time.time() - gen_start
+    try:
+        response.close()
+    except Exception:
+        pass
 
-
-def similarity_to_score(similarity):
-    """Buckets a cosine similarity into a 1-5 score using
-    SIMILARITY_THRESHOLDS (see module docstring for why these specific
-    cutoffs, and why they're a starting point, not a tuned constant)."""
-    for threshold, score in SIMILARITY_THRESHOLDS:
-        if similarity >= threshold:
-            return score
-    return 1
-
-
-def extract_numbers(text):
-    """Returns the set of distinct number-strings (Arabic or Khmer
-    numeral runs) appearing in text. Used by the Faithfulness proxy --
-    see module docstring for why number-overlap specifically, rather
-    than embedding similarity, is used for this one metric."""
-    return set(NUMBER_PATTERN.findall(text))
-
-
-def faithfulness_proxy_score(generated_answer, context):
-    """Deterministic Faithfulness proxy: what fraction of the numbers
-    appearing in the generated answer also appear somewhere in the
-    retrieved context? 1.0 = every number in the answer is grounded in
-    context (or the answer has no numbers at all, which trivially passes
-    this specific check). Returns (score_1_to_5, grounded_count,
-    total_count, ungrounded_numbers) so the raw evidence is always
-    available in the report, not just the bucketed score."""
-    answer_numbers = extract_numbers(generated_answer)
-    if not answer_numbers:
-        # No numbers to check -- this proxy has nothing to flag. Scored
-        # as a neutral-to-good 4 rather than an automatic 5, since
-        # "no numbers present" is weaker evidence of faithfulness than
-        # "numbers present and all verified against context".
-        return 4, 0, 0, []
-
-    context_numbers = extract_numbers(context)
-    grounded = answer_numbers & context_numbers
-    ungrounded = sorted(answer_numbers - context_numbers)
-
-    fraction_grounded = len(grounded) / len(answer_numbers)
-
-    if fraction_grounded == 1.0:
-        score = 5
-    elif fraction_grounded >= 0.75:
-        score = 4
-    elif fraction_grounded >= 0.5:
-        score = 3
-    elif fraction_grounded > 0:
-        score = 2
-    else:
-        score = 1
-
-    return score, len(grounded), len(answer_numbers), ungrounded
+    generation_time = time.time() - gen_start
+    return answer_text, first_token_time or 0.0, generation_time, tokens_out
 
 
-# ----------------------------------------------------------------------------
-# Load embedding model, FAISS index, BM25 index, gold questions -- ONCE.
-# Retrieval AND scoring both reuse this single BGE-M3 instance, since it's
-# already loaded for retrieval -- no second embedding model needed for
-# the Answer Correctness / Answer Relevance proxies.
-# ----------------------------------------------------------------------------
+def score_answer(
+    answer_text,
+    question,
+    expected_answer,
+    expected_chunks,
+    context_chunk_ids,
+    context,
+    embedding_model,
+):
+    """Runs all five proxy metrics and returns a dict of scores + detail.
 
-if not Path(INDEX_PATH).exists():
-    raise FileNotFoundError(
-        f"FAISS index not found at {INDEX_PATH}.\n"
-        "Run: python scripts/07_generate_embeddings.py"
+    BUG FIX: answer_text may be an empty string if the model produced no
+    output (silent failure -- no exception raised, just zero tokens). Cosine
+    similarity between an empty-string embedding and any other vector is
+    undefined / produces near-zero results that corrupt the ranking. Guard
+    on non-empty answer_text before encoding for metrics 3 and 4."""
+
+    # 1. Context Relevance (deterministic)
+    ctx_rel = score_context_relevance(context_chunk_ids, expected_chunks)
+
+    # 2. Faithfulness (number overlap)
+    faith_score, faith_grounded, faith_total, faith_ungrounded = score_faithfulness(
+        answer_text, context
     )
 
-print("Loading embedding model...")
-embedding_model = SentenceTransformer(EMBEDDING_HF_ID)
+    # 3. Answer Correctness (BGE-M3 cosine vs expected_answer)
+    ans_correct_score = None
+    ans_correct_sim   = None
+    if answer_text.strip() and expected_answer and expected_answer.strip():
+        vecs = np.asarray(
+            embedding_model.encode(
+                [answer_text, expected_answer], normalize_embeddings=True
+            ),
+            dtype="float32",
+        )
+        ans_correct_sim   = cosine_similarity(vecs[0], vecs[1])
+        ans_correct_score = similarity_to_score(ans_correct_sim)
 
-print("Loading FAISS index...")
-faiss_index = faiss.read_index(INDEX_PATH)
+    # 4. Answer Relevance (BGE-M3 cosine vs question)
+    ans_rel_score = None
+    ans_rel_sim   = None
+    if answer_text.strip():
+        vecs = np.asarray(
+            embedding_model.encode(
+                [answer_text, question], normalize_embeddings=True
+            ),
+            dtype="float32",
+        )
+        ans_rel_sim   = cosine_similarity(vecs[0], vecs[1])
+        ans_rel_score = similarity_to_score(ans_rel_sim)
 
-print("Loading metadata...")
-with open(METADATA_PATH, "r", encoding="utf-8") as f:
-    chunks = json.load(f)
-
-print("Building BM25 index...")
-bm25_corpus_tokens = [
-    khmer_aware_tokenize(chunk.get("embedding_text") or chunk["text"])
-    for chunk in chunks
-]
-bm25_index = BM25Okapi(bm25_corpus_tokens)
-
-chunk_lookup = {chunk["chunk_id"]: chunk for chunk in chunks}
-metadata_chunk_ids = set(chunk_lookup.keys())
-
-gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
-if not gold_files:
-    raise ValueError("No gold_questions.json files found.")
-
-
-def retrieve_dense(question):
-    query_embedding = embedding_model.encode([question], normalize_embeddings=True)
-    query_embedding = np.asarray(query_embedding, dtype="float32")
-    scores, indices = faiss_index.search(query_embedding, k=TOP_K)
-    results = []
-    for idx, score in zip(indices[0], scores[0]):
-        if idx < 0 or idx >= len(chunks):
-            continue
-        results.append((float(score), chunks[idx]))
-    return results
-
-
-def retrieve_bm25(question):
-    tokenized_query = khmer_aware_tokenize(question)
-    scores = bm25_index.get_scores(tokenized_query)
-    top_indices = np.argsort(scores)[::-1][:BM25_TOP_K]
-    return [(float(scores[i]), chunks[i]) for i in top_indices]
-
-
-def retrieve_hybrid(question):
-    dense_results = retrieve_dense(question)
-    bm25_results = retrieve_bm25(question)
-    return reciprocal_rank_fusion([dense_results, bm25_results])
-
-
-def encode_for_scoring(texts):
-    """Encodes arbitrary text (generated answers, expected answers,
-    questions) with the SAME BGE-M3 instance used for retrieval.
-    normalize_embeddings=True so cosine_similarity() can use a plain dot
-    product. Not prefixed with any e5-style query/passage prefix --
-    BGE-M3 doesn't require one (only multilingual-e5-large does, and
-    that's not the model in use here)."""
-    return np.asarray(
-        embedding_model.encode(texts, normalize_embeddings=True), dtype="float32"
+    # 5. Completeness (punctuation + length ratio)
+    comp_score, ends_cleanly, length_ratio = score_completeness(
+        answer_text, expected_answer
     )
 
-
-# ----------------------------------------------------------------------------
-# Per-model evaluation
-# ----------------------------------------------------------------------------
-
-
-def collect_gold_entries():
-    """Loads every gold question across all categories. Questions
-    without expected_chunks are skipped for Context Relevance scoring;
-    questions without expected_answer are skipped for Answer Correctness
-    scoring -- each tracked and reported separately rather than silently
-    dropped, since this script (unlike scripts/11) does NOT discard a
-    question just because one of the two reference fields is missing."""
-    entries = []
-    for gold_file in gold_files:
-        category = gold_file.parent.name
-        with open(gold_file, "r", encoding="utf-8") as f:
-            gold_questions = json.load(f)
-
-        if not gold_questions:
-            raise ValueError(f"{gold_file} is empty.")
-
-        for item in gold_questions:
-            entries.append(
-                {
-                    "category": category,
-                    "question": item["question"],
-                    "expected_chunks": item.get("expected_chunks", []),
-                    "expected_answer": item.get("expected_answer"),
-                }
-            )
-
-    return entries
-
-
-def evaluate_model(client, model_name, entries):
-    """Runs every gold question through hybrid retrieval -> context
-    selection -> generation -> all four proxy metrics, against the
-    currently-running model."""
-    per_entry_results = []
-
-    for i, entry in enumerate(entries, start=1):
-        print(f"  [{i}/{len(entries)}] {entry['question'][:60]}...")
-
-        fused_results = retrieve_hybrid(entry["question"])
-        context_results = select_context_chunks(fused_results)
-        context_chunk_ids = {chunk["chunk_id"] for _, chunk in context_results}
-        context = build_context(context_results)
-        prompt = build_prompt(entry["question"], context)
-
-        gen_start = time.time()
-        first_token_time = None
-        total_tokens_out = 0
-        answer_text = ""
-
-        try:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-                max_tokens=MAX_TOKENS,
-                stream=True,
-            )
-            for chunk_resp in response:
-                delta = chunk_resp.choices[0].delta.content
-                if delta:
-                    answer_text += delta
-                    total_tokens_out += 1
-                    if first_token_time is None:
-                        first_token_time = time.time() - gen_start
-            try:
-                response.close()
-            except Exception:
-                pass
-        except Exception as e:
-            print(f"    Generation failed: {e}")
-            per_entry_results.append(
-                {
-                    "category": entry["category"],
-                    "question": entry["question"],
-                    "error": str(e),
-                }
-            )
-            continue
-
-        generation_time = time.time() - gen_start
-        decode_time = generation_time - (first_token_time or 0.0)
-        tokens_per_sec = (
-            total_tokens_out / decode_time if decode_time > 0 and total_tokens_out > 0 else 0.0
-        )
-
-        # --- Context Relevance: deterministic chunk_id overlap ---
-        context_relevance_score = None
-        expected_chunks = set(entry["expected_chunks"])
-        if expected_chunks:
-            found = context_chunk_ids.intersection(expected_chunks)
-            recall = len(found) / len(expected_chunks)
-            context_relevance_score = round(1 + recall * 4)  # maps 0.0-1.0 -> 1-5
-
-        # --- Answer Correctness: cosine sim(generated, expected_answer) ---
-        answer_correctness_score = None
-        answer_correctness_similarity = None
-        if entry["expected_answer"]:
-            vecs = encode_for_scoring([answer_text, entry["expected_answer"]])
-            answer_correctness_similarity = cosine_similarity(vecs[0], vecs[1])
-            answer_correctness_score = similarity_to_score(answer_correctness_similarity)
-
-        # --- Answer Relevance: cosine sim(generated, question) ---
-        vecs = encode_for_scoring([answer_text, entry["question"]])
-        answer_relevance_similarity = cosine_similarity(vecs[0], vecs[1])
-        answer_relevance_score = similarity_to_score(answer_relevance_similarity)
-
-        # --- Faithfulness: number-overlap proxy vs context ---
-        (
-            faithfulness_score,
-            grounded_count,
-            total_numbers,
-            ungrounded_numbers,
-        ) = faithfulness_proxy_score(answer_text, context)
-
-        per_entry_results.append(
-            {
-                "category": entry["category"],
-                "question": entry["question"],
-                "generated_answer": answer_text,
-                "context_relevance_score": context_relevance_score,
-                "answer_correctness_score": answer_correctness_score,
-                "answer_correctness_similarity": answer_correctness_similarity,
-                "answer_relevance_score": answer_relevance_score,
-                "answer_relevance_similarity": answer_relevance_similarity,
-                "faithfulness_score": faithfulness_score,
-                "faithfulness_grounded": grounded_count,
-                "faithfulness_total_numbers": total_numbers,
-                "faithfulness_ungrounded_numbers": ungrounded_numbers,
-                "first_token_time": first_token_time or 0.0,
-                "generation_time": generation_time,
-                "tokens_per_sec": tokens_per_sec,
-            }
-        )
-
-    return per_entry_results
-
-
-# ----------------------------------------------------------------------------
-# Reporting
-# ----------------------------------------------------------------------------
-
-PROXY_METRIC_KEYS = [
-    ("context_relevance_score", "Context Relevance"),
-    ("answer_correctness_score", "Answer Correctness"),
-    ("answer_relevance_score", "Answer Relevance"),
-    ("faithfulness_score", "Faithfulness"),
-]
-
-
-def summarize_model(per_entry_results):
-    valid_results = [r for r in per_entry_results if "error" not in r]
-    failed_count = len(per_entry_results) - len(valid_results)
-
-    averages = {}
-    for key, _ in PROXY_METRIC_KEYS:
-        scored = [r[key] for r in valid_results if r.get(key) is not None]
-        averages[key] = sum(scored) / len(scored) if scored else None
-
-    timing = {
-        "avg_first_token_time": sum(r["first_token_time"] for r in valid_results) / len(valid_results) if valid_results else 0.0,
-        "avg_generation_time": sum(r["generation_time"] for r in valid_results) / len(valid_results) if valid_results else 0.0,
-        "avg_tokens_per_sec": (
-            sum(r["tokens_per_sec"] for r in valid_results if r["tokens_per_sec"] > 0)
-            / max(len([r for r in valid_results if r["tokens_per_sec"] > 0]), 1)
-        ),
+    scores = {
+        "context_relevance":  ctx_rel,
+        "faithfulness":       faith_score,
+        "answer_correctness": ans_correct_score,
+        "answer_relevance":   ans_rel_score,
+        "completeness":       comp_score,
     }
 
     return {
-        "averages": averages,
-        "timing": timing,
-        "valid_count": len(valid_results),
-        "failed_count": failed_count,
-        "total_count": len(per_entry_results),
+        "scores":   scores,
+        "combined": weighted_combined(scores),
+        "detail": {
+            "faithfulness_grounded":         faith_grounded,
+            "faithfulness_total_numbers":    faith_total,
+            "faithfulness_ungrounded":       faith_ungrounded,
+            "answer_correctness_similarity": ans_correct_sim,
+            "answer_relevance_similarity":   ans_rel_sim,
+            "completeness_ends_cleanly":     ends_cleanly,
+            "completeness_length_ratio":     length_ratio,
+        },
     }
 
 
-def print_model_report(label, summary):
+# ----------------------------------------------------------------------------
+# Real-time result file helpers
+# ----------------------------------------------------------------------------
+
+def result_path(label):
+    """Per-model JSONL file written after every single answer."""
+    safe = label.replace(" ", "_").replace("/", "-")
+    return REPORTS_DIR / f"generator_eval_{safe}.jsonl"
+
+
+def summary_path(label):
+    safe = label.replace(" ", "_").replace("/", "-")
+    return REPORTS_DIR / f"generator_eval_{safe}_summary.json"
+
+
+def load_existing_results(label):
+    """Loads already-completed answers for this model so the run can
+    resume from where it left off if interrupted."""
+    path = result_path(label)
+    if not path.exists():
+        return {}
+    done = {}
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+                done[entry["question"]] = entry
+            except json.JSONDecodeError:
+                pass
+    return done
+
+
+def append_result(label, entry):
+    """Appends one completed answer to the per-model JSONL file immediately."""
+    path = result_path(label)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+# ----------------------------------------------------------------------------
+# Per-model evaluation loop
+# ----------------------------------------------------------------------------
+
+def evaluate_model(
+    client,
+    model_name,
+    label,
+    gold_entries,
+    faiss_index,
+    chunks,
+    bm25_index,
+    embedding_model,
+    dry_run=False,
+):
+    # BUG FIX: dry-run must ALWAYS run the first question fresh regardless of
+    # what's already saved -- its purpose is to verify current model behaviour,
+    # not to replay a cached result. The resume logic only applies to full runs.
+    if dry_run:
+        existing = {}
+        entries  = gold_entries[:1]
+        total    = 1
+    else:
+        existing = load_existing_results(label)
+        resumed  = len(existing)
+        if resumed:
+            print(f"  Resuming: {resumed} answers already saved, skipping those questions.")
+        entries = gold_entries
+        total   = len(gold_entries)
+
+    results = list(existing.values())
+
+    for i, entry in enumerate(entries, start=1):
+        question        = entry["question"]
+        expected_chunks = entry.get("expected_chunks", [])
+        expected_answer = entry.get("expected_answer", "")
+        category        = entry["category"]
+
+        # Skip already-done questions (full run resume only -- dry_run always runs)
+        if not dry_run and question in existing:
+            print(f"  [{i}/{total}] Skipping (already done): {question[:60]}...")
+            continue
+
+        print(f"  [{i}/{total}] {category} | {question[:70]}...")
+
+        # --- Retrieval (hybrid, mirrors app.py) ---
+        query_emb = np.asarray(
+            embedding_model.encode([question], normalize_embeddings=True),
+            dtype="float32",
+        )
+        faiss_scores, faiss_indices = faiss_index.search(query_emb, k=TOP_K)
+        dense_results = [
+            (float(faiss_scores[0][j]), chunks[faiss_indices[0][j]])
+            for j in range(len(faiss_indices[0]))
+            if faiss_indices[0][j] >= 0
+        ]
+
+        bm25_tokens  = khmer_aware_tokenize(question)
+        bm25_scores  = bm25_index.get_scores(bm25_tokens)
+        bm25_top     = np.argsort(bm25_scores)[::-1][:BM25_TOP_K]
+        bm25_results = [(float(bm25_scores[j]), chunks[j]) for j in bm25_top]
+
+        fused             = reciprocal_rank_fusion([dense_results, bm25_results])
+        context_chunks    = select_context_chunks(fused)
+        context           = build_context(context_chunks)
+        context_chunk_ids = [c["chunk_id"] for _, c in context_chunks]
+
+        # --- Generation ---
+        prompt = build_prompt(question, context)
+        try:
+            answer_text, first_token_time, generation_time, tokens_out = generate_answer(
+                client, model_name, prompt
+            )
+        except Exception as e:
+            print(f"    Generation failed: {e}")
+            entry_out = {
+                "question":         question,
+                "category":         category,
+                "expected_chunks":  expected_chunks,
+                "expected_answer":  expected_answer,
+                "generated_answer": "",
+                "error":            str(e),
+                "scores":           {},
+                "combined":         0.0,
+                "detail":           {},
+                "timing":           {},
+            }
+            append_result(label, entry_out)
+            results.append(entry_out)
+            continue
+
+        # Dry-run: print raw answer and skip scoring/saving
+        if dry_run:
+            print(f"\n{'=' * 60}")
+            print(f"MODEL    : {label}")
+            print(f"QUESTION : {question}")
+            print(f"ANSWER   :\n{answer_text}")
+            print(
+                f"FIRST TOKEN : {first_token_time:.2f}s | "
+                f"TOTAL : {generation_time:.2f}s | "
+                f"TOKENS : {tokens_out}"
+            )
+            print(f"{'=' * 60}\n")
+            continue
+
+        # --- Scoring ---
+        scored = score_answer(
+            answer_text,
+            question,
+            expected_answer,
+            expected_chunks,
+            context_chunk_ids,
+            context,
+            embedding_model,
+        )
+
+        decode_time  = max(generation_time - first_token_time, 0.001)
+        tokens_per_s = tokens_out / decode_time if tokens_out > 0 else 0.0
+
+        entry_out = {
+            "question":          question,
+            "category":          category,
+            "expected_chunks":   expected_chunks,
+            "expected_answer":   expected_answer,
+            "generated_answer":  answer_text,
+            "context_chunk_ids": context_chunk_ids,
+            "scores":            scored["scores"],
+            "combined":          scored["combined"],
+            "detail":            scored["detail"],
+            "timing": {
+                "first_token_time": round(first_token_time, 4),
+                "generation_time":  round(generation_time,  4),
+                "tokens_out":       tokens_out,
+                "tokens_per_sec":   round(tokens_per_s,     4),
+            },
+        }
+
+        # Write to disk immediately -- real-time persistence
+        append_result(label, entry_out)
+        results.append(entry_out)
+
+        print(
+            f"    combined={scored['combined']:.3f} | "
+            f"ctx={scored['scores'].get('context_relevance')} "
+            f"faith={scored['scores'].get('faithfulness')} "
+            f"corr={scored['scores'].get('answer_correctness')} "
+            f"rel={scored['scores'].get('answer_relevance')} "
+            f"comp={scored['scores'].get('completeness')} | "
+            f"ttft={first_token_time:.1f}s tok/s={tokens_per_s:.1f}"
+        )
+
+    return results
+
+
+# ----------------------------------------------------------------------------
+# Summarise results for one model
+# ----------------------------------------------------------------------------
+
+def summarise(results, label):
+    valid = [r for r in results if "error" not in r and r.get("scores")]
+
+    def avg_metric(key):
+        # BUG FIX: only include entries where the key is both present AND
+        # not None -- answer_correctness is None when expected_answer is
+        # missing, and including None values in the average would crash or
+        # silently produce wrong numbers.
+        vals = [
+            r["scores"][key]
+            for r in valid
+            if r["scores"].get(key) is not None
+        ]
+        return round(sum(vals) / len(vals), 4) if vals else None
+
+    def avg_timing(key):
+        # BUG FIX: error entries have timing={} so r["timing"][key] would
+        # KeyError. Use .get() on both the timing dict and the key itself.
+        vals = [
+            r["timing"].get(key)
+            for r in valid
+            if r.get("timing") and r["timing"].get(key) is not None
+        ]
+        return round(sum(vals) / len(vals), 4) if vals else None
+
+    scores_avg = {k: avg_metric(k) for k in WEIGHTS}
+
+    # Combined average uses the same normalised weighted_combined logic --
+    # call it once per entry and average, so it stays consistent with the
+    # per-question combined score stored in each JSONL entry.
+    combined_vals = [r["combined"] for r in valid if r.get("combined") is not None]
+    combined_avg  = round(sum(combined_vals) / len(combined_vals), 4) if combined_vals else 0.0
+
+    # Per-category breakdown
+    categories   = sorted({r["category"] for r in valid})
+    per_category = {}
+    for cat in categories:
+        cat_results = [r for r in valid if r["category"] == cat]
+        per_category[cat] = {}
+        for k in WEIGHTS:
+            cat_vals = [
+                r["scores"][k]
+                for r in cat_results
+                if r["scores"].get(k) is not None
+            ]
+            per_category[cat][k] = (
+                round(sum(cat_vals) / len(cat_vals), 4) if cat_vals else None
+            )
+
+    truncated_count = sum(
+        1 for r in valid
+        if r.get("detail", {}).get("completeness_ends_cleanly") is False
+    )
+
+    summary = {
+        "label":             label,
+        "total_questions":   len(results),
+        "valid_questions":   len(valid),
+        "failed_questions":  len(results) - len(valid),
+        "truncated_answers": truncated_count,
+        "scores_avg":        scores_avg,
+        "combined_avg":      combined_avg,
+        "per_category":      per_category,
+        "timing_avg": {
+            "first_token_time": avg_timing("first_token_time"),
+            "generation_time":  avg_timing("generation_time"),
+            "tokens_per_sec":   avg_timing("tokens_per_sec"),
+        },
+    }
+
+    # Save summary JSON for this model immediately
+    path = summary_path(label)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(summary, f, ensure_ascii=False, indent=2)
+
+    return summary
+
+
+# ----------------------------------------------------------------------------
+# Terminal report
+# ----------------------------------------------------------------------------
+
+def print_model_summary(summary):
+    from tabulate import tabulate
+
     banner = "=" * SEPARATOR_WIDTH
-    print(f"\n\n{banner}")
-    print(f"{BOLD}GENERATOR: {label}{RESET}")
+    print(f"\n{banner}")
+    print(f"{BOLD}GENERATOR: {summary['label']}{RESET}")
     print(banner)
 
-    rows = []
-    for key, metric_label in PROXY_METRIC_KEYS:
-        avg = summary["averages"][key]
-        rows.append([metric_label, f"{avg:.2f}" if avg is not None else "N/A"])
+    score_rows = [
+        [k.replace("_", " ").title(), f"{v:.4f}" if v is not None else "N/A"]
+        for k, v in summary["scores_avg"].items()
+    ]
+    score_rows.append(["── Combined (weighted) ──", f"{summary['combined_avg']:.4f}"])
 
     print(f"\n{SEPARATOR}")
-    print(f"\t\t{BOLD}PROXY METRICS (avg 1-5, fully automated){RESET}")
+    print(f"\t\t{BOLD}PROXY METRIC AVERAGES (1-5 scale){RESET}")
     print(SEPARATOR)
-    print(tabulate(rows, headers=["Metric", "Avg Score"], tablefmt="grid"))
+    print(tabulate(score_rows, headers=["Metric", "Avg Score"], tablefmt="grid"))
 
+    timing = summary["timing_avg"]
     print(f"\n{SEPARATOR}")
     print(f"\t\t\t{BOLD}TIMING{RESET}")
     print(SEPARATOR)
-    print(
-        tabulate(
-            [
-                ["Avg first-token time (s)", f"{summary['timing']['avg_first_token_time']:.4f}"],
-                ["Avg total generation time (s)", f"{summary['timing']['avg_generation_time']:.4f}"],
-                ["Avg decode speed (tokens/sec)", f"{summary['timing']['avg_tokens_per_sec']:.4f}"],
-                ["Valid / Failed / Total", f"{summary['valid_count']} / {summary['failed_count']} / {summary['total_count']}"],
-            ],
-            tablefmt="grid",
-        )
+    print(tabulate(
+        [
+            ["Avg first-token time (s)",      f"{timing['first_token_time']:.4f}" if timing['first_token_time'] else "N/A"],
+            ["Avg total generation time (s)", f"{timing['generation_time']:.4f}"  if timing['generation_time']  else "N/A"],
+            ["Avg decode speed (tok/s)",      f"{timing['tokens_per_sec']:.4f}"   if timing['tokens_per_sec']   else "N/A"],
+            ["Truncated answers",             summary["truncated_answers"]],
+            ["Valid / Failed / Total",
+             f"{summary['valid_questions']} / {summary['failed_questions']} / {summary['total_questions']}"],
+        ],
+        tablefmt="grid",
+    ))
+
+
+def print_final_comparison(summaries):
+    from tabulate import tabulate
+
+    banner = "=" * SEPARATOR_WIDTH
+    print(f"\n\n{banner}")
+    print(f"{BOLD}FINAL COMPARISON -- ALL GENERATORS{RESET}")
+    print(f"{BOLD}(macro-avg across all 100 questions){RESET}")
+    print(banner)
+
+    labels = [s["label"] for s in summaries]
+
+    metric_keys = list(WEIGHTS.keys()) + ["combined_avg"]
+    metric_display = {
+        "context_relevance":  "Context Relevance",
+        "faithfulness":       "Faithfulness",
+        "answer_correctness": "Answer Correctness",
+        "answer_relevance":   "Answer Relevance",
+        "completeness":       "Completeness",
+        "combined_avg":       "── Combined (weighted) ──",
+    }
+
+    rows = []
+    for key in metric_keys:
+        row = [metric_display[key]]
+        for s in summaries:
+            if key == "combined_avg":
+                row.append(f"{s['combined_avg']:.4f}")
+            else:
+                v = s["scores_avg"].get(key)
+                row.append(f"{v:.4f}" if v is not None else "N/A")
+        rows.append(row)
+
+    rows.append(
+        ["── Avg tok/s ──"] + [
+            f"{s['timing_avg']['tokens_per_sec']:.2f}"
+            if s["timing_avg"].get("tokens_per_sec") else "N/A"
+            for s in summaries
+        ]
+    )
+    rows.append(
+        ["── Truncated answers ──"] + [str(s["truncated_answers"]) for s in summaries]
     )
 
+    headers = ["Metric"] + labels
+    print(tabulate(
+        rows,
+        headers=headers,
+        tablefmt="grid",
+        colalign=("left",) + ("center",) * len(labels),
+    ))
 
-def build_comparison_rows(model_summaries):
-    rows = []
-    for label, summary in model_summaries.items():
-        avg = summary["averages"]
-        rows.append(
-            [
-                label,
-                f"{avg['context_relevance_score']:.2f}" if avg["context_relevance_score"] is not None else "N/A",
-                f"{avg['answer_correctness_score']:.2f}" if avg["answer_correctness_score"] is not None else "N/A",
-                f"{avg['answer_relevance_score']:.2f}" if avg["answer_relevance_score"] is not None else "N/A",
-                f"{avg['faithfulness_score']:.2f}" if avg["faithfulness_score"] is not None else "N/A",
-                f"{summary['timing']['avg_generation_time']:.2f}",
-            ]
+    # Ranking
+    ranked = sorted(summaries, key=lambda s: s["combined_avg"], reverse=True)
+    print(f"\n{banner}")
+    print(f"{BOLD}RANKING (by weighted combined score){RESET}")
+    print(banner)
+    for i, s in enumerate(ranked, start=1):
+        tok  = s["timing_avg"].get("tokens_per_sec") or 0.0
+        print(
+            f"  {i}. {s['label']} -- "
+            f"combined={s['combined_avg']:.4f} | "
+            f"tok/s={tok:.2f} | "
+            f"truncated={s['truncated_answers']}"
         )
-    headers = [
-        "Generator",
-        "Context Relevance",
-        "Answer Correctness",
-        "Answer Relevance",
-        "Faithfulness (proxy)",
-        "Avg Generation Time (s)",
-    ]
-    return rows, headers
+
+    if len(ranked) > 1:
+        gap = ranked[0]["combined_avg"] - ranked[1]["combined_avg"]
+        if gap < 0.05:
+            print(
+                f"\n  NOTE: top two models are close (gap={gap:.4f}). "
+                "Check tok/s and truncated counts as tiebreakers."
+            )
+
+    print(f"\n  {BOLD}RECOMMENDATION: {ranked[0]['label']}{RESET}")
+    print(f"  → Use this model for human-scored evaluation in scripts/11_evaluate_rag.py")
 
 
-def rank_models(model_summaries):
-    """Ranks by the sum of the 4 average proxy scores (equal weighting --
-    deliberately simple and transparent rather than a tuned weighted
-    formula, since these are proxy metrics to begin with; a fancier
-    weighting on top of an already-approximate signal would be false
-    precision)."""
-    ranked = []
-    for label, summary in model_summaries.items():
-        avg = summary["averages"]
-        combined = sum(v for v in avg.values() if v is not None)
-        ranked.append((label, avg, combined))
-    ranked.sort(key=lambda x: x[2], reverse=True)
-    return ranked
-
-
-def write_reports(model_summaries, all_results, comparison_rows, comparison_headers, ranked):
+def write_final_report(summaries):
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    json_payload = {
-        "models": model_summaries,
-        "per_entry_results": all_results,
-        "comparison": {"headers": comparison_headers, "rows": comparison_rows},
-        "ranking": [
-            {"label": label, "averages": avg, "combined_score": combined}
-            for label, avg, combined in ranked
-        ],
+    ranked = sorted(summaries, key=lambda s: s["combined_avg"], reverse=True)
+
+    payload = {
+        "summaries":      summaries,
+        "ranking":        ranked,
+        "recommendation": ranked[0]["label"],
+        "weights":        WEIGHTS,
         "note": (
-            "These are AUTOMATED PROXY metrics, not human-verified RAGAS "
-            "scores. Context Relevance is exact (deterministic chunk "
-            "overlap). Answer Correctness and Answer Relevance use BGE-M3 "
-            "cosine similarity thresholds, which is the same approach "
-            "RAGAS's own Answer Semantic Similarity metric uses, but "
-            "thresholds here are a starting calibration, not tuned "
-            "against this corpus. Faithfulness uses a number-overlap "
-            "check against retrieved context, which catches fabricated "
-            "figures but not all forms of unfaithfulness. Run "
-            "scripts/11_evaluate_rag.py on the winning model for "
-            "human-verified scores to validate (or recalibrate) this "
-            "proxy."
+            "Fully automated proxy metrics -- no human scoring. "
+            "Context Relevance is exact (deterministic chunk-ID overlap). "
+            "Faithfulness uses number-overlap against retrieved context. "
+            "Answer Correctness and Answer Relevance use BGE-M3 cosine similarity. "
+            "Completeness checks sentence-final punctuation and length ratio vs expected answer. "
+            "weighted_combined is normalised by the sum of weights that had values, "
+            "so missing metrics (e.g. answer_correctness when expected_answer is absent) "
+            "do not artificially deflate the combined score. "
+            "Run scripts/11_evaluate_rag.py on the winning model for human-verified RAGAS scores."
         ),
     }
+
     json_path = REPORTS_DIR / "generator_comparison.json"
     with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(json_payload, f, ensure_ascii=False, indent=2)
+        json.dump(payload, f, ensure_ascii=False, indent=2)
 
-    md_parts = ["# Generator Comparison Report (Automated Proxy Metrics)\n\n"]
-    md_parts.append(
-        "Compares all installed generator models on four RAGAS-style "
-        "proxy metrics, computed with **zero human review**, across the "
-        "full gold question set with no sampling and the same "
-        f"`MAX_TOKENS={MAX_TOKENS}` budget the live app uses.\n\n"
-        "**Context Relevance** is exact (deterministic chunk-ID overlap "
-        "against the actual chunks sent to the LLM). **Answer "
-        "Correctness** and **Answer Relevance** use BGE-M3 cosine "
-        "similarity, the same underlying approach as RAGAS's own Answer "
-        "Semantic Similarity metric. **Faithfulness** uses a "
-        "number-overlap check against retrieved context, catching "
-        "fabricated dates/fees/figures specifically -- it does not catch "
-        "every kind of unfaithfulness.\n\n"
-        "Run `scripts/11_evaluate_rag.py` on the winning model for "
-        "human-verified scores, to check whether this proxy can be "
-        "trusted going forward.\n\n"
-    )
-
-    for label, summary in model_summaries.items():
-        md_parts.append(f"## {label}\n\n")
-        rows = []
-        for key, metric_label in PROXY_METRIC_KEYS:
-            avg = summary["averages"][key]
-            rows.append([metric_label, f"{avg:.2f}" if avg is not None else "N/A"])
-        md_parts.append(
-            tabulate(rows, headers=["Metric", "Avg Score"], tablefmt="github") + "\n\n"
-        )
-        md_parts.append(
-            f"Avg first-token time: {summary['timing']['avg_first_token_time']:.4f}s -- "
-            f"Avg generation time: {summary['timing']['avg_generation_time']:.4f}s -- "
-            f"Avg decode speed: {summary['timing']['avg_tokens_per_sec']:.4f} tok/s -- "
-            f"Valid/Failed/Total: {summary['valid_count']}/{summary['failed_count']}/{summary['total_count']}\n\n"
-        )
-
-    md_parts.append("## Comparison\n\n")
-    md_parts.append(tabulate(comparison_rows, headers=comparison_headers, tablefmt="github"))
-    md_parts.append("\n\n## Ranking\n\n```\n")
-    for i, (label, avg, combined) in enumerate(ranked, start=1):
-        md_parts.append(f"{i}. {label} -- combined score {combined:.2f}\n")
-    md_parts.append(f"\nRECOMMENDATION: {ranked[0][0]}\n```\n")
-
-    md_path = REPORTS_DIR / "generator_comparison.md"
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write("".join(md_parts))
-
-    print(f"\nSaved JSON report : {json_path}")
-    print(f"Saved Markdown report : {md_path}")
+    print(f"\nSaved final JSON report : {json_path}")
+    print(f"Per-model JSONL files   : {REPORTS_DIR}/generator_eval_<model>.jsonl")
+    print(f"Per-model summaries     : {REPORTS_DIR}/generator_eval_<model>_summary.json")
 
 
 # ----------------------------------------------------------------------------
-# Main sweep
+# Main
 # ----------------------------------------------------------------------------
 
-start_time = time.time()
+def main():
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-entries = collect_gold_entries()
-print(f"\nLoaded {len(entries)} gold questions across {len(gold_files)} categories.")
+    if not Path(INDEX_PATH).exists():
+        raise FileNotFoundError(
+            f"FAISS index not found at {INDEX_PATH}.\n"
+            "Run: python scripts/07_generate_embeddings.py"
+        )
 
-installed_models = {
-    key: info for key, info in LLM_MODELS.items() if is_installed(info)
-}
+    print("Loading embedding model (BGE-M3)...")
+    embedding_model = SentenceTransformer(EMBEDDING_HF_ID)
 
-if not installed_models:
-    raise SystemExit(
-        "No generator models installed -- run: python scripts/13_install_models.py"
+    print("Loading FAISS index...")
+    faiss_index = faiss.read_index(INDEX_PATH)
+
+    print("Loading chunk metadata...")
+    with open(METADATA_PATH, "r", encoding="utf-8") as f:
+        chunks = json.load(f)
+
+    print("Building BM25 index...")
+    bm25_corpus = [
+        khmer_aware_tokenize(c.get("embedding_text") or c["text"])
+        for c in chunks
+    ]
+    bm25_index = BM25Okapi(bm25_corpus)
+
+    # Load all gold questions across all categories
+    gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
+    if not gold_files:
+        raise ValueError("No gold_questions.json files found under data/08_evaluation/.")
+
+    gold_entries = []
+    for gf in gold_files:
+        category = gf.parent.name
+        with open(gf, "r", encoding="utf-8") as f:
+            questions = json.load(f)
+        for q in questions:
+            gold_entries.append({**q, "category": category})
+
+    mode_label = (
+        "DRY RUN (1 question per model)"
+        if DRY_RUN
+        else f"FULL RUN ({len(gold_entries)} questions per model)"
     )
 
-skipped_labels = [
-    info["label"] for key, info in LLM_MODELS.items() if key not in installed_models
-]
-if skipped_labels:
-    print("Not installed, skipping:")
-    for label in skipped_labels:
-        print(f"  - {label}")
+    installed = {k: v for k, v in LLM_MODELS.items() if is_installed(v)}
+    skipped   = [v["label"] for k, v in LLM_MODELS.items() if k not in installed]
 
-model_summaries = {}
-all_results = {}
+    print(f"\n{'=' * SEPARATOR_WIDTH}")
+    print(f"  MODE    : {mode_label}")
+    print(f"  MODELS  : {len(installed)} installed, {len(skipped)} skipped")
+    if skipped:
+        for lbl in skipped:
+            print(f"    - {lbl} (not installed)")
+    print(f"  OUTPUT  : {REPORTS_DIR}/")
+    print(f"{'=' * SEPARATOR_WIDTH}\n")
 
-for key, info in installed_models.items():
-    label = info["label"]
-    print(f"\n{'=' * SEPARATOR_WIDTH}\nStarting llama-server for: {label}\n{'=' * SEPARATOR_WIDTH}")
+    if not installed:
+        raise SystemExit("No generator models installed. Run: python scripts/13_install_models.py")
 
-    process = start_llama_server(info)
-    try:
-        client = OpenAI(base_url=LLAMA_SERVER_URL, api_key="not-needed")
-        model_response = requests.get(f"{LLAMA_SERVER_URL}/models", timeout=5)
-        model_name = model_response.json()["data"][0]["id"]
+    # Load any summaries already saved from a previous interrupted run so the
+    # final comparison table is always built from ALL completed models, not just
+    # the ones that finished in this particular invocation. Without this, if you
+    # finish 3 models, crash mid-model-4, restart and finish model-4, the final
+    # comparison would only show model-4 because all_summaries starts empty.
+    all_summaries = []
+    if not DRY_RUN:
+        for info in installed.values():
+            sp = summary_path(info["label"])
+            if sp.exists():
+                try:
+                    with open(sp, "r", encoding="utf-8") as f:
+                        saved = json.load(f)
+                    all_summaries.append(saved)
+                    print(f"  Loaded existing summary for: {info['label']}")
+                except (json.JSONDecodeError, OSError):
+                    pass
 
-        print(f"Evaluating {label} on {len(entries)} gold questions...")
-        per_entry_results = evaluate_model(client, model_name, entries)
-        model_summaries[label] = summarize_model(per_entry_results)
-        all_results[label] = per_entry_results
-    finally:
-        print(f"Stopping llama-server for: {label}")
-        stop_llama_server(process)
+    already_done_labels = {s["label"] for s in all_summaries}
 
-for label, summary in model_summaries.items():
-    print_model_report(label, summary)
+    for key, info in installed.items():
+        label = info["label"]
 
-comparison_rows, comparison_headers = build_comparison_rows(model_summaries)
-ranked = rank_models(model_summaries)
+        # Skip models that already have a complete summary saved -- all 100
+        # questions done, summary written. This is the model-level resume: if
+        # SeaLLM and Qwen are fully done and the script crashed during Gemma,
+        # restarting skips SeaLLM and Qwen entirely and starts from Gemma.
+        if not DRY_RUN and label in already_done_labels:
+            existing = load_existing_results(label)
+            if len(existing) >= len(gold_entries):
+                print(f"\n  Skipping {label} -- all {len(existing)} questions already done.")
+                continue
 
-banner = "=" * SEPARATOR_WIDTH
-print(f"\n\n{banner}")
-print(f"{BOLD}COMPARISON -- ALL GENERATORS (proxy metrics){RESET}")
-print(banner)
-print(
-    tabulate(
-        comparison_rows,
-        headers=comparison_headers,
-        tablefmt="grid",
-        colalign=("center",) * len(comparison_headers),
+        print(f"\n{SEPARATOR}")
+        print(f"{BOLD}Starting llama-server for: {label}{RESET}")
+        print(SEPARATOR)
+
+        process = start_llama_server(info)
+        print(f"  llama-server ready.")
+
+        try:
+            client     = OpenAI(base_url=LLAMA_SERVER_URL, api_key="not-needed")
+            model_resp = requests.get(f"{LLAMA_SERVER_URL}/models", timeout=5)
+            model_name = model_resp.json()["data"][0]["id"]
+            print(f"  Model ID  : {model_name}")
+            print(f"  Questions : {1 if DRY_RUN else len(gold_entries)}")
+            print()
+
+            results = evaluate_model(
+                client, model_name, label, gold_entries,
+                faiss_index, chunks, bm25_index, embedding_model,
+                dry_run=DRY_RUN,
+            )
+
+            if not DRY_RUN:
+                summary = summarise(results, label)
+                # Replace any stale in-memory entry for this label with the
+                # freshly computed one (handles the case where an incomplete
+                # summary was loaded at startup and the model just finished)
+                all_summaries = [s for s in all_summaries if s["label"] != label]
+                all_summaries.append(summary)
+                print_model_summary(summary)
+
+        finally:
+            print(f"\n  Stopping llama-server for: {label}")
+            stop_llama_server(process)
+
+    if DRY_RUN:
+        print(f"\n{'=' * SEPARATOR_WIDTH}")
+        print(f"{BOLD}DRY RUN COMPLETE{RESET}")
+        print("All models started, generated, and stopped successfully.")
+        print("If the answers above look correct, run without --dry-run for the full evaluation.")
+        print(f"{'=' * SEPARATOR_WIDTH}")
+        return
+
+    # Final comparison and report
+    print_final_comparison(all_summaries)
+    write_final_report(all_summaries)
+
+    total_gen_time = sum(
+        s["timing_avg"]["generation_time"] * s["total_questions"]
+        for s in all_summaries
+        if s["timing_avg"].get("generation_time")
     )
-)
+    print(f"\nApprox total generation time : {total_gen_time / 60:.1f} minutes")
+    print("Generator comparison completed successfully.")
 
-print(f"\n{banner}")
-print(f"{BOLD}RANKING (combined score = sum of 4 avg proxy metrics){RESET}")
-print(banner)
-for i, (label, avg, combined) in enumerate(ranked, start=1):
-    print(f"  {i}. {label} -- combined score {combined:.2f}")
-print(f"\n{BOLD}RECOMMENDATION: {ranked[0][0]}{RESET}")
 
-write_reports(model_summaries, all_results, comparison_rows, comparison_headers, ranked)
-
-elapsed_time = time.time() - start_time
-print(f"\nTotal Runtime : {elapsed_time:.2f} seconds")
-print(
-    "Generator comparison completed successfully (fully automated proxy "
-    "metrics -- run scripts/11_evaluate_rag.py on the winning model for "
-    "human-verified scores)."
-)
+if __name__ == "__main__":
+    main()
