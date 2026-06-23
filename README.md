@@ -352,6 +352,48 @@ review gate (Internship Proposal §11).
 
 ---
 
+## Embedding Model Comparison — Key Finding
+
+`scripts/08_compare_embedding_models.py` benchmarks three multilingual
+embedding models on the full gold question set (25 questions × 4
+categories = 100 questions total, dense-only retrieval, no BM25/RRF).
+The macro-averaged @5 results across all four document categories are:
+
+| Metric | BAAI/bge-m3 | intfloat/multilingual-e5-large | paraphrase-multilingual-MiniLM-L12-v2 |
+|---|---|---|---|
+| Hit Rate @5 | **0.9700** | 0.6500 | 0.0000 |
+| Recall @5 | **0.9417** | 0.6250 | 0.0000 |
+| MRR @5 | **0.8603** | 0.4993 | 0.0000 |
+| File Hit Rate @5 | **1.0000** | 0.9700 | 0.1100 |
+
+**Why MiniLM scores zero on Hit Rate, Recall, and MRR:**
+MiniLM-L12-v2 (118M parameters, 384-dim embeddings) is too small and
+insufficiently trained on Khmer script to produce semantically
+discriminative embeddings for Khmer legal text. In practice it assigns
+near-identical cosine similarity scores to every chunk in the corpus
+regardless of relevance — empirically confirmed: all top-10 retrieved
+chunks score between **0.9587 and 0.9706** for a typical Khmer insurance
+law question, a spread of only ~0.012. This score compression makes the
+ranking essentially random, so the correct chunks are never ranked in the
+top 5.
+
+By contrast, BGE-M3 produces well-spread scores (**0.6509–0.7718** for
+the same question), reflecting genuine semantic discrimination that
+enables reliable retrieval.
+
+The non-zero File Hit Rate @5 for MiniLM (0.11 macro-avg) confirms the
+model is not completely blind — it occasionally retrieves chunks from the
+right *document* by chance — but chunk-level precision is zero because
+random ranking within a document is not useful for RAG.
+
+**BGE-M3 is selected as the production retriever** based on these
+results. Its substantially higher Hit Rate, Recall, and MRR across all
+four document categories — combined with its purpose-built multilingual
+training that explicitly covers Southeast Asian languages — make it the
+clear choice for Khmer insurance law retrieval.
+
+---
+
 ## Rebuilding the Corpus (optional)
 
 Since `data/01_source_documents/` and `data/03_raw_pages/` are already
@@ -397,7 +439,7 @@ The main tunable constants live at the top of `app.py`:
 |---|---|---|
 | `ACTIVE_EMBEDDING_MODEL_DIR` | `"BAAI-BGE-M3"` | Which vector_db subfolder the app loads at startup |
 | `TOP_K` | 10 | How many chunks FAISS retrieves; also shown in the diagnostics page |
-| `CONTEXT_K` | 5 | How many of those actually go into the LLM prompt |
+| `CONTEXT_K` | 5 | How many of those actually go into the LLM prompt (<= TOP_K) |
 | `MAX_CHUNKS_PER_DOC` | 1 | Caps near-duplicate chunks from the same document in context |
 | `RRF_K` | 60 | Reciprocal Rank Fusion constant (Cormack et al. 2009) |
 | `MIN_SCORE` | 0.50 | Below this, answers are flagged "low confidence" in the UI |
@@ -455,3 +497,9 @@ against `data/09_adversarial/` before trusting it.
   in `app.py` to one of `"BAAI-BGE-M3"`, `"multilingual-e5-large"`, or
   `"MiniLM-paraphrase-multilingual-L12-v2"`, then restart the app.
   The corresponding index must already exist in `vector_db/`.
+- **MiniLM scores 0.0000 on Hit Rate / Recall / MRR in the embedding
+  comparison** — this is not a bug. See
+  [Embedding Model Comparison — Key Finding](#embedding-model-comparison--key-finding)
+  above for the full explanation. In short: MiniLM cannot discriminate
+  between Khmer legal texts and produces near-identical similarity scores
+  for all chunks (~0.958–0.971), making its ranking essentially random.

@@ -80,8 +80,6 @@ if not Path(INDEX_PATH).exists():
     )
 
 print("Loading embedding model...")
-# Load by Hub ID -- weights served from models/retriever/.cache/ (no local
-# save copy; see architecture redesign in scripts/13_install_models.py).
 embedding_model = SentenceTransformer(EMBEDDING_HF_ID)
 
 print("Loading FAISS index...")
@@ -285,6 +283,10 @@ SEPARATOR = "=" * SEPARATOR_WIDTH
 
 
 def print_mode_report(mode_label, tables):
+    """Prints the four metric tables for one retrieval mode.
+    DATASET SUMMARY is intentionally excluded -- it is printed once after
+    both modes via print_dataset_summary(), since the gold question counts
+    are identical for dense and hybrid (they ran on the same dataset)."""
     banner = "=" * SEPARATOR_WIDTH
     print(f"\n\n{banner}")
     print(f"{BOLD}RETRIEVAL MODE: {mode_label}{RESET}")
@@ -310,68 +312,100 @@ def print_mode_report(mode_label, tables):
     print(SEPARATOR)
     print(tabulate(tables["file_hit"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
 
-    print(f"\n{SEPARATOR}============")
+
+def print_dataset_summary(tables):
+    """Prints the DATASET SUMMARY once, after both modes' metric tables.
+    Dense and hybrid ran on the same gold question set so the counts are
+    identical -- printing it twice would just repeat the same rows."""
+    banner = "=" * SEPARATOR_WIDTH
+    print(f"\n\n{banner}============")
     print(f"\t\t\t\t\t\t{BOLD}DATASET SUMMARY{RESET}")
-    print(f"{SEPARATOR}============")
-    print(tabulate(tables["summary"], headers=summary_headers, tablefmt="grid", colalign=summary_colalign))
+    print(f"{banner}============")
+    print(tabulate(
+        tables["summary"],
+        headers=summary_headers,
+        tablefmt="grid",
+        colalign=summary_colalign,
+    ))
 
 
-def build_comparison_rows(dense_tables, hybrid_tables):
-    rows = []
-    dense_hit_by_cat = {row[0]: row[5] for row in dense_tables["hit"]}
-    hybrid_hit_by_cat = {row[0]: row[5] for row in hybrid_tables["hit"]}
-    dense_recall_by_cat = {row[0]: row[5] for row in dense_tables["recall"]}
-    hybrid_recall_by_cat = {row[0]: row[5] for row in hybrid_tables["recall"]}
-
-    for category in dense_hit_by_cat:
-        dense_hit = dense_hit_by_cat[category]
-        hybrid_hit = hybrid_hit_by_cat[category]
-        dense_recall = dense_recall_by_cat[category]
-        hybrid_recall = hybrid_recall_by_cat[category]
-        rows.append(
-            [
-                category,
-                f"{dense_hit:.4f}",
-                f"{hybrid_hit:.4f}",
-                f"{hybrid_hit - dense_hit:+.4f}",
-                f"{dense_recall:.4f}",
-                f"{hybrid_recall:.4f}",
-                f"{hybrid_recall - dense_recall:+.4f}",
-            ]
-        )
-
-    headers = [
-        "Category",
-        "Hit@5 (dense)",
-        "Hit@5 (hybrid)",
-        "Δ Hit@5",
-        "Recall@5 (dense)",
-        "Recall@5 (hybrid)",
-        "Δ Recall@5",
-    ]
-    return rows, headers
+def macro_avg_at_5(tables, metric_key):
+    """Macro-average of the @5 column across all categories.
+    Row index 5 = @5 (index 0 is the category label, 1-10 are @1 through @10)."""
+    vals = [row[5] for row in tables[metric_key]]
+    return sum(vals) / len(vals) if vals else 0.0
 
 
 def print_comparison_summary(dense_tables, hybrid_tables):
-    rows, headers = build_comparison_rows(dense_tables, hybrid_tables)
+    """Single unified before/after comparison table.
+    Rows = 4 metrics. Columns = Dense @5, Hybrid @5, Delta.
+    Each value is the macro-average across all four document categories."""
+    metric_defs = [
+        ("Hit Rate",      "hit"),
+        ("Recall",        "recall"),
+        ("MRR",           "mrr"),
+        ("File Hit Rate", "file_hit"),
+    ]
+
+    rows = []
+    for display_name, metric_key in metric_defs:
+        dense_val  = macro_avg_at_5(dense_tables,  metric_key)
+        hybrid_val = macro_avg_at_5(hybrid_tables, metric_key)
+        delta      = hybrid_val - dense_val
+        rows.append([
+            f"{display_name} @5",
+            f"{dense_val:.4f}",
+            f"{hybrid_val:.4f}",
+            f"{delta:+.4f}",
+        ])
+
+    headers = ["Metric", "Dense-Only @5", "Hybrid @5", "Δ (Hybrid − Dense)"]
     banner = "=" * SEPARATOR_WIDTH
     print(f"\n\n{banner}")
     print(f"{BOLD}BEFORE / AFTER -- DENSE-ONLY vs. HYBRID (FAISS + BM25, RRF){RESET}")
+    print(f"{BOLD}(each value = macro-avg across guidance / laws / prakas / sub_decrees){RESET}")
     print(banner)
-    print(tabulate(rows, headers=headers, tablefmt="grid", colalign=("center",) * 7))
+    print(tabulate(
+        rows,
+        headers=headers,
+        tablefmt="grid",
+        colalign=("left", "center", "center", "center"),
+    ))
 
 
-def write_reports(dense_tables, hybrid_tables, comparison_rows, comparison_headers):
+def write_reports(dense_tables, hybrid_tables):
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Build the unified comparison rows for JSON/markdown
+    metric_defs = [
+        ("Hit Rate",      "hit"),
+        ("Recall",        "recall"),
+        ("MRR",           "mrr"),
+        ("File Hit Rate", "file_hit"),
+    ]
+    comparison_rows = []
+    for display_name, metric_key in metric_defs:
+        dense_val  = macro_avg_at_5(dense_tables,  metric_key)
+        hybrid_val = macro_avg_at_5(hybrid_tables, metric_key)
+        delta      = hybrid_val - dense_val
+        comparison_rows.append({
+            "metric":     f"{display_name} @5",
+            "dense":      round(dense_val,  4),
+            "hybrid":     round(hybrid_val, 4),
+            "delta":      round(delta,      4),
+        })
+
     json_payload = {
-        "dense": dense_tables,
-        "hybrid": hybrid_tables,
+        "dense":   dense_tables,
+        "hybrid":  hybrid_tables,
         "comparison": {
-            "headers": comparison_headers,
+            "note": (
+                "Each value is the macro-average of the @5 score across all "
+                "four document categories (guidance, laws, prakas, sub_decrees)."
+            ),
             "rows": comparison_rows,
         },
-        "eval_ks": EVAL_KS,
+        "eval_ks":       EVAL_KS,
         "metric_headers": metric_headers,
     }
     json_path = REPORTS_DIR / "retrieval_eval.json"
@@ -379,9 +413,11 @@ def write_reports(dense_tables, hybrid_tables, comparison_rows, comparison_heade
         json.dump(json_payload, f, ensure_ascii=False, indent=2)
 
     def md_table(title, rows, headers):
-        return f"### {title}\n\n" + tabulate(
-            rows, headers=headers, tablefmt="github", floatfmt=".4f"
-        ) + "\n\n"
+        return (
+            f"### {title}\n\n"
+            + tabulate(rows, headers=headers, tablefmt="github", floatfmt=".4f")
+            + "\n\n"
+        )
 
     md_parts = ["# Retrieval Evaluation Report\n\n"]
     for mode_label, tables in [
@@ -389,14 +425,28 @@ def write_reports(dense_tables, hybrid_tables, comparison_rows, comparison_heade
         ("Hybrid (BGE-M3 + BM25, RRF)", hybrid_tables),
     ]:
         md_parts.append(f"## {mode_label}\n\n")
-        md_parts.append(md_table("Hit Rate @ K", tables["hit"], metric_headers))
-        md_parts.append(md_table("Recall @ K", tables["recall"], metric_headers))
-        md_parts.append(md_table("MRR @ K", tables["mrr"], metric_headers))
+        md_parts.append(md_table("Hit Rate @ K",      tables["hit"],      metric_headers))
+        md_parts.append(md_table("Recall @ K",        tables["recall"],   metric_headers))
+        md_parts.append(md_table("MRR @ K",           tables["mrr"],      metric_headers))
         md_parts.append(md_table("File Hit Rate @ K", tables["file_hit"], metric_headers))
-        md_parts.append(md_table("Dataset Summary", tables["summary"], summary_headers))
 
-    md_parts.append("## Before / After -- Dense-Only vs. Hybrid\n\n")
-    md_parts.append(tabulate(comparison_rows, headers=comparison_headers, tablefmt="github"))
+    # Dataset summary once in the markdown report too
+    md_parts.append("## Dataset Summary\n\n")
+    md_parts.append(tabulate(dense_tables["summary"], headers=summary_headers, tablefmt="github"))
+    md_parts.append("\n\n")
+
+    # Unified before/after comparison table
+    md_parts.append("## Before / After -- Dense-Only vs. Hybrid (Macro-Avg @5)\n\n")
+    md_parts.append(
+        "> Each value is the macro-average of the @5 score across "
+        "guidance, laws, prakas, and sub_decrees.\n\n"
+    )
+    comp_headers = ["Metric", "Dense-Only @5", "Hybrid @5", "Δ (Hybrid − Dense)"]
+    comp_md_rows = [
+        [r["metric"], f"{r['dense']:.4f}", f"{r['hybrid']:.4f}", f"{r['delta']:+.4f}"]
+        for r in comparison_rows
+    ]
+    md_parts.append(tabulate(comp_md_rows, headers=comp_headers, tablefmt="github"))
     md_parts.append("\n")
 
     md_path = REPORTS_DIR / "retrieval_eval.md"
@@ -407,6 +457,10 @@ def write_reports(dense_tables, hybrid_tables, comparison_rows, comparison_heade
     print(f"Saved Markdown report : {md_path}")
 
 
+# ----------------------------------------------------------------------------
+# Main
+# ----------------------------------------------------------------------------
+
 start_time = time.time()
 
 print("\nRunning DENSE-ONLY (BGE-M3) evaluation...")
@@ -415,14 +469,20 @@ dense_tables = evaluate_retrieval(retrieve_dense)
 print("Running HYBRID (BGE-M3 + BM25, RRF) evaluation...")
 hybrid_tables = evaluate_retrieval(retrieve_hybrid)
 
+# Print per-mode metric tables (no DATASET SUMMARY inside each)
 print_mode_report("DENSE-ONLY (BGE-M3)", dense_tables)
 print_mode_report("HYBRID (BGE-M3 + BM25, RRF)", hybrid_tables)
+
+# DATASET SUMMARY printed once, after both modes' metric tables
+print_dataset_summary(dense_tables)
+
+# Single unified before/after comparison table:
+# rows = 4 metrics, columns = Dense @5 / Hybrid @5 / Delta,
+# values = macro-average across all four document categories
 print_comparison_summary(dense_tables, hybrid_tables)
 
-comparison_rows, comparison_headers = build_comparison_rows(dense_tables, hybrid_tables)
-write_reports(dense_tables, hybrid_tables, comparison_rows, comparison_headers)
+write_reports(dense_tables, hybrid_tables)
 
 elapsed_time = time.time() - start_time
-
 print(f"\nTotal Runtime : {elapsed_time:.2f} seconds")
 print("Retriever evaluation completed successfully (dense + hybrid).")
