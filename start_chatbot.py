@@ -34,18 +34,53 @@ MODELS = {
     "1": {
         "file": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
         "name": "SeaLLM",
+        # Not a reasoning model -- --jinja is still added so the GGUF's
+        # own embedded chat template is used correctly rather than
+        # llama-server's built-in heuristic fallback.
+        "extra_args": ["--jinja"],
     },
     "2": {
         "file": "Qwen3.5-9B-Q4_K_M.gguf",
         "name": "Qwen",
+        # Qwen3.5 is a hybrid-reasoning model: by default it wraps a
+        # <think>...</think> block before its actual answer. Without
+        # --jinja, llama-server can't parse the GGUF's embedded chat
+        # template at all and the <think> tags leak straight into
+        # delta.content as plain text. Without --reasoning off, the model
+        # still thinks first -- and on this corpus's long (~8-9k token)
+        # RAG prompts, thinking alone can consume the entire max_tokens=1024
+        # budget in app.py, so the real answer never gets generated and
+        # delta.content stays empty for the whole stream (sources/
+        # disclaimer still render in app.py since those don't depend on
+        # answer_text being non-empty -- this is what looked like a
+        # "silent success" with no visible answer in the UI).
+        # --reasoning off is a startup flag (no per-request override
+        # exists in llama-server yet), so it's set here once for the
+        # whole server process rather than per-request.
+        "extra_args": ["--jinja", "--reasoning", "off"],
     },
     "3": {
         "file": "gemma-4-E4B-it-Q4_K_M.gguf",
         "name": "Gemma",
+        # Gemma 4 E4B's thinking mode is opt-in (triggered only by a
+        # <|think|> token at the start of the system prompt) and
+        # build_prompt() in app.py sends no system prompt at all, so
+        # thinking shouldn't trigger here regardless. --jinja is still
+        # required: some llama.cpp builds have a known issue where Gemma
+        # 4's reasoning-channel tokens (<|channel|>thought...) leak into
+        # the visible output specifically when the GGUF's chat template
+        # isn't parsed via --jinja. If literal "<|channel|>" text is ever
+        # seen in a Gemma answer in the UI, that's this issue resurfacing
+        # and is the first thing to investigate.
+        "extra_args": ["--jinja"],
     },
     "4": {
         "file": "Llama-3.1-8B-Instruct-Q4_K_M.gguf",
         "name": "Llama",
+        # Not a reasoning model -- no <think> or <|channel|> mechanism at
+        # all in this architecture. --jinja still added for consistency
+        # and correctness with the other three.
+        "extra_args": ["--jinja"],
     },
 }
 
@@ -71,6 +106,7 @@ selected = MODELS[choice]
 
 model = selected["file"]
 model_name = selected["name"]
+extra_args = selected["extra_args"]
 
 os.environ["CHATBOT_MODEL"] = model_name
 
@@ -153,6 +189,7 @@ llama_process = subprocess.Popen(
         "--port",
         "8080",
     ]
+    + extra_args
 )
 
 print("Waiting for llama-server...")
