@@ -93,10 +93,10 @@ PDF source documents
 +------------------------------------------------------------------+
 |                      app.py (Streamlit)                          |
 |                                                                  |
-|  question → Khmer-script check → length check → scope gate      |
-|           → BGE-M3 embed → FAISS search + BM25 search → RRF     |
+|  question → Khmer-script check → length check → scope gate       |
+|           → BGE-M3 embed → FAISS search + BM25 search → RRF      |
 |           → score gate → build context (capped, deduped)         |
-|           → prompt → llama-server (selected generator, GGUF)         |
+|           → prompt → llama-server (selected generator, GGUF)     |
 |           → streamed answer + sources + diagnostics              |
 +------------------------------------------------------------------+
 ```

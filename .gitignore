@@ -23,7 +23,11 @@ data/10_merged_chunked_documents/*
 scripts/14_merge_chunked_documents.py
 
 # Local models
-models/
+models/generator/*
+!model/generator/.gitkeep
+
+models/retriever/*
+!model/retriever/.gitkeep
 
 # Python
 __pycache__/
