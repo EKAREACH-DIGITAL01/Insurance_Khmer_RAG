@@ -1,0 +1,437 @@
+{
+  "generated_at": 1782314047,
+  "proxy_model": "SeaLLM v3 7B",
+  "total_evaluators": 1,
+  "total_responses": 25,
+  "questions_rated": 25,
+  "multi_rated_questions": 0,
+  "macro_avgs": {
+    "context_relevance": 3.8,
+    "faithfulness": 4.08,
+    "answer_relevance": 4.2,
+    "answer_correctness": 4.2
+  },
+  "combined_avg": 4.07,
+  "inter_annotator_agreement": {
+    "context_relevance": null,
+    "faithfulness": null,
+    "answer_relevance": null,
+    "answer_correctness": null
+  },
+  "per_evaluator": [
+    {
+      "evaluator_id": 1,
+      "name": "sorphea",
+      "assigned": 25,
+      "completed": 25,
+      "coverage": "25/25",
+      "metric_avgs": {
+        "context_relevance": 3.8,
+        "faithfulness": 4.08,
+        "answer_relevance": 4.2,
+        "answer_correctness": 4.2
+      },
+      "total_avg": 16.28
+    }
+  ],
+  "human_vs_proxy": {
+    "context_relevance": {
+      "human_avg": 3.8,
+      "proxy_avg": 4.6,
+      "diff": -0.8
+    },
+    "faithfulness": {
+      "human_avg": 4.08,
+      "proxy_avg": 4.44,
+      "diff": -0.36
+    },
+    "answer_relevance": {
+      "human_avg": 4.2,
+      "proxy_avg": 3.96,
+      "diff": 0.24
+    },
+    "answer_correctness": {
+      "human_avg": 4.2,
+      "proxy_avg": 4.64,
+      "diff": -0.44
+    }
+  },
+  "hallucination_audit": [],
+  "per_question": {
+    "3": {
+      "question": "ក្នុងករណីឯកសារស្នើសុំទាមទារសំណងមិនគ្រប់គ្រាន់ ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចត្រូវជូនដំណឹងអ្នកទាមទារក្នុងរយៈពេលប៉ុន្មាន?",
+      "category": "guidance",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 3.0
+      },
+      "total_avg": 14.0
+    },
+    "5": {
+      "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចត្រូវទូទាត់សំណងក្នុងរយៈពេលប៉ុន្មានក្រោយពីអ្នកទាមទារសំណងឯកភាពទទួលយក?",
+      "category": "guidance",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 20.0
+    },
+    "11": {
+      "question": "គ្រូបណ្តុះបណ្តាលវិជ្ជាជីវៈជើងសាធានារ៉ាប់រងត្រូវមានលក្ខខណ្ឌអ្វីខ្លះ?",
+      "category": "guidance",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 3.0,
+        "answer_correctness": 3.0
+      },
+      "total_avg": 12.0
+    },
+    "18": {
+      "question": "តើការបង់បុព្វលាភធានារ៉ាប់រងខ្នាតតូចអាចធ្វើឡើងតាមមធ្យោបាយអ្វីខ្លះ?",
+      "category": "guidance",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 3.0
+      },
+      "total_avg": 14.0
+    },
+    "22": {
+      "question": "តើការបំពានកម្រិតធ្ងន់ធ្ងរលើក្រមសីលធម៌វិជ្ជាជីវៈជើងសាធានារ៉ាប់រងរួមមានអ្វីខ្លះ?",
+      "category": "guidance",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 20.0
+    },
+    "32": {
+      "question": "តើច្បាប់ស្តីពីកិច្ចការពារអ្នកប្រើប្រាស់ត្រូវបានអនុវត្តចំពោះបុគ្គលណាខ្លះ?",
+      "category": "laws",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 3.0,
+        "answer_correctness": 3.0
+      },
+      "total_avg": 12.0
+    },
+    "33": {
+      "question": "តើអំពើមិនសុចរិតក្នុងធុរកិច្ចត្រូវបានកំណត់ ឬហាមឃាត់យ៉ាងដូចម្តេច?",
+      "category": "laws",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 18.0
+    },
+    "36": {
+      "question": "តើបុគ្គលម្នាក់ត្រូវទទួលទណ្ឌកម្មយ៉ាងដូចម្តេច ប្រសិនបើប្រព្រឹត្តខុសបទដ្ឋានព័ត៌មានសម្រាប់អ្នកប្រើប្រាស់?",
+      "category": "laws",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 20.0
+    },
+    "43": {
+      "question": "តើច្បាប់ស្តីពីការធានារ៉ាប់រងមានគោលបំណង និងគោលដៅអ្វីខ្លះ?",
+      "category": "laws",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 3.0,
+        "answer_correctness": 3.0
+      },
+      "total_avg": 14.0
+    },
+    "50": {
+      "question": "ក្រុមហ៊ុនធានារ៉ាប់រងត្រូវផ្សព្វផ្សាយរបាយការណ៍ប្រចាំឆ្នាំជាសាធារណៈ យ៉ាងយូរត្រឹមថ្ងៃណា?",
+      "category": "prakas",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 4.0,
+        "faithfulness": 4.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 18.0
+    },
+    "52": {
+      "question": "ក្នុងករណីបុគ្គលមិនព្រមបង់ប្រាក់ពិន័យអន្តរការណ៍ក្នុងរយៈពេល ៤៥ ថ្ងៃ និយ័តករធានារ៉ាប់រងកម្ពុជាអាចធ្វើបែបណា?",
+      "category": "prakas",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 3.0,
+        "answer_correctness": 3.0
+      },
+      "total_avg": 14.0
+    },
+    "55": {
+      "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ ត្រូវអនុវត្តតាមវិធានទូទៅអ្វីខ្លះ?",
+      "category": "prakas",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 3.0
+      },
+      "total_avg": 14.0
+    },
+    "61": {
+      "question": "ក្រុមហ៊ុនធានារ៉ាប់រង ត្រូវគណនាប្រាក់បម្រុងបច្ចេកទេសធានារ៉ាប់រងនៃកិច្ចសន្យាធានារ៉ាប់រង ដោយវិធីណា?",
+      "category": "prakas",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 20.0
+    },
+    "65": {
+      "question": "ក្រុមហ៊ុនធានារ៉ាប់រង ត្រូវបានអនុញ្ញាតឱ្យវិនិយោគមូលនិធិវិនិយោគប្រចាំឆ្នាំលើមូលបត្រ មិនឱ្យលើសពីប៉ុន្មានភាគរយ?",
+      "category": "prakas",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 20.0
+    },
+    "66": {
+      "question": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការចុះឈ្មោះក្នុងបញ្ជីភ្នាក់ងារធានារ៉ាប់រងជារូបវន្តបុគ្គលតាមប្រព័ន្ធស្វ័យប្រវត្តកម្ម ត្រូវបានអនុវត្តចំពោះអ្នកណា?",
+      "category": "prakas",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 20.0
+    },
+    "69": {
+      "question": "និយ័តករធានារ៉ាប់រងកម្ពុជា មាននាយកដ្ឋានចំណុះចំនួនប៉ុន្មាន? ហើយមាននាយកដ្ឋានអ្វីខ្លះ?",
+      "category": "prakas",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 20.0
+    },
+    "76": {
+      "question": "តើការធានារ៉ាប់រងខ្នាតតូចសំដៅដល់អ្វី?",
+      "category": "sub_decrees",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 3.0,
+        "answer_correctness": 3.0
+      },
+      "total_avg": 12.0
+    },
+    "79": {
+      "question": "បណ្ណសន្យារ៉ាប់រងក្នុងការធានារ៉ាប់រងខ្នាតតូចត្រូវកំណត់លក្ខខណ្ឌអ្វីខ្លះ?",
+      "category": "sub_decrees",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 3.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 14.0
+    },
+    "81": {
+      "question": "កិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូច រួមមានភាគីអ្វីខ្លះ?",
+      "category": "sub_decrees",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 20.0
+    },
+    "84": {
+      "question": "ក្រុមហ៊ុនធានារ៉ាប់រងដែលលក់ផលិតផលធានារ៉ាប់រងខ្នាតតូចមានកាតព្វកិច្ចអ្វីខ្លះចំពោះអ្នកស្នើសុំ?",
+      "category": "sub_decrees",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 18.0
+    },
+    "88": {
+      "question": "តើដើមទុនអប្បបរមាសម្រាប់ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចមិនត្រូវស្តិតក្រោមទំហំទឹកប្រាក់ប៉ុន្មាន?",
+      "category": "sub_decrees",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 2.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 3.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 13.0
+    },
+    "92": {
+      "question": "តើអនុក្រឹត្យស្តីពីឯកសណ្ឋានមន្ត្រីអធិការកិច្ចធានារ៉ាប់រងមានគោលបំណងអ្វី?",
+      "category": "sub_decrees",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 5.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 3.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 16.0
+    },
+    "93": {
+      "question": "ឯកសណ្ឋានរបស់មន្ត្រីអធិការកិច្ចធានារ៉ាប់រងជាបុរសមានធាតុផ្សំអ្វីខ្លះ?",
+      "category": "sub_decrees",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 3.0,
+        "answer_correctness": 3.0
+      },
+      "total_avg": 12.0
+    },
+    "96": {
+      "question": "ការធានារ៉ាប់រងទូទៅជាអ្វី ហើយរួមមានផលិតផលប្រភេទអ្វីខ្លះ?",
+      "category": "sub_decrees",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 3.0,
+        "faithfulness": 3.0,
+        "answer_relevance": 3.0,
+        "answer_correctness": 3.0
+      },
+      "total_avg": 12.0
+    },
+    "99": {
+      "question": "តើនិយ័តករធានារ៉ាប់រងកម្ពុជាមាននាយកដ្ឋានចំណុះប៉ុន្មាន ហើយអ្វីខ្លះ?",
+      "category": "sub_decrees",
+      "evaluator_count": 1,
+      "evaluators": [
+        "sorphea"
+      ],
+      "metric_avgs": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_relevance": 5.0,
+        "answer_correctness": 5.0
+      },
+      "total_avg": 20.0
+    }
+  }
+}

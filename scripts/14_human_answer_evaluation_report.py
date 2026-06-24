@@ -10,17 +10,9 @@ from tabulate import tabulate
 # PURPOSE: reads human scores collected by eval_ui.py from SQLite and
 # produces the final human-verified RAGAS-style evaluation report.
 #
-# Run AFTER all evaluators have finished rating in eval_ui.py:
-#   python scripts/11_evaluate_rag.py
-#
-# Inputs:
-#   reports/generator/eval_ui.db              -- human scores from eval_ui.py
-#   reports/generator/generator_eval_<model>.jsonl  -- automated proxy scores
-#                                                      from script 10
-#
-# Outputs:
-#   reports/generator/human_eval_report.json  -- full machine-readable report
-#   reports/generator/human_eval_report.md    -- markdown report
+# reports/human_answer_evaluation/human_answer_evaluation.db
+# reports/human_answer_evaluation/human_answer_evaluation_report.json
+# reports/human_answer_evaluation/human_answer_evaluation_report.md
 #
 # What it calculates:
 #   1. Per-question avg human score across all evaluators (per metric + total)
@@ -32,8 +24,17 @@ from tabulate import tabulate
 #   6. Hallucination audit -- questions where avg faithfulness < 3.0
 # ----------------------------------------------------------------------------
 
-DB_PATH        = Path("reports/generator/eval_ui.db")
-REPORTS_DIR    = Path("reports/generator")
+DB_PATH = Path(
+    "reports/human_answer_evaluation/"
+    "human_answer_evaluation.db"
+)
+REPORTS_DIR = Path(
+    "reports/human_answer_evaluation"
+)
+GENERATOR_RESULTS_DIR = Path(
+    "reports/generator_model_comparison/"
+    "SeaLLMs-v3-7B-Chat-Q4_K_M"
+)
 
 METRICS = [
     "context_relevance",
@@ -122,16 +123,12 @@ def load_assignments():
 # ----------------------------------------------------------------------------
 
 def find_jsonl():
-    """Finds the first generator eval JSONL in reports/generator/."""
-    candidates = sorted(REPORTS_DIR.glob("generator_eval_*.jsonl"))
-    # Exclude the safety gate file if present
-    candidates = [p for p in candidates if "safety" not in p.name.lower()]
-    if not candidates:
+    path = GENERATOR_RESULTS_DIR / "generated_answer_results.jsonl"
+
+    if not path.exists():
         return None, None
-    path = candidates[0]
-    # Extract model label from filename
-    label = path.stem.replace("generator_eval_", "").replace("_", " ")
-    return path, label
+
+    return path, "SeaLLM v3 7B"
 
 
 def load_proxy_scores():
@@ -597,7 +594,7 @@ def write_reports(
         },
     }
 
-    json_path = REPORTS_DIR / "human_eval_report.json"
+    json_path = REPORTS_DIR / "human_answer_evaluation_report.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
@@ -656,7 +653,7 @@ def write_reports(
     else:
         md.append("No questions flagged — all avg Faithfulness ≥ 3.0.\n\n")
 
-    md_path = REPORTS_DIR / "human_eval_report.md"
+    md_path = REPORTS_DIR / "human_answer_evaluation_report.md"
     with open(md_path, "w", encoding="utf-8") as f:
         f.write("".join(md))
 

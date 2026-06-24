@@ -8,8 +8,15 @@ import streamlit as st
 # ----------------------------------------------------------------------------
 # Config
 # ----------------------------------------------------------------------------
-DB_PATH        = Path("reports/generator/eval_ui.db")
-JSONL_PATH     = Path("reports/generator/generator_eval_SeaLLM_v3_7B.jsonl")
+DB_PATH = Path(
+    "reports/human_answer_evaluation/"
+    "human_answer_evaluation.db"
+)
+JSONL_PATH = Path(
+    "reports/generator_model_comparison/"
+    "SeaLLMs-v3-7B-Chat-Q4_K_M/"
+    "generated_answer_results.jsonl"
+)
 QUESTIONS_PER_EVALUATOR = 25
 
 METRICS = [
@@ -81,6 +88,7 @@ def init_db():
             answer_correctness  INTEGER,
             total_score         INTEGER,
             submitted_at        INTEGER NOT NULL,
+            UNIQUE (evaluator_id, question_idx),
             FOREIGN KEY (evaluator_id) REFERENCES evaluators(id)
         );
     """)

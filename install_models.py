@@ -14,7 +14,7 @@ from pathlib import Path
 # appearing to set HF_HOME correctly -- the assignment came
 # AFTER the imports on the very next lines.
 # ============================================================
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent
 MODELS_DIR = PROJECT_ROOT / "models"
 
 # All HF assets live inside the project, under retriever/.cache
