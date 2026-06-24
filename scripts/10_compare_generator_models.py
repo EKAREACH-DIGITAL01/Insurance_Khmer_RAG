@@ -113,7 +113,7 @@ ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
 INDEX_PATH       = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
 METADATA_PATH    = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
 EVALUATION_ROOT  = Path("data/08_evaluation")
-REPORTS_DIR      = Path("reports/generator")
+REPORTS_DIR      = Path("reports/generator_model_comparison")
 LLM_DIR          = Path("models/generator")
 
 LLAMA_SERVER_URL             = "http://localhost:8080/v1"
@@ -611,16 +611,23 @@ def score_answer(
 # ----------------------------------------------------------------------------
 # Real-time result file helpers
 # ----------------------------------------------------------------------------
+def model_dir(label):
+    for info in LLM_MODELS.values():
+        if info["label"] == label:
+            return REPORTS_DIR / Path(info["local_filename"]).stem
+
+    raise ValueError(f"Unknown model label: {label}")
 
 def result_path(label):
-    """Per-model JSONL file written after every single answer."""
-    safe = label.replace(" ", "_").replace("/", "-")
-    return REPORTS_DIR / f"generator_eval_{safe}.jsonl"
+    path = model_dir(label)
+    path.mkdir(parents=True, exist_ok=True)
+    return path / "generated_answer_results.jsonl"
 
 
 def summary_path(label):
-    safe = label.replace(" ", "_").replace("/", "-")
-    return REPORTS_DIR / f"generator_eval_{safe}_summary.json"
+    path = model_dir(label)
+    path.mkdir(parents=True, exist_ok=True)
+    return path / "generated_answer_results_summary.json"
 
 
 def load_existing_results(label):
@@ -1159,13 +1166,19 @@ def write_final_report(summaries):
         ),
     }
 
-    json_path = REPORTS_DIR / "generator_comparison.json"
+    json_path = REPORTS_DIR / "generator_model_comparison.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
     print(f"\nSaved final JSON report : {json_path}")
-    print(f"Per-model JSONL files   : {REPORTS_DIR}/generator_eval_<model>.jsonl")
-    print(f"Per-model summaries     : {REPORTS_DIR}/generator_eval_<model>_summary.json")
+    print(
+        f"Per-model results       : "
+        f"{REPORTS_DIR}/<model>/generated_answer_results.jsonl"
+    )
+    print(
+        f"Per-model summaries     : "
+        f"{REPORTS_DIR}/<model>/generated_answer_results_summary.json"
+    )
 
 
 # ----------------------------------------------------------------------------
