@@ -1,0 +1,88 @@
+{
+  "label": "SeaLLM v3 7B",
+  "total_questions": 100,
+  "valid_questions": 97,
+  "failed_questions": 3,
+  "truncated_answers": 10,
+  "scores_avg": {
+    "context_relevance": 4.4227,
+    "faithfulness": 4.433,
+    "answer_correctness": 4.8144,
+    "answer_relevance": 3.8557,
+    "completeness": 4.5464
+  },
+  "combined_avg": 4.4567,
+  "per_category": {
+    "guidance": {
+      "scores": {
+        "context_relevance": 4.76,
+        "faithfulness": 4.6,
+        "answer_correctness": 4.88,
+        "answer_relevance": 4.04,
+        "completeness": 4.48
+      },
+      "timing": {
+        "first_token_time_avg": 28.6939,
+        "generation_time_avg": 47.3527,
+        "tokens_out_avg": 235.9
+      }
+    },
+    "laws": {
+      "scores": {
+        "context_relevance": 3.9565,
+        "faithfulness": 4.3913,
+        "answer_correctness": 4.6522,
+        "answer_relevance": 3.6957,
+        "completeness": 4.5652
+      },
+      "timing": {
+        "first_token_time_avg": 18.0322,
+        "generation_time_avg": 41.1455,
+        "tokens_out_avg": 294.2
+      }
+    },
+    "prakas": {
+      "scores": {
+        "context_relevance": 4.25,
+        "faithfulness": 4.4167,
+        "answer_correctness": 4.8333,
+        "answer_relevance": 3.875,
+        "completeness": 4.4583
+      },
+      "timing": {
+        "first_token_time_avg": 17.7013,
+        "generation_time_avg": 33.9344,
+        "tokens_out_avg": 221.8
+      }
+    },
+    "sub_decrees": {
+      "scores": {
+        "context_relevance": 4.68,
+        "faithfulness": 4.32,
+        "answer_correctness": 4.88,
+        "answer_relevance": 3.8,
+        "completeness": 4.68
+      },
+      "timing": {
+        "first_token_time_avg": 24.1549,
+        "generation_time_avg": 45.7033,
+        "tokens_out_avg": 284.3
+      }
+    }
+  },
+  "timing_avg": {
+    "first_token_time": 22.2762,
+    "generation_time": 42.1358,
+    "tokens_per_sec": 13.1431
+  },
+  "timing_detail": {
+    "first_token_time_avg": 22.2762,
+    "first_token_time_p50": 19.5641,
+    "first_token_time_p95": 53.5757,
+    "generation_time_avg": 42.1358,
+    "tokens_per_sec_avg": 13.1431,
+    "tokens_out_avg": 258.7,
+    "tokens_out_min": 73,
+    "tokens_out_max": 726
+  }
+}
