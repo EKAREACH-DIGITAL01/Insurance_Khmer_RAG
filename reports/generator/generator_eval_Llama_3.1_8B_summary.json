@@ -7,19 +7,19 @@
   "scores_avg": {
     "context_relevance": 4.44,
     "faithfulness": 4.5,
-    "answer_correctness": 4.79,
-    "answer_relevance": 3.83,
-    "completeness": 4.31
+    "answer_correctness": 4.48,
+    "answer_relevance": 3.94,
+    "completeness": 4.21
   },
-  "combined_avg": 4.4315,
+  "combined_avg": 4.3555,
   "per_category": {
     "guidance": {
       "scores": {
         "context_relevance": 4.76,
         "faithfulness": 4.6,
-        "answer_correctness": 4.88,
-        "answer_relevance": 4.0,
-        "completeness": 4.48
+        "answer_correctness": 4.64,
+        "answer_relevance": 4.24,
+        "completeness": 4.44
       },
       "timing": {
         "first_token_time_avg": 44.6486,
@@ -31,9 +31,9 @@
       "scores": {
         "context_relevance": 4.04,
         "faithfulness": 4.56,
-        "answer_correctness": 4.64,
+        "answer_correctness": 4.2,
         "answer_relevance": 3.76,
-        "completeness": 4.08
+        "completeness": 4.0
       },
       "timing": {
         "first_token_time_avg": 27.2058,
@@ -45,9 +45,9 @@
       "scores": {
         "context_relevance": 4.28,
         "faithfulness": 4.48,
-        "answer_correctness": 4.84,
-        "answer_relevance": 3.92,
-        "completeness": 4.56
+        "answer_correctness": 4.52,
+        "answer_relevance": 4.08,
+        "completeness": 4.36
       },
       "timing": {
         "first_token_time_avg": 28.7975,
@@ -59,9 +59,9 @@
       "scores": {
         "context_relevance": 4.68,
         "faithfulness": 4.36,
-        "answer_correctness": 4.8,
-        "answer_relevance": 3.64,
-        "completeness": 4.12
+        "answer_correctness": 4.56,
+        "answer_relevance": 3.68,
+        "completeness": 4.04
       },
       "timing": {
         "first_token_time_avg": 41.5771,

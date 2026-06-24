@@ -6,19 +6,19 @@
   "truncated_answers": 10,
   "scores_avg": {
     "context_relevance": 4.48,
-    "faithfulness": 4.5,
-    "answer_correctness": 4.8,
-    "answer_relevance": 3.86,
-    "completeness": 4.54
+    "faithfulness": 4.49,
+    "answer_correctness": 4.59,
+    "answer_relevance": 3.99,
+    "completeness": 4.5
   },
-  "combined_avg": 4.481,
+  "combined_avg": 4.4395,
   "per_category": {
     "guidance": {
       "scores": {
         "context_relevance": 4.76,
         "faithfulness": 4.6,
-        "answer_correctness": 4.88,
-        "answer_relevance": 4.04,
+        "answer_correctness": 4.76,
+        "answer_relevance": 4.4,
         "completeness": 4.48
       },
       "timing": {
@@ -31,7 +31,7 @@
       "scores": {
         "context_relevance": 4.04,
         "faithfulness": 4.48,
-        "answer_correctness": 4.64,
+        "answer_correctness": 4.24,
         "answer_relevance": 3.72,
         "completeness": 4.64
       },
@@ -44,24 +44,24 @@
     "prakas": {
       "scores": {
         "context_relevance": 4.28,
-        "faithfulness": 4.6,
-        "answer_correctness": 4.8,
-        "answer_relevance": 3.88,
+        "faithfulness": 4.56,
+        "answer_correctness": 4.64,
+        "answer_relevance": 4.0,
         "completeness": 4.36
       },
       "timing": {
-        "first_token_time_avg": 19.6585,
-        "generation_time_avg": 39.0548,
-        "tokens_out_avg": 235.8
+        "first_token_time_avg": 19.5765,
+        "generation_time_avg": 38.9983,
+        "tokens_out_avg": 238.7
       }
     },
     "sub_decrees": {
       "scores": {
         "context_relevance": 4.84,
         "faithfulness": 4.32,
-        "answer_correctness": 4.88,
-        "answer_relevance": 3.8,
-        "completeness": 4.68
+        "answer_correctness": 4.72,
+        "answer_relevance": 3.84,
+        "completeness": 4.52
       },
       "timing": {
         "first_token_time_avg": 24.3873,
@@ -71,17 +71,17 @@
     }
   },
   "timing_avg": {
-    "first_token_time": 22.7159,
-    "generation_time": 43.3998,
-    "tokens_per_sec": 12.8242
+    "first_token_time": 22.6954,
+    "generation_time": 43.3857,
+    "tokens_per_sec": 12.8713
   },
   "timing_detail": {
-    "first_token_time_avg": 22.7159,
+    "first_token_time_avg": 22.6954,
     "first_token_time_p50": 19.746,
     "first_token_time_p95": 52.6057,
-    "generation_time_avg": 43.3998,
-    "tokens_per_sec_avg": 12.8242,
-    "tokens_out_avg": 259.1,
+    "generation_time_avg": 43.3857,
+    "tokens_per_sec_avg": 12.8713,
+    "tokens_out_avg": 259.9,
     "tokens_out_min": 73,
     "tokens_out_max": 726
   }

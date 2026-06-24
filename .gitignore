@@ -20,7 +20,7 @@ data/07_chunked_documents/*
 
 # Ignore merged chunked documents
 data/10_merged_chunked_documents/*
-scripts/14_merge_chunked_documents.py
+scripts/16_merge_chunked_documents.py
 
 # Local models
 models/generator/*

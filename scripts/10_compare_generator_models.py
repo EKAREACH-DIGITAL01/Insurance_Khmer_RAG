@@ -42,29 +42,40 @@ from sentence_transformers import SentenceTransformer
 #
 #   Answer Correctness -- BGE-M3 cosine similarity between generated answer
 #                         and expected_answer. Mirrors RAGAS's own Answer
-#                         Semantic Similarity metric exactly.
+#                         Semantic Similarity metric exactly. Uses its OWN
+#                         threshold set (ANSWER_CORRECTNESS_THRESHOLDS),
+#                         calibrated against this corpus's real distribution
+#                         -- see docs/SCORING_CALIBRATION.md.
 #
 #   Answer Relevance   -- BGE-M3 cosine similarity between generated answer
 #                         and the original question. Crude but zero-LLM proxy
-#                         for "does this answer address what was asked".
+#                         for "does this answer address what was asked". Uses
+#                         its OWN threshold set (ANSWER_RELEVANCE_THRESHOLDS)
+#                         -- this metric's similarity ceiling sits structurally
+#                         lower than Answer Correctness's (a question and its
+#                         answer are different grammatical forms), so sharing
+#                         one threshold set with Answer Correctness would make
+#                         a 5 nearly unreachable here. See
+#                         docs/SCORING_CALIBRATION.md.
 #
 #   Completeness       -- Checks (a) whether the answer ends with a Khmer
 #                         sentence-final punctuation mark (។ or ៕), and (b)
-#                         the length ratio of generated vs expected answer.
-#                         Penalises truncated answers that hit max_tokens
-#                         mid-sentence -- a real failure mode on longer
-#                         answers that cosine similarity alone won't catch
-#                         (a 60%-complete answer still embeds close to the
-#                         full expected answer).
-#                         Score 1-5: 5 = ends cleanly AND length >= 80% of
-#                         expected, 1 = truncated AND length < 40% of expected.
+#                         the length ratio of generated vs expected answer,
+#                         with BOTH a floor (catches truncation) AND a ceiling
+#                         (catches routine over-length/padding). The ceiling
+#                         was added after real data showed one model's
+#                         length_ratio routinely running 2-4x+ the expected
+#                         answer's length while still scoring a free 5 under
+#                         the original floor-only logic -- see
+#                         docs/SCORING_CALIBRATION.md for the full evidence.
 #
 # WEIGHTS (legal domain priorities):
 #   Context Relevance  0.20  -- retrieval correctness
 #   Faithfulness       0.25  -- fabricated numbers are actively harmful
 #   Answer Correctness 0.25  -- semantic match to ground truth
 #   Answer Relevance   0.15  -- addresses the question
-#   Completeness       0.15  -- full answer, not truncated mid-sentence
+#   Completeness       0.15  -- full answer, not truncated mid-sentence,
+#                               not padded well past the expected length
 #
 # REAL-TIME WRITING: every generated answer is written to disk immediately
 # after generation. If the run is interrupted (laptop dies, crash), every
@@ -73,7 +84,7 @@ from sentence_transformers import SentenceTransformer
 #
 # DRY RUN: pass --dry-run to run exactly 1 question per model and print the
 # raw answer to the terminal. Use this to verify all 4 models behave
-# technically correctly before committing to the full ~13-hour run.
+# technically correctly before committing to the full ~6-hour run.
 #
 # USAGE:
 #   python scripts/10_compare_generator_models.py            # full run
@@ -135,14 +146,13 @@ NUMBER_PATTERN = re.compile(r"[0-9]+|[០១២៣៤៥៦៧៨៩]+")
 
 KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
 
-# Cosine similarity → 1-5 bucket thresholds
-SIMILARITY_THRESHOLDS = [
-    (0.85, 5),
-    (0.75, 4),
-    (0.60, 3),
-    (0.45, 2),
-    (0.00, 1),
-]
+# Cosine similarity -> 1-5 bucket thresholds. Two SEPARATE sets because
+# Answer Correctness (answer vs. expected_answer) and Answer Relevance
+# (answer vs. question) compare structurally different text pairs with
+# different natural similarity ceilings -- see docs/SCORING_CALIBRATION.md
+# for the full percentile evidence behind both.
+ANSWER_CORRECTNESS_THRESHOLDS = [(0.90,5),(0.80,4),(0.70,3),(0.60,2),(0.50,1),(0.00,1)]
+ANSWER_RELEVANCE_THRESHOLDS = [(0.82,5),(0.75,4),(0.65,3),(0.55,2),(0.00,1)]
 
 BOLD  = "\033[1m"
 RESET = "\033[0m"
@@ -293,8 +303,8 @@ def cosine_similarity(vec_a, vec_b):
     return float(np.dot(vec_a, vec_b))
 
 
-def similarity_to_score(sim):
-    for threshold, score in SIMILARITY_THRESHOLDS:
+def similarity_to_score(sim, thresholds):
+    for threshold, score in thresholds:
         if sim >= threshold:
             return score
     return 1
@@ -312,7 +322,14 @@ def score_context_relevance(context_chunk_ids, expected_chunks):
 def score_faithfulness(generated_answer, context):
     """Number-overlap proxy: what fraction of numbers in the generated answer
     also appear in the retrieved context? Returns (score_1_to_5, grounded,
-    total, ungrounded_list)."""
+    total, ungrounded_list).
+
+    CONFIRMED by real evidence (see docs/SCORING_CALIBRATION.md): this
+    metric correctly separated Qwen (writes 2.9-4.3x more numbers per
+    answer than the other 3 models, with only 72% grounded vs 94-100%
+    for the others) from the rest -- a real, substantial difference in
+    hallucination behaviour, not a length artifact (this is fraction-
+    based per answer, already normalised for length). Left unchanged."""
     answer_numbers = set(NUMBER_PATTERN.findall(generated_answer))
     if not answer_numbers:
         # No numbers to check -- neutral score, not automatic 5
@@ -338,13 +355,31 @@ def score_completeness(generated_answer, expected_answer):
     """Checks two things:
     1. Does the answer end with Khmer sentence-final punctuation (។ or ៕)?
        Answers that end mid-word/mid-sentence hit max_tokens and are incomplete.
-    2. Length ratio: len(generated) / len(expected). A very short answer
-       relative to the expected answer is likely incomplete even if it ends
-       with punctuation.
-    Score 1-5:
-       5 = ends cleanly AND length ratio >= 0.80
-       4 = ends cleanly AND length ratio >= 0.60
-       3 = ends cleanly AND length ratio >= 0.40, OR truncated but ratio >= 0.80
+    2. Length ratio: len(generated) / len(expected). Both TOO SHORT and
+       TOO LONG relative to the expected answer are penalised.
+
+    FIXED by real evidence (see docs/SCORING_CALIBRATION.md): the
+    original version of this function only checked a FLOOR
+    (length_ratio >= 0.80 -> automatic 5 if ends cleanly), with NO
+    CEILING -- a length_ratio of 0.85 and a length_ratio of 10.0 scored
+    identically. Real data showed this isn't a hypothetical edge case:
+    Qwen's length_ratio median across 100 real answers was already 1.98x
+    (49/100 answers over 2x, 30/100 over 3x, max 10.0x), while SeaLLM and
+    Gemma rarely exceeded 2x (9/100 and 2/100 respectively). Combined
+    with Faithfulness's finding that Qwen also grounds a smaller
+    fraction of the numbers it states, the evidence points to a real
+    pattern -- Qwen routinely writes long, elaborated answers containing
+    more unverified detail -- that the floor-only version was silently
+    rewarding with a free perfect score.
+
+    Score 1-5 (ends_cleanly branch):
+       5 = ends cleanly AND 0.80 <= length ratio <= 2.00
+       4 = ends cleanly AND (0.60 <= ratio < 0.80, OR 2.00 < ratio <= 3.00)
+       3 = ends cleanly AND (ratio < 0.60, OR ratio > 3.00)
+    Score 1-5 (truncated branch -- UNCHANGED from original design, since
+    the evidence above was specifically about the ceiling, not this
+    branch):
+       3 = truncated AND ratio >= 0.80
        2 = truncated AND ratio >= 0.40
        1 = truncated AND ratio < 0.40
     """
@@ -358,11 +393,15 @@ def score_completeness(generated_answer, expected_answer):
     length_ratio = len(stripped) / len(expected_answer)
 
     if ends_cleanly:
-        if length_ratio >= 0.80:
+        if 0.80 <= length_ratio <= 2.00:
             score = 5
-        elif length_ratio >= 0.60:
+        elif (0.60 <= length_ratio < 0.80) or (2.00 < length_ratio <= 3.00):
             score = 4
         else:
+            # either genuinely short (< 0.60) or well past 3x expected
+            # length (> 3.00) -- not penalised as harshly as a real
+            # truncation, since the model DID finish its thought, but no
+            # longer a free top score either way.
             score = 3
     else:
         if length_ratio >= 0.80:
@@ -526,7 +565,7 @@ def score_answer(
             dtype="float32",
         )
         ans_correct_sim   = cosine_similarity(vecs[0], vecs[1])
-        ans_correct_score = similarity_to_score(ans_correct_sim)
+        ans_correct_score = similarity_to_score(ans_correct_sim, ANSWER_CORRECTNESS_THRESHOLDS)
 
     # 4. Answer Relevance (BGE-M3 cosine vs question)
     ans_rel_score = None
@@ -539,9 +578,9 @@ def score_answer(
             dtype="float32",
         )
         ans_rel_sim   = cosine_similarity(vecs[0], vecs[1])
-        ans_rel_score = similarity_to_score(ans_rel_sim)
+        ans_rel_score = similarity_to_score(ans_rel_sim, ANSWER_RELEVANCE_THRESHOLDS)
 
-    # 5. Completeness (punctuation + length ratio)
+    # 5. Completeness (punctuation + length ratio, floor AND ceiling)
     comp_score, ends_cleanly, length_ratio = score_completeness(
         answer_text, expected_answer
     )
@@ -1108,8 +1147,11 @@ def write_final_report(summaries):
             "Fully automated proxy metrics -- no human scoring. "
             "Context Relevance is exact (deterministic chunk-ID overlap). "
             "Faithfulness uses number-overlap against retrieved context. "
-            "Answer Correctness and Answer Relevance use BGE-M3 cosine similarity. "
-            "Completeness checks sentence-final punctuation and length ratio vs expected answer. "
+            "Answer Correctness and Answer Relevance use BGE-M3 cosine "
+            "similarity, each with its OWN threshold set calibrated against "
+            "this corpus's real distribution (see docs/SCORING_CALIBRATION.md). "
+            "Completeness checks sentence-final punctuation and BOTH a floor "
+            "and a ceiling on length ratio vs expected answer. "
             "weighted_combined is normalised by the sum of weights that had values, "
             "so missing metrics (e.g. answer_correctness when expected_answer is absent) "
             "do not artificially deflate the combined score. "
