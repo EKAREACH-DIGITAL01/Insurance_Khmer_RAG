@@ -6,12 +6,12 @@
   "truncated_answers": 23,
   "scores_avg": {
     "context_relevance": 4.44,
-    "faithfulness": 4.49,
-    "answer_correctness": 4.8,
+    "faithfulness": 4.5,
+    "answer_correctness": 4.79,
     "answer_relevance": 3.83,
-    "completeness": 4.3
+    "completeness": 4.31
   },
-  "combined_avg": 4.43,
+  "combined_avg": 4.4315,
   "per_category": {
     "guidance": {
       "scores": {
@@ -30,15 +30,15 @@
     "laws": {
       "scores": {
         "context_relevance": 4.04,
-        "faithfulness": 4.52,
-        "answer_correctness": 4.68,
+        "faithfulness": 4.56,
+        "answer_correctness": 4.64,
         "answer_relevance": 3.76,
-        "completeness": 4.0
+        "completeness": 4.08
       },
       "timing": {
-        "first_token_time_avg": 26.7369,
-        "generation_time_avg": 67.0841,
-        "tokens_out_avg": 364.5
+        "first_token_time_avg": 27.2058,
+        "generation_time_avg": 67.3059,
+        "tokens_out_avg": 356.1
       }
     },
     "prakas": {
@@ -61,27 +61,27 @@
         "faithfulness": 4.36,
         "answer_correctness": 4.8,
         "answer_relevance": 3.64,
-        "completeness": 4.16
+        "completeness": 4.12
       },
       "timing": {
-        "first_token_time_avg": 39.938,
-        "generation_time_avg": 75.9765,
-        "tokens_out_avg": 303.8
+        "first_token_time_avg": 41.5771,
+        "generation_time_avg": 80.6102,
+        "tokens_out_avg": 321.2
       }
     }
   },
   "timing_avg": {
-    "first_token_time": 35.0302,
-    "generation_time": 69.0545,
-    "tokens_per_sec": 9.0099
+    "first_token_time": 35.5572,
+    "generation_time": 70.2683,
+    "tokens_per_sec": 8.9503
   },
   "timing_detail": {
-    "first_token_time_avg": 35.0302,
-    "first_token_time_p50": 29.3651,
+    "first_token_time_avg": 35.5572,
+    "first_token_time_p50": 31.0308,
     "first_token_time_p95": 86.8144,
-    "generation_time_avg": 69.0545,
-    "tokens_per_sec_avg": 9.0099,
-    "tokens_out_avg": 300.3,
+    "generation_time_avg": 70.2683,
+    "tokens_per_sec_avg": 8.9503,
+    "tokens_out_avg": 302.6,
     "tokens_out_min": 82,
     "tokens_out_max": 570
   }

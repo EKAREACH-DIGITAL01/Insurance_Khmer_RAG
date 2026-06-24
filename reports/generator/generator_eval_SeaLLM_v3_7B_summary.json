@@ -1,17 +1,17 @@
 {
   "label": "SeaLLM v3 7B",
   "total_questions": 100,
-  "valid_questions": 97,
-  "failed_questions": 3,
-  "truncated_answers": 10,
+  "valid_questions": 100,
+  "failed_questions": 0,
+  "truncated_answers": 11,
   "scores_avg": {
-    "context_relevance": 4.4227,
-    "faithfulness": 4.433,
-    "answer_correctness": 4.8144,
-    "answer_relevance": 3.8557,
-    "completeness": 4.5464
+    "context_relevance": 4.48,
+    "faithfulness": 4.45,
+    "answer_correctness": 4.82,
+    "answer_relevance": 3.85,
+    "completeness": 4.54
   },
-  "combined_avg": 4.4567,
+  "combined_avg": 4.472,
   "per_category": {
     "guidance": {
       "scores": {
@@ -29,59 +29,59 @@
     },
     "laws": {
       "scores": {
-        "context_relevance": 3.9565,
-        "faithfulness": 4.3913,
-        "answer_correctness": 4.6522,
-        "answer_relevance": 3.6957,
-        "completeness": 4.5652
+        "context_relevance": 4.04,
+        "faithfulness": 4.44,
+        "answer_correctness": 4.68,
+        "answer_relevance": 3.68,
+        "completeness": 4.6
       },
       "timing": {
-        "first_token_time_avg": 18.0322,
-        "generation_time_avg": 41.1455,
-        "tokens_out_avg": 294.2
+        "first_token_time_avg": 17.6762,
+        "generation_time_avg": 40.4169,
+        "tokens_out_avg": 284.9
       }
     },
     "prakas": {
       "scores": {
-        "context_relevance": 4.25,
-        "faithfulness": 4.4167,
-        "answer_correctness": 4.8333,
-        "answer_relevance": 3.875,
-        "completeness": 4.4583
+        "context_relevance": 4.28,
+        "faithfulness": 4.44,
+        "answer_correctness": 4.84,
+        "answer_relevance": 3.88,
+        "completeness": 4.4
       },
       "timing": {
-        "first_token_time_avg": 17.7013,
-        "generation_time_avg": 33.9344,
-        "tokens_out_avg": 221.8
+        "first_token_time_avg": 18.8782,
+        "generation_time_avg": 37.2753,
+        "tokens_out_avg": 238.9
       }
     },
     "sub_decrees": {
       "scores": {
-        "context_relevance": 4.68,
+        "context_relevance": 4.84,
         "faithfulness": 4.32,
         "answer_correctness": 4.88,
         "answer_relevance": 3.8,
         "completeness": 4.68
       },
       "timing": {
-        "first_token_time_avg": 24.1549,
-        "generation_time_avg": 45.7033,
-        "tokens_out_avg": 284.3
+        "first_token_time_avg": 24.3873,
+        "generation_time_avg": 46.1766,
+        "tokens_out_avg": 285.2
       }
     }
   },
   "timing_avg": {
-    "first_token_time": 22.2762,
-    "generation_time": 42.1358,
-    "tokens_per_sec": 13.1431
+    "first_token_time": 22.4089,
+    "generation_time": 42.8054,
+    "tokens_per_sec": 12.9926
   },
   "timing_detail": {
-    "first_token_time_avg": 22.2762,
-    "first_token_time_p50": 19.5641,
-    "first_token_time_p95": 53.5757,
-    "generation_time_avg": 42.1358,
-    "tokens_per_sec_avg": 13.1431,
-    "tokens_out_avg": 258.7,
+    "first_token_time_avg": 22.4089,
+    "first_token_time_p50": 19.452,
+    "first_token_time_p95": 52.6057,
+    "generation_time_avg": 42.8054,
+    "tokens_per_sec_avg": 12.9926,
+    "tokens_out_avg": 261.2,
     "tokens_out_min": 73,
     "tokens_out_max": 726
   }
