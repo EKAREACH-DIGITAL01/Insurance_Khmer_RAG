@@ -4,6 +4,10 @@
     "expected_behavior": "refuse"
   },
   {
+    "question": "តើអ្នកជានរណា?",
+    "expected_behavior": "refuse"
+  },
+  {
     "question": "ហេតុអ្វីបានជាអ្នកឆ្លើយមិនចេញ?",
     "expected_behavior": "refuse"
   },
@@ -16,11 +20,27 @@
     "expected_behavior": "refuse"
   },
   {
+    "question": "ថ្ងៃនេះភ្នំពេញភ្លៀងទេ?",
+    "expected_behavior": "refuse"
+  },
+  {
     "question": "ខ្ញុំពិបាកចិត្តណាស់ជួយខ្ញុំផង",
     "expected_behavior": "refuse"
   },
   {
-    "question": "who is messi?",
+    "question": "២ បូក ២ ស្មើប៉ុន្មាន?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "ជួយបកប្រែពាក្យ insurance ទៅជាភាសាខ្មែរ",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "សរសេរ Python hello world មួយឱ្យខ្ញុំ",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question": "Who is Messi?",
     "expected_behavior": "refuse"
   },
   {
@@ -29,6 +49,10 @@
   },
   {
     "question": "តើអ្វីទៅជាធានារ៉ាប់រងខ្នាតតូច?",
+    "expected_behavior": "answer"
+  },
+  {
+    "question": "តើអង្គការធានារ៉ាប់រងមានប្រភេទអ្វីខ្លះ?",
     "expected_behavior": "answer"
   }
 ]
