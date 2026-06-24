@@ -14,7 +14,7 @@ os.environ["HF_HOME"] = str(_HF_CACHE_DIR)
 from sentence_transformers import SentenceTransformer
 
 # ----------------------------------------------------------------------------
-# Embedding Comparison Report (Internship Proposal §6.3, §12)
+# Embedding Model Comparison Report (Internship Proposal §6.3, §12)
 # ----------------------------------------------------------------------------
 # "Students should research and compare at least two multilingual text
 # embedding approaches, evaluating their performance on Khmer insurance
@@ -79,7 +79,7 @@ from sentence_transformers import SentenceTransformer
 
 EVALUATION_ROOT = Path("data/08_evaluation")
 VECTOR_DB_ROOT = Path("vector_db")
-REPORTS_DIR = Path("reports/embeddings")
+REPORTS_DIR = Path("reports/embedding_model_comparison")
 
 EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
@@ -505,14 +505,14 @@ def write_reports(model_results, comparison_rows, comparison_headers, recommenda
         "recommendation": recommendation,
         "eval_ks": EVAL_KS,
     }
-    json_path = REPORTS_DIR / "embedding_comparison.json"
+    json_path = REPORTS_DIR / "embedding_model_comparison.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(json_payload, f, ensure_ascii=False, indent=2)
 
     def md_table(title, rows, headers):
         return f"### {title}\n\n" + tabulate(rows, headers=headers, tablefmt="github", floatfmt=".4f") + "\n\n"
 
-    md_parts = ["# Embedding Comparison Report\n\n"]
+    md_parts = ["# Embedding Model Comparison Report\n\n"]
     md_parts.append(
         f"Compares {len(model_results)} embedding models (dense-only, no "
         "hybrid/BM25) on the full gold question set, per Internship "
@@ -552,7 +552,7 @@ def write_reports(model_results, comparison_rows, comparison_headers, recommenda
     md_parts.append(tabulate(comparison_rows, headers=comparison_headers, tablefmt="github"))
     md_parts.append("\n\n## Recommendation\n\n```\n" + recommendation + "\n```\n")
 
-    md_path = REPORTS_DIR / "embedding_comparison.md"
+    md_path = REPORTS_DIR / "embedding_model_comparison.md"
     with open(md_path, "w", encoding="utf-8") as f:
         f.write("".join(md_parts))
 

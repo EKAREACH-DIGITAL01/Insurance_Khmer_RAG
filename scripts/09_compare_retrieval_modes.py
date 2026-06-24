@@ -24,7 +24,7 @@ ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
 INDEX_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
 METADATA_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
 EVALUATION_ROOT = Path("data/08_evaluation")
-REPORTS_DIR = Path("reports/retrieval")
+REPORTS_DIR = Path("reports/retrieval_mode_comparison")
 
 EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
@@ -408,7 +408,7 @@ def write_reports(dense_tables, hybrid_tables):
         "eval_ks":       EVAL_KS,
         "metric_headers": metric_headers,
     }
-    json_path = REPORTS_DIR / "retrieval_eval.json"
+    json_path = REPORTS_DIR / "retrieval_mode_comparison.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(json_payload, f, ensure_ascii=False, indent=2)
 
@@ -419,7 +419,7 @@ def write_reports(dense_tables, hybrid_tables):
             + "\n\n"
         )
 
-    md_parts = ["# Retrieval Evaluation Report\n\n"]
+    md_parts = ["# Retrieval Mode Comparison Report\n\n"]
     for mode_label, tables in [
         ("Dense-Only (BGE-M3)", dense_tables),
         ("Hybrid (BGE-M3 + BM25, RRF)", hybrid_tables),
@@ -449,7 +449,7 @@ def write_reports(dense_tables, hybrid_tables):
     md_parts.append(tabulate(comp_md_rows, headers=comp_headers, tablefmt="github"))
     md_parts.append("\n")
 
-    md_path = REPORTS_DIR / "retrieval_eval.md"
+    md_path = REPORTS_DIR / "retrieval_mode_comparison.md"
     with open(md_path, "w", encoding="utf-8") as f:
         f.write("".join(md_parts))
 
@@ -485,4 +485,4 @@ write_reports(dense_tables, hybrid_tables)
 
 elapsed_time = time.time() - start_time
 print(f"\nTotal Runtime : {elapsed_time:.2f} seconds")
-print("Retriever evaluation completed successfully (dense + hybrid).")
+print("Retrieval mode comparison completed successfully (dense + hybrid).")
