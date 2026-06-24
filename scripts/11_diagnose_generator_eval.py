@@ -12,7 +12,7 @@ from pathlib import Path
 # re-checking -- e.g. after adding new gold questions, swapping in a
 # different embedding model, or adding a 5th generator model.
 #
-# Reads ONLY from reports/generator/generator_eval_<model>.jsonl --
+# Reads ONLY from reports/generator_model_comparison/<model>/generated_answer_results.jsonl --
 # never touches llama-server, never re-generates anything. Pure
 # read-and-report over data scripts/10 already produced.
 #
@@ -26,19 +26,23 @@ from pathlib import Path
 
 import argparse
 
-REPORTS_DIR = Path("reports/generator")
-MODEL_LABELS = ["SeaLLM_v3_7B", "Qwen_3.5_9B", "Gemma_4_E4B", "Llama_3.1_8B"]
+REPORTS_DIR = Path("reports/generator_model_comparison")
+MODEL_DIRS = [
+    "SeaLLMs-v3-7B-Chat-Q4_K_M",
+    "Qwen3.5-9B-Q4_K_M",
+    "gemma-4-E4B-it-Q4_K_M",
+    "Llama-3.1-8B-Instruct-Q4_K_M",
+]
 
 SEPARATOR_WIDTH = 100
 SEPARATOR = "=" * SEPARATOR_WIDTH
 
-
-def load_entries(label):
+def load_entries(model_dir):
     """Loads all non-error entries for one model's JSONL file. Returns
     an empty list with a warning if the file doesn't exist, rather than
     crashing -- useful if this is run before all 4 models have finished,
     or with a different model lineup than the original 4."""
-    path = REPORTS_DIR / f"generator_eval_{label}.jsonl"
+    path = (REPORTS_DIR / model_dir / f"generated_answer_results.jsonl")
     if not path.exists():
         print(f"  [skip] {path} not found")
         return []
@@ -80,12 +84,12 @@ def check_context_relevance():
     print(" generator-independent. A model that looks different here")
     print(" suggests something broke, not a generator quality difference.)")
     print(SEPARATOR)
-    for label in MODEL_LABELS:
-        entries = load_entries(label)
+    for model_dir in MODEL_DIRS:
+        entries = load_entries(model_dir)
         if not entries:
             continue
         counts = Counter(e.get("scores", {}).get("context_relevance") for e in entries)
-        print(f"  {label}: {dict(sorted(counts.items(), key=lambda kv: (kv[0] is None, kv[0])))}")
+        print(f"  {model_dir}: {dict(sorted(counts.items(), key=lambda kv: (kv[0] is None, kv[0])))}")
 
 
 def check_faithfulness():
@@ -99,8 +103,8 @@ def check_faithfulness():
     print(f"\n{SEPARATOR}")
     print("FAITHFULNESS -- number-grounding breakdown per model")
     print(SEPARATOR)
-    for label in MODEL_LABELS:
-        entries = load_entries(label)
+    for model_dir in MODEL_DIRS:
+        entries = load_entries(model_dir)
         if not entries:
             continue
         total_numbers = sum(e.get("detail", {}).get("faithfulness_total_numbers", 0) for e in entries)
@@ -110,7 +114,7 @@ def check_faithfulness():
         )
         frac = total_grounded / total_numbers if total_numbers else None
         print(
-            f"  {label}: n={len(entries)}, total_numbers={total_numbers}, "
+            f"  {model_dir}: n={len(entries)}, total_numbers={total_numbers}, "
             f"grounded={total_grounded}, "
             f"overall_fraction={f'{frac:.4f}' if frac is not None else 'N/A'}, "
             f"answers_with_zero_numbers={zero_number_count}"
@@ -129,8 +133,8 @@ def check_completeness():
     print(f"\n{SEPARATOR}")
     print("COMPLETENESS -- ends_cleanly rate + length_ratio distribution per model")
     print(SEPARATOR)
-    for label in MODEL_LABELS:
-        entries = load_entries(label)
+    for model_dir in MODEL_DIRS:
+        entries = load_entries(model_dir)
         if not entries:
             continue
         ends_cleanly_count = sum(
@@ -147,14 +151,14 @@ def check_completeness():
             over_2x = sum(1 for r in ratios if r > 2.0)
             over_3x = sum(1 for r in ratios if r > 3.0)
             print(
-                f"  {label}: n={n}, ends_cleanly={ends_cleanly_count}/{n} "
+                f"  {model_dir}: n={n}, ends_cleanly={ends_cleanly_count}/{n} "
                 f"({ends_cleanly_count/n:.1%}), "
                 f"length_ratio min={min(ratios):.3f} p50={p[50]:.3f} p75={p[75]:.3f} "
                 f"p90={p[90]:.3f} p95={p[95]:.3f} max={max(ratios):.3f} "
                 f"| count>2.0x={over_2x} count>3.0x={over_3x}"
             )
         else:
-            print(f"  {label}: n={n}, no length_ratio data found")
+            print(f"  {model_dir}: n={n}, no length_ratio data found")
 
 
 def check_similarity_metric(metric_key, detail_field, label_text):
@@ -169,8 +173,8 @@ def check_similarity_metric(metric_key, detail_field, label_text):
     print(f"\n{SEPARATOR}")
     print(f"{label_text} -- raw similarity distribution per model")
     print(SEPARATOR)
-    for label in MODEL_LABELS:
-        entries = load_entries(label)
+    for model_dir in MODEL_DIRS:
+        entries = load_entries(model_dir)
         if not entries:
             continue
         sims = [
@@ -179,11 +183,11 @@ def check_similarity_metric(metric_key, detail_field, label_text):
             if e.get("detail", {}).get(detail_field) is not None
         ]
         if not sims:
-            print(f"  {label}: no {detail_field} values found")
+            print(f"  {model_dir}: no {detail_field} values found")
             continue
         p = percentiles(sims)
         print(
-            f"  {label}: n={len(sims)} min={min(sims):.4f} p10={p[10]:.4f} "
+            f"  {model_dir}: n={len(sims)} min={min(sims):.4f} p10={p[10]:.4f} "
             f"p25={p[25]:.4f} p50={p[50]:.4f} p75={p[75]:.4f} p90={p[90]:.4f} "
             f"max={max(sims):.4f}"
         )

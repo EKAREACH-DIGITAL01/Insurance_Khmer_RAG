@@ -13,7 +13,7 @@ from pathlib import Path
 #
 # WHAT THIS SCRIPT DOES
 # Re-derives every score-able metric from values ALREADY STORED in each
-# model's reports/generator/generator_eval_<model>.jsonl file
+# model's reports/generator_model_comparison/<model>/generated_answer_results.jsonl file
 # (specifically: detail.answer_correctness_similarity, detail.
 # answer_relevance_similarity, detail.faithfulness_grounded /
 # faithfulness_total_numbers, detail.completeness_ends_cleanly /
@@ -44,7 +44,7 @@ from pathlib import Path
 # rescoring pass's output.
 # ============================================================================
 
-REPORTS_DIR = Path("reports/generator")
+REPORTS_DIR = Path("reports/generator_model_comparison")
 
 # ----------------------------------------------------------------------------
 # METRIC: Answer Correctness
@@ -362,9 +362,9 @@ def rescore_file(path):
 
 
 def main():
-    jsonl_files = sorted(REPORTS_DIR.glob("generator_eval_*.jsonl"))
+    jsonl_files = sorted(REPORTS_DIR.glob("*/generated_answer_results.jsonl"))
     if not jsonl_files:
-        raise SystemExit(f"No generator_eval_*.jsonl files found in {REPORTS_DIR}/.")
+        raise SystemExit(f"No generated_answer_results.jsonl files found in {REPORTS_DIR}/.")
 
     print("Rescoring with current calibration (see this script's header comments")
     print("for the full evidence behind every threshold below):\n")
@@ -385,13 +385,13 @@ def main():
     # Stale summary JSON files now reflect the OLD calibration -- delete
     # them so scripts/10's model-level resume check is forced to recompute
     # via summarise() rather than trusting an outdated cached summary.
-    summary_files = sorted(REPORTS_DIR.glob("generator_eval_*_summary.json"))
+    summary_files = sorted(REPORTS_DIR.glob("*/generated_answer_results_summary.json"))
     print(f"\nRemoving {len(summary_files)} stale summary file(s) (will be regenerated):")
     for path in summary_files:
         print(f"  - {path.name}")
         path.unlink()
 
-    comparison_path = REPORTS_DIR / "generator_comparison.json"
+    comparison_path = REPORTS_DIR / "generator_model_comparison.json"
     if comparison_path.exists():
         print(f"  - {comparison_path.name}")
         comparison_path.unlink()
