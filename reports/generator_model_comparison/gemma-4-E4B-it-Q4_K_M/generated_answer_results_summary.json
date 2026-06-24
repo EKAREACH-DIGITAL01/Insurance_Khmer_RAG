@@ -3,85 +3,85 @@
   "total_questions": 100,
   "valid_questions": 100,
   "failed_questions": 0,
-  "truncated_answers": 47,
+  "truncated_answers": 45,
   "scores_avg": {
     "context_relevance": 4.44,
-    "faithfulness": 4.27,
-    "answer_correctness": 4.4571,
-    "answer_relevance": 3.5143,
-    "completeness": 3.26
+    "faithfulness": 4.3,
+    "answer_correctness": 4.3412,
+    "answer_relevance": 3.4118,
+    "completeness": 3.46
   },
-  "combined_avg": 3.9968,
+  "combined_avg": 4.0385,
   "per_category": {
     "guidance": {
       "scores": {
         "context_relevance": 4.76,
-        "faithfulness": 4.36,
-        "answer_correctness": 4.7059,
-        "answer_relevance": 3.8235,
-        "completeness": 3.32
+        "faithfulness": 4.48,
+        "answer_correctness": 4.5455,
+        "answer_relevance": 3.7273,
+        "completeness": 3.64
       },
       "timing": {
-        "first_token_time_avg": 24.7857,
-        "generation_time_avg": 43.3298,
-        "tokens_out_avg": 85.5
+        "first_token_time_avg": 37.7456,
+        "generation_time_avg": 48.1455,
+        "tokens_out_avg": 100.9
       }
     },
     "laws": {
       "scores": {
         "context_relevance": 4.04,
-        "faithfulness": 4.36,
-        "answer_correctness": 4.3889,
-        "answer_relevance": 3.2222,
-        "completeness": 3.48
+        "faithfulness": 4.4,
+        "answer_correctness": 4.2381,
+        "answer_relevance": 3.0476,
+        "completeness": 3.68
       },
       "timing": {
-        "first_token_time_avg": 21.9388,
-        "generation_time_avg": 38.3091,
-        "tokens_out_avg": 90.3
+        "first_token_time_avg": 30.6999,
+        "generation_time_avg": 42.1874,
+        "tokens_out_avg": 101.5
       }
     },
     "prakas": {
       "scores": {
         "context_relevance": 4.28,
-        "faithfulness": 4.16,
-        "answer_correctness": 4.5714,
-        "answer_relevance": 3.7619,
-        "completeness": 3.84
+        "faithfulness": 4.2,
+        "answer_correctness": 4.6087,
+        "answer_relevance": 3.6957,
+        "completeness": 3.96
       },
       "timing": {
-        "first_token_time_avg": 26.1571,
-        "generation_time_avg": 37.3413,
-        "tokens_out_avg": 102.2
+        "first_token_time_avg": 32.1129,
+        "generation_time_avg": 39.7024,
+        "tokens_out_avg": 107.9
       }
     },
     "sub_decrees": {
       "scores": {
         "context_relevance": 4.68,
-        "faithfulness": 4.2,
-        "answer_correctness": 4.0714,
-        "answer_relevance": 3.1429,
-        "completeness": 2.4
+        "faithfulness": 4.12,
+        "answer_correctness": 3.8947,
+        "answer_relevance": 3.1053,
+        "completeness": 2.56
       },
       "timing": {
-        "first_token_time_avg": 21.6838,
-        "generation_time_avg": 44.6293,
-        "tokens_out_avg": 75.2
+        "first_token_time_avg": 34.6434,
+        "generation_time_avg": 49.591,
+        "tokens_out_avg": 86.1
       }
     }
   },
   "timing_avg": {
-    "first_token_time": 23.6414,
-    "generation_time": 40.9024,
-    "tokens_per_sec": 18.5843
+    "first_token_time": 33.8004,
+    "generation_time": 44.9066,
+    "tokens_per_sec": 21.2072
   },
   "timing_detail": {
-    "first_token_time_avg": 23.6414,
-    "first_token_time_p50": 29.1935,
-    "first_token_time_p95": 43.3847,
-    "generation_time_avg": 40.9024,
-    "tokens_per_sec_avg": 18.5843,
-    "tokens_out_avg": 88.3,
+    "first_token_time_avg": 33.8004,
+    "first_token_time_p50": 32.9684,
+    "first_token_time_p95": 68.7601,
+    "generation_time_avg": 44.9066,
+    "tokens_per_sec_avg": 21.2072,
+    "tokens_out_avg": 99.1,
     "tokens_out_min": 0,
     "tokens_out_max": 308
   }
