@@ -52,7 +52,7 @@ JSONL_PATH = Path(
     "SeaLLMs-v3-7B-Chat-Q4_K_M/"
     "generated_answer_results.jsonl"
 )
-QUESTIONS_PER_EVALUATOR = 25
+QUESTIONS_PER_EVALUATOR = None  # all questions, in order
 
 METRICS = [
     {
@@ -170,8 +170,7 @@ def get_or_create_assignment(evaluator_id, all_questions):
     if rows:
         assignment = [r["question_idx"] for r in rows]
     else:
-        indices   = list(range(len(all_questions)))
-        assignment = random.sample(indices, min(QUESTIONS_PER_EVALUATOR, len(indices)))
+        assignment = list(range(len(all_questions)))
         for pos, qidx in enumerate(assignment):
             conn.execute(
                 "INSERT INTO assignments (evaluator_id, question_idx, position) VALUES (?, ?, ?)",
@@ -514,7 +513,7 @@ def page_login():
     st.markdown(
         '<div style="text-align:center; padding-top:22vh; padding-bottom:18px;">'
         '<div style="font-size:28px;font-weight:700;color:var(--stone);margin-bottom:8px;letter-spacing:-0.5px;">Khmer Rag Insurance Chatbot Evaluation</div>'
-        '<div style="font-size:15px;color:var(--stone-light);">Enter your name to begin your evaluation. You will be assigned 25 questions.</div>'
+        '<div style="font-size:15px;color:var(--stone-light);">Enter your name to begin your evaluation. You will evaluate all questions in order.</div>'
         '</div>',
         unsafe_allow_html=True,
     )
