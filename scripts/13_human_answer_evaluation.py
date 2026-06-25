@@ -281,177 +281,139 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     margin: 0 auto !important;
 }
 
-/* ── Metrics table card ─────────────────────────────────────────────── */
-[data-testid="stVerticalBlockBorderWrapper"] {
-    background: var(--parchment-soft) !important;
-    border: 1px solid var(--brass-soft) !important;
+/* ── Rating cards: 6 equal cards in a horizontal row ─────────────── */
+.st-key-metric_cards_row [data-testid="stHorizontalBlock"] {
+    align-items: stretch !important;
+    gap: 8px !important;
+}
+.st-key-metric_cards_row [data-testid="column"] {
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+}
+.st-key-metric_cards_row [data-testid="stVerticalBlockBorderWrapper"] {
+    background:
+        linear-gradient(var(--parchment-soft), var(--parchment-soft)) padding-box,
+        linear-gradient(160deg, var(--brass), var(--lacquer)) border-box !important;
+    border: 1.5px solid transparent !important;
     border-radius: 10px !important;
-    padding: 14px 20px !important;
-    margin-bottom: 4px !important;
+    padding: 12px 8px 10px !important;
+    margin: 0 !important;
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    transition: box-shadow 0.15s ease !important;
 }
-
-/* Collapse all default Streamlit spacing inside the card */
-[data-testid="stVerticalBlockBorderWrapper"] > div > [data-testid="stVerticalBlock"] {
-    gap: 0 !important;
+.st-key-metric_cards_row [data-testid="stVerticalBlockBorderWrapper"]:hover {
+    box-shadow: 0 4px 14px rgba(156, 43, 31, 0.15) !important;
 }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="element-container"] {
+.st-key-metric_cards_row [data-testid="stVerticalBlockBorderWrapper"] > div,
+.st-key-metric_cards_row [data-testid="stVerticalBlockBorderWrapper"] > div > [data-testid="stVerticalBlock"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    height: 100% !important;
+    overflow: visible !important;
+}
+.st-key-metric_cards_row [data-testid="column"] {
+    overflow: visible !important;
+}
+.st-key-metric_cards_row [data-testid="element-container"],
+.st-key-metric_cards_row [data-testid="stMarkdown"] {
     margin: 0 !important;
     padding: 0 !important;
     min-height: 0 !important;
-}
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMarkdown"] {
-    margin: 0 !important;
-    padding: 0 !important;
     line-height: 1 !important;
-}
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] {
-    gap: 0 !important;
-    align-items: center !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    overflow: visible !important;
 }
 
-/* ── Header label cells ──────────────────────────────────────────────
-   Each lives in its own st.columns([1,1,1,1,1]) sub-column so it
-   shares the exact pixel position as the radio option below it.     */
-.met-col-label {
+/* Card title with hover tooltip */
+.metric-card-title {
+    position: relative;
+    cursor: help;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.08em;
+    font-size: 7px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--stone-light);
     text-align: center;
-    padding-bottom: 6px;
-    display: block;
-}
-
-/* Thin rule under the entire header row */
-.met-header-rule {
-    border: none;
-    border-top: 1px solid var(--brass-soft);
-    margin: 0 0 0 0;
-}
-
-/* ── Metric name cell ─────────────────────────────────────────────── */
-.met-name-cell {
+    line-height: 1.1;
+    margin: 0 0 6px 0 !important;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--brass-soft);
+    min-height: 30px;
     display: flex;
     align-items: center;
-    height: 32px;          /* compact fixed height matches radio row */
-    position: relative;
+    justify-content: center;
 }
-.met-name {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--stone);
-    cursor: help;
-    border-bottom: 1px dotted var(--brass);
-    width: fit-content;
-    line-height: 1.2;
-}
-.met-name .met-tooltip {
+.metric-tooltip {
     position: absolute;
-    left: 0;
-    top: 100%;
-    margin-top: 6px;
-    width: 260px;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    width: 190px;
     background: var(--ink);
     color: var(--parchment-soft);
     font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 400;
-    line-height: 1.5;
-    border-radius: 6px;
-    padding: 8px 10px;
+    line-height: 1.55;
+    border-radius: 7px;
+    padding: 9px 11px;
+    text-transform: none;
+    letter-spacing: 0;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(-4px);
     transition: opacity 0.15s ease, transform 0.15s ease;
-    z-index: 20;
+    z-index: 999;
     pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    white-space: normal;
 }
-.met-name:hover .met-tooltip {
+.metric-card-title:hover .metric-tooltip {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translateX(-50%) translateY(0);
 }
 
-/* ── Row divider ──────────────────────────────────────────────────── */
-.met-row-divider {
-    border: none;
-    border-top: 1px solid var(--parchment);
-    margin: 0;
-}
-
-/* ── All radios inside the card ──────────────────────────────────────
-   Strip Streamlit's default widget chrome: label, margins, padding.
-   Then lay the options out in a tight horizontal row with dots only
-   (text hidden) — the header row above carries the labels.          */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] {
-    margin: 0 !important;
-    padding: 0 !important;
-}
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] > label {
-    display: none !important;   /* hide the widget-level label */
-}
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] > div[role="radiogroup"] {
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: space-around !important;
-    align-items: center !important;
-    gap: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    min-height: 32px !important;
-    max-height: 32px !important;
-}
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label {
+/* Unselected option button — higher specificity overrides global button rule */
+.st-key-metric_cards_row [data-testid="stBaseButton-secondary"] {
     background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    cursor: pointer !important;
-    display: flex !important;
-    flex: 1 1 0 !important;
-    justify-content: center !important;
-    align-items: center !important;
+    color: var(--stone-light) !important;
+    border: 1px solid var(--brass-soft) !important;
+    border-radius: 6px !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    padding: 5px 2px !important;
     box-shadow: none !important;
-    min-height: 0 !important;
-    max-height: 32px !important;
+    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease !important;
 }
-/* Hide text next to each dot — header row carries the labels */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label > div:last-child {
-    display: none !important;
-}
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label > div:first-child {
-    width: 16px !important;
-    height: 16px !important;
-    flex-shrink: 0 !important;
+.st-key-metric_cards_row [data-testid="stBaseButton-secondary"]:hover {
+    background: var(--brass-mist) !important;
+    border-color: var(--brass) !important;
+    color: var(--stone) !important;
 }
 
-/* ── Hallucination separator ──────────────────────────────────────── */
-.met-halluc-sep {
-    border: none;
-    border-top: 1px dashed var(--brass-soft);
-    margin: 4px 0;
+/* Selected option button */
+.st-key-metric_cards_row [data-testid="stBaseButton-primary"] {
+    background: var(--lacquer) !important;
+    color: var(--parchment-soft) !important;
+    border: 1px solid var(--lacquer) !important;
+    border-radius: 6px !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 5px 2px !important;
+    box-shadow: none !important;
 }
-
-/* ── Hallucination radio: restore Yes/No text labels ─────────────────
-   We emit a wrapper div.halluc-radio immediately before the st.radio
-   call. Streamlit renders both in the same column so the div becomes
-   a sibling (not ancestor) — but we can still use an adjacent-sibling
-   or the fact that .halluc-radio sits right before the widget in DOM
-   order inside the same flex column. Safest: over-ride at the column
-   level with a narrower scope using the key-based data attribute.
-
-   Streamlit adds data-testid on the widget container but not a
-   settable class. Instead we target the halluc radio by making its
-   radiogroup NOT use space-around (Yes/No only need left-aligned gap)
-   and restoring the text.
-
-   We do this by giving the wrapping column a unique st.columns key
-   and targeting via position — but the most reliable cross-version
-   approach is: render halluc OUTSIDE the border container so a
-   completely separate CSS rule can apply. See Python below.         */
+.st-key-metric_cards_row [data-testid="stBaseButton-primary"]:hover {
+    background: var(--lacquer-deep) !important;
+    border-color: var(--lacquer-deep) !important;
+}
 
 /* ── Progress ──────────────────────────────────────────────────────── */
 .prog-wrap   { margin-bottom: 14px; }
@@ -498,73 +460,9 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 .ev-answer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; margin-bottom: 16px; }
 .ev-answer-block { border-radius: 8px; padding: 12px 14px; font-family: 'Hanuman', sans-serif; font-size: 15px; line-height: 1.85; color: var(--stone); white-space: pre-wrap; }
 .ev-answer-block.expected  { background: var(--signal-soft); border: 1px solid rgba(46,125,82,0.20); }
-.ev-answer-block.generated { background: var(--parchment); border: 1px solid var(--brass-soft); }
+.ev-answer-block.generated { background: var(--brass-mist);; border: 1px solid var(--brass-soft); }
 .ev-answer-blank { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--danger); font-style: italic; }
 @media (max-width: 900px) { .ev-answer-grid { grid-template-columns: 1fr; } }
-
-/* ── Hallucination section (outside main card) ───────────────────── */
-.halluc-section {
-    background: var(--parchment-soft);
-    border: 1px solid var(--brass-soft);
-    border-radius: 10px;
-    padding: 10px 20px;
-    margin-top: 6px;
-    display: flex;
-    align-items: center;
-    gap: 0;
-}
-
-/* Target the hallucination container specifically by its position
-   after the metrics card — we give it a class via st.markdown wrapper
-   and use a narrow CSS rule. Since st.markdown can't wrap st.radio as
-   a true DOM parent in Streamlit, we instead move hallucination OUT of
-   the bordered container entirely and style it with its own rule set. */
-.halluc-outer [data-testid="stRadio"] > label { display: none !important; }
-.halluc-outer [data-testid="stRadio"] > div[role="radiogroup"] {
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: flex-start !important;
-    align-items: center !important;
-    gap: 20px !important;
-    min-height: 32px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-.halluc-outer [data-testid="stRadio"] label {
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    cursor: pointer !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 7px !important;
-    box-shadow: none !important;
-    min-height: 0 !important;
-}
-/* Keep the text label visible for Yes/No */
-.halluc-outer [data-testid="stRadio"] label > div:last-child {
-    display: flex !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-    color: var(--stone) !important;
-    margin: 0 !important;
-}
-.halluc-outer [data-testid="stRadio"] label > div:first-child {
-    width: 16px !important;
-    height: 16px !important;
-    flex-shrink: 0 !important;
-}
-.halluc-outer [data-testid="element-container"],
-.halluc-outer [data-testid="stMarkdown"] {
-    margin: 0 !important;
-    padding: 0 !important;
-    min-height: 0 !important;
-}
-.halluc-outer [data-testid="stHorizontalBlock"] {
-    gap: 0 !important;
-    align-items: center !important;
-}
 
 /* ── Score bar ────────────────────────────────────────────────────── */
 .score-row { display: flex; align-items: center; gap: 16px; }
@@ -715,91 +613,59 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
         unsafe_allow_html=True,
     )
 
-    # ── Metrics table ─────────────────────────────────────────────────
-    #
-    # Structure
-    # ---------
-    # • One st.container(border=True) holds the 5 quality metrics.
-    # • Every row — header + each metric — uses the same
-    #   st.columns([NAME_COL_WIDTH, 5]) split so Streamlit's grid
-    #   guarantees the radio column aligns with the header columns.
-    # • The header sub-divides its radio column into 5 equal
-    #   st.columns([1,1,1,1,1]) so each label sits above its dot.
-    # • Text labels on metric radios are hidden via CSS; the header
-    #   carries the labels. Dots only in each metric row = compact.
-    # • Hallucination lives in its own bordered container below so it
-    #   can have separate CSS (text labels, left-aligned, Yes/No only)
-    #   without fighting the hide-all rule on the main card.
-    #
+    # ── Rating cards (6 in a row) ─────────────────────────────────────
     current_scores: dict = {}
     all_scored = True
 
-    with st.container(border=True):
+    # Seed session state from DB data only on first visit to this question
+    for metric in METRICS:
+        sk = f"eval_{metric['key']}_{q_pos}"
+        if sk not in st.session_state:
+            st.session_state[sk] = existing.get(metric["key"])
 
-        # Header row
-        name_col, radio_col = st.columns([NAME_COL_WIDTH, 5], gap="small")
-        with name_col:
-            st.markdown('<div class="met-name-cell"></div>', unsafe_allow_html=True)
-        with radio_col:
-            label_cols = st.columns([1, 1, 1, 1, 1], gap="small")
-            for col, opt in zip(label_cols, CHIP_OPTS):
-                with col:
-                    st.markdown(f'<div class="met-col-label">{opt}</div>', unsafe_allow_html=True)
-        st.markdown('<hr class="met-header-rule">', unsafe_allow_html=True)
+    halluc_sk = f"eval_hallucination_{q_pos}"
+    if halluc_sk not in st.session_state:
+        st.session_state[halluc_sk] = existing.get(HALLUCINATION_KEY)
 
-        # One row per metric
-        for metric in METRICS:
-            pre = existing.get(metric["key"])
-            pre_label = (CHIP_OPTS[pre - 1] if isinstance(pre, int) and 1 <= pre <= 5 else None)
+    card_defs = [
+        {"key": m["key"], "label": m["label"], "desc": m["desc"], "options": CHIP_OPTS, "is_halluc": False}
+        for m in METRICS
+    ] + [{"key": HALLUCINATION_KEY, "label": "Hallucination",
+          "desc": "Does the answer include unsupported information — fabricated facts, incorrect references, or invented details?",
+          "options": HALLUC_OPTS, "is_halluc": True}]
 
-            name_col, radio_col = st.columns([NAME_COL_WIDTH, 5], gap="small")
-            with name_col:
-                st.markdown(_name_cell_html(metric["label"], metric["desc"]), unsafe_allow_html=True)
-            with radio_col:
-                chosen = st.radio(
-                    label=metric["key"],
-                    options=CHIP_OPTS,
-                    index=(CHIP_OPTS.index(pre_label) if pre_label in CHIP_OPTS else None),
-                    horizontal=True,
-                    key=f"radio_{metric['key']}_{q_pos}",
-                    label_visibility="collapsed",
-                )
+    with st.container(key="metric_cards_row"):
+        cols = st.columns(6, gap="small")
+        for col, card in zip(cols, card_defs):
+            with col:
+                with st.container(border=True):
+                    st.markdown(
+                        f'<p class="metric-card-title">{card["label"]}'
+                        f'<span class="metric-tooltip">{card["desc"]}</span>'
+                        f'</p>',
+                        unsafe_allow_html=True,
+                    )
+                    sk = halluc_sk if card["is_halluc"] else f"eval_{card['key']}_{q_pos}"
+                    for i, opt in enumerate(card["options"]):
+                        val = HALLUC_MAP[opt] if card["is_halluc"] else (i + 1)
+                        is_sel = st.session_state.get(sk) == val
+                        if st.button(
+                            opt,
+                            key=f"eval_btn_{card['key']}_{i}_{q_pos}",
+                            type="primary" if is_sel else "secondary",
+                            use_container_width=True,
+                        ):
+                            st.session_state[sk] = val
+                            st.rerun()
 
-            val = CHIP_REVERSE.get(chosen)
-            current_scores[metric["key"]] = val
-            if val is None:
-                all_scored = False
+    # Collect scores from session state
+    for metric in METRICS:
+        val = st.session_state.get(f"eval_{metric['key']}_{q_pos}")
+        current_scores[metric["key"]] = val
+        if val is None:
+            all_scored = False
 
-            st.markdown('<hr class="met-row-divider">', unsafe_allow_html=True)
-
-    # ── Hallucination — own card so CSS doesn't conflict ─────────────
-    halluc_desc = (
-        "Does the answer include information that is unsupported by the retrieved "
-        "sources (e.g., fabricated facts, incorrect references, or invented details)?"
-    )
-    pre_h = existing.get(HALLUCINATION_KEY)
-    pre_h_label = ("Yes" if pre_h == 1 else ("No" if pre_h == 0 else None))
-
-    # The div.halluc-outer wraps the Streamlit column output that follows.
-    # Because Streamlit flushes HTML immediately before rendering widgets,
-    # the div is an adjacent sibling in the DOM, and we target it in CSS.
-    st.markdown('<div class="halluc-outer">', unsafe_allow_html=True)
-    with st.container(border=True):
-        name_col, radio_col = st.columns([NAME_COL_WIDTH, 5], gap="small")
-        with name_col:
-            st.markdown(_name_cell_html("Hallucination", halluc_desc), unsafe_allow_html=True)
-        with radio_col:
-            halluc_chosen = st.radio(
-                label=HALLUCINATION_KEY,
-                options=HALLUC_OPTS,
-                index=(HALLUC_OPTS.index(pre_h_label) if pre_h_label in HALLUC_OPTS else None),
-                horizontal=True,
-                key=f"radio_hallucination_{q_pos}",
-                label_visibility="collapsed",
-            )
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    hallucination_flag = HALLUC_MAP.get(halluc_chosen)
+    hallucination_flag = st.session_state.get(halluc_sk)
     if hallucination_flag is None:
         all_scored = False
 
