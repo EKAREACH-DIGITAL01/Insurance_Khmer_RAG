@@ -292,77 +292,183 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     margin: 0 auto !important;
 }
 
-/* ── st.container(border=True) card style ─────────────────── */
+/* ── Metrics table container (the whole table sits in one card) ────── */
 [data-testid="stVerticalBlockBorderWrapper"] {
     background: var(--parchment-soft) !important;
     border: 1px solid var(--brass-soft) !important;
-    border-radius: 8px !important;
-    padding: 5px 12px 0px 12px !important;
+    border-radius: 10px !important;
+    padding: 18px 22px !important;
     margin-bottom: 4px !important;
 }
-/* The inner stVerticalBlock that Streamlit adds — zero its gap */
 [data-testid="stVerticalBlockBorderWrapper"] > div > [data-testid="stVerticalBlock"] {
     gap: 0 !important;
 }
-/* Every element-container inside card: no margin, no padding */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="element-container"] {
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
     min-height: 0 !important;
 }
-/* The stMarkdown block inside card (title+desc): tight */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMarkdown"] {
     margin: 0 !important;
     padding: 0 !important;
-    line-height: 1 !important;
 }
-/* Card title and desc */
-.card-title { font-size: 13px; font-weight: 600; color: var(--stone); margin: 0 0 1px 0; line-height: 1.2; }
-.card-desc  { font-size: 11px; color: var(--stone-light); line-height: 1.3; margin: 0 0 -3px 0}
+/* Each table row is built from st.columns([name, *5 options]) — give
+   that horizontal block tight vertical rhythm so rows sit close together. */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] {
+    gap: 0 !important;
+    align-items: center !important;
+}
 
-/* Radio widget wrapper: no top/bottom space */
+/* ── Metrics table ───────────────────────────────────────────
+   Each row = st.columns([name_width, *5 option widths]) so the name
+   cell and the 5 click targets are real, independently laid-out
+   Streamlit elements in one row — not one radiogroup trying to also
+   hold a label, which radiogroup markup can't do. The header uses the
+   identical column ratio so circles always land under their label. */
+.met-header-row {
+    display: grid;
+    grid-template-columns: 200px repeat(5, 1fr);
+    align-items: end;
+    padding-bottom: 10px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--brass-soft);
+}
+.met-header-row .met-name-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--brass);
+}
+.met-header-row .met-col-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--stone-light);
+    text-align: center;
+}
+
+.met-name-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    min-height: 34px;
+}
+.met-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--stone);
+    cursor: help;
+    border-bottom: 1px dotted var(--brass);
+    width: fit-content;
+}
+.met-name .met-tooltip {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    margin-top: 6px;
+    width: 260px;
+    background: var(--ink);
+    color: var(--parchment-soft);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    border-radius: 6px;
+    padding: 8px 10px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 20;
+    pointer-events: none;
+}
+.met-name:hover .met-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* Radio row sits in the column to the right of the name cell (built via
+   st.columns), rendered horizontally with its 5 options spread evenly
+   across that same width so each one centers under its header label. */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] {
     margin: 0 !important;
     padding: 0 !important;
 }
-/* Radio inner flex row */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] > div {
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] > label {
+    display: none !important;
+}
+.met-row-radio [data-testid="stRadio"] > div[role="radiogroup"] {
+    display: flex !important;
     flex-direction: row !important;
-    gap: 2px !important;
+    justify-content: space-between !important;
+    gap: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    min-height: 18px !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
+    min-height: 34px !important;
 }
-/* Each radio label */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label {
+.met-row-radio [data-testid="stRadio"] label {
     background: transparent !important;
     border: none !important;
     padding: 0 !important;
     margin: 0 !important;
-    font-family: 'IBM Plex Sans', sans-serif !important;
-    font-size: 10px !important;
-    color: var(--stone-light) !important;
+    cursor: pointer !important;
+    display: flex !important;
+    flex: 1 1 0 !important;
+    justify-content: center !important;
+    align-items: center !important;
+    box-shadow: none !important;
+    min-height: 0 !important;
+}
+/* Hide the text caption next to each dot — column header carries the
+   label, each row only needs the clickable circle itself. */
+.met-row-radio [data-testid="stRadio"] label > div:last-child {
+    display: none !important;
+}
+.met-row-radio [data-testid="stRadio"] label > div:first-child {
+    width: 18px !important;
+    height: 18px !important;
+}
+.met-table-row { border-top: 1px solid var(--parchment); }
+.met-table-row:first-of-type { border-top: none; }
+
+/* Hallucination row: same name-cell styling, but its own radio keeps the
+   text labels ("Yes" / "No") since there's no header row to read them
+   from, and only spans 2 options instead of 5. */
+.met-halluc-wrap {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--brass-soft);
+}
+.met-halluc-row .met-name-cell { min-height: 0; }
+.halluc-row-radio [data-testid="stRadio"] > div[role="radiogroup"] {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 22px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+}
+.halluc-row-radio [data-testid="stRadio"] label {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
     cursor: pointer !important;
     display: flex !important;
     align-items: center !important;
-    gap: 3px !important;
-    white-space: nowrap;
-    flex: 1 1 0 !important;
+    gap: 6px !important;
     box-shadow: none !important;
-    line-height: 1 !important;
     min-height: 0 !important;
+    font-size: 13px !important;
+    color: var(--stone) !important;
 }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label:hover { color: var(--stone) !important; }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label:has(input:checked) { color: var(--lacquer) !important; font-weight: 600 !important; }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label svg { display: block !important; width: 5px !important; height: 5px !important; flex-shrink: 0 !important; }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label > span:first-child { display: none !important; }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] input[type="radio"] { position: absolute !important; opacity: 0 !important; pointer-events: none !important; }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] {
-    margin-bottom: -2px !important;
+.halluc-row-radio [data-testid="stRadio"] label > div:first-child {
+    width: 18px !important;
+    height: 18px !important;
 }
 
 /* ── Progress ─────────────────────────────────────────────── */
@@ -375,18 +481,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 .nav-dot.done    { background: var(--signal); }
 .nav-dot.current { background: var(--lacquer); }
 
-/* ── Column scroll ───────────────────────────────────────── */
-[data-testid="column"]:nth-child(1) { max-height: calc(100vh - 110px); overflow-y: auto; padding-right: 20px !important; }
-[data-testid="column"]:nth-child(1)::-webkit-scrollbar { width: 4px; }
-[data-testid="column"]:nth-child(1)::-webkit-scrollbar-thumb { background: var(--brass-soft); border-radius: 99px; }
-[data-testid="column"]:nth-child(2) { max-height: calc(100vh - 110px); overflow-y: auto; padding-left: 20px !important; border-left: 1px solid var(--brass-soft); }
-[data-testid="column"]:nth-child(2)::-webkit-scrollbar { width: 4px; }
-[data-testid="column"]:nth-child(2)::-webkit-scrollbar-thumb { background: var(--brass-soft); border-radius: 99px; }
-
-/* ── Right col header ─────────────────────────────────────── */
-.ev-scoring-header { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brass); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--brass-soft); }
-
-/* ── Left col ─────────────────────────────────────────────── */
+/* ── Question + answers (full width, no side rail anymore) ──── */
 .ev-category-pill { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--brass); background: var(--brass-mist); border: 1px solid var(--brass-soft); border-radius: 99px; padding: 3px 10px; margin-bottom: 10px; }
 .ev-question-text {
     font-family: 'Hanuman', sans-serif;
@@ -395,7 +490,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     color: var(--ink);
     line-height: 1.85;
 
-    margin-top: 16px;
+    margin-top: 0;
     margin-bottom: 20px;
 
     padding-bottom: 16px;
@@ -407,20 +502,25 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 .ev-answer-label .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .ev-answer-label.expected  .dot { background: var(--signal); }
 .ev-answer-label.generated .dot { background: var(--lacquer); }
-.ev-answer-block { border-radius: 8px; padding: 13px 15px; margin-bottom: 30px; font-family: 'Hanuman', sans-serif; font-size: 15px; line-height: 1.9; color: var(--stone); white-space: pre-wrap; }
+/* Side-by-side answer panes: predictable reading zone every question,
+   instead of stacked blocks whose combined height varies a lot. */
+.ev-answer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.ev-answer-block { border-radius: 8px; padding: 13px 15px; font-family: 'Hanuman', sans-serif; font-size: 15px; line-height: 1.9; color: var(--stone); white-space: pre-wrap; height: 100%; }
 .ev-answer-block.expected  { background: var(--signal-soft); border: 1px solid rgba(46,125,82,0.20); }
-.ev-answer-block.generated { background: var(--parchment-soft); border: 1px solid var(--brass-soft); }
+.ev-answer-block.generated { background: var(--parchment); border: 1px solid var(--brass-soft); }
 .ev-answer-blank { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--danger); font-style: italic; }
+@media (max-width: 900px) {
+    .ev-answer-grid { grid-template-columns: 1fr; }
+}
 
-/* ── Score bar ────────────────────────────────────────────── */
+/* ── Score bar (full-width row, next to the submit button) ─── */
 .score-row {
-    display:flex;
-    align-items:center;
-    gap:18px;
-    padding:8px 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 .score-label { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--stone-light); white-space: nowrap; flex-shrink: 0; }
-.score-label strong { font-size: 22px; font-weight: 700; color: var(--lacquer); }
+.score-label strong { font-size: 20px; font-weight: 700; color: var(--lacquer); }
 .score-track { flex: 1; height: 7px; background: var(--brass-soft); border-radius: 99px; overflow: hidden; min-width: 0; }
 .score-fill  { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--danger), var(--brass) 50%, var(--signal)); transition: width 0.3s ease; }
 .ev-incomplete-note{
@@ -433,19 +533,13 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 
 /* ── Buttons ──────────────────────────────────────────────── */
-[data-testid="stButton"] button { background: var(--lacquer) !important; color: var(--parchment-soft) !important; border: none !important; border-radius: 8px !important; font-family: 'IBM Plex Sans', sans-serif !important; font-weight: 600 !important; font-size: 13px !important; padding: 8px 22px !important; width: auto !important; white-space: nowrap; transition: background 0.15s ease !important; }
+[data-testid="stButton"] button { background: var(--lacquer) !important; color: var(--parchment-soft) !important; border: none !important; border-radius: 8px !important; font-family: 'IBM Plex Sans', sans-serif !important; font-weight: 600 !important; font-size: 13px !important; padding: 9px 22px !important; white-space: nowrap; transition: background 0.15s ease !important; }
 [data-testid="stButton"] button:hover    { background: var(--lacquer-deep) !important; }
 [data-testid="stButton"] button:disabled { background: var(--brass-soft) !important; color: var(--stone-light) !important; opacity: 0.75 !important; }
-[data-testid="stButton"] {
-    display: flex;
-    justify-content: center;
-    align-items:center;
-    height:100%;
-}
 
-[data-testid="stButton"] > button {
-    width: auto !important;
-}
+/* Footer row (score bar + submit): the button lives in its own narrow
+   st.columns slot, same proven pattern as the login page — the column's
+   own width naturally bounds the button, no extra CSS targeting needed. */
 
 /* ── Text input ──────────────────────────────────────────── */
 [data-testid="stTextInput"] input { background: var(--parchment-soft) !important; border: 1px solid var(--brass-soft) !important; border-radius: 8px !important; color: var(--stone) !important; font-family: 'IBM Plex Sans', sans-serif !important; font-size: 14px !important; padding: 8px 12px !important; box-shadow: none !important; }
@@ -552,48 +646,63 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
         unsafe_allow_html=True,
     )
 
-    left_col, right_col = st.columns([2.5, 1.5], gap="medium")
+    category = question.get("category", "").replace("_", " ").title()
+    st.markdown(f'<div class="ev-category-pill">{category}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="ev-question-text">{question["question"]}</div>', unsafe_allow_html=True)
+    expected = question.get("expected_answer") or ""
+    generated = question.get("generated_answer") or ""
+    gen_body = (
+        '<span class="ev-answer-blank">[ No answer was generated ]</span>'
+        if not generated.strip() else generated
+    )
+    st.markdown(
+        '<div class="ev-answer-grid">'
+        '<div>'
+        '<div class="ev-answer-label expected"><span class="dot"></span>Expected Answer</div>'
+        f'<div class="ev-answer-block expected">{expected if expected else "—"}</div>'
+        '</div>'
+        '<div>'
+        '<div class="ev-answer-label generated"><span class="dot"></span>Chatbot Answer</div>'
+        f'<div class="ev-answer-block generated">{gen_body}</div>'
+        '</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
-    with left_col:
-        category = question.get("category", "").replace("_", " ").title()
-        st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
-        st.markdown(f'<div class="ev-category-pill">{category}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="ev-question-text">{question["question"]}</div>', unsafe_allow_html=True)
-        expected = question.get("expected_answer") or ""
-        st.markdown(
-            '<div class="ev-answer-label expected"><span class="dot"></span>Expected Answer</div>'
-            f'<div class="ev-answer-block expected">{expected if expected else "—"}</div>',
-            unsafe_allow_html=True,
-        )
-        generated = question.get("generated_answer") or ""
-        gen_body = (
-            '<span class="ev-answer-blank">[ No answer was generated ]</span>'
-            if not generated.strip() else generated
-        )
-        st.markdown(
-            '<div class="ev-answer-label generated"><span class="dot"></span>Chatbot Answer</div>'
-            f'<div class="ev-answer-block generated">{gen_body}</div>',
-            unsafe_allow_html=True,
-        )
+    # ── Quality assessment table ──────────────────────────────────────
+    # One shared column ratio (name cell + radio cell) for the header and
+    # every metric row, so each row's circles land under the matching
+    # header label without needing a single radiogroup to also hold text.
+    NAME_COL_WIDTH = 1.6  # ratio unit; paired with a wide radio cell below
 
-    # ── RIGHT: 6 cards using st.container(border=True) ───────────────────────
-    # Everything inside a container (title, desc, radio) is one card.
-    with right_col:
-        st.markdown('<div class="ev-scoring-header">Quality Assessment</div>', unsafe_allow_html=True)
+    current_scores = {}
+    all_scored = True
 
-        current_scores = {}
-        all_scored = True
+    with st.container(border=True):
+        # Header row: blank name-cell + the 5 score labels.
+        header_name_col, header_radio_col = st.columns([NAME_COL_WIDTH, 5], gap="small")
+        with header_name_col:
+            st.markdown('<div class="met-name-cell"></div>', unsafe_allow_html=True)
+        with header_radio_col:
+            header_cells = "".join(f'<div class="met-col-label">{opt}</div>' for opt in CHIP_OPTS)
+            st.markdown(
+                f'<div class="met-header-row-cells">{header_cells}</div>',
+                unsafe_allow_html=True,
+            )
 
         for metric in METRICS:
             pre = existing.get(metric["key"])
             pre_label = (CHIP_OPTS[pre - 1] if isinstance(pre, int) and 1 <= pre <= 5 else None)
 
-            with st.container(border=True):
+            name_col, radio_col = st.columns([NAME_COL_WIDTH, 5], gap="small")
+            with name_col:
                 st.markdown(
-                    f'<div class="card-title">{metric["label"]}</div>'
-                    f'<div class="card-desc">{metric["desc"]}</div>',
+                    f'<div class="met-name-cell"><span class="met-name">{metric["label"]}'
+                    f'<span class="met-tooltip">{metric["desc"]}</span></span></div>',
                     unsafe_allow_html=True,
                 )
+            with radio_col:
+                st.markdown('<div class="met-row-radio">', unsafe_allow_html=True)
                 chosen = st.radio(
                     label=metric["key"],
                     options=CHIP_OPTS,
@@ -607,16 +716,25 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
             if val is None:
                 all_scored = False
 
-        # 6th card: hallucination
+        # Hallucination row — its own 2-option radio, name cell reuses the
+        # same tooltip pattern as the metric rows above.
         pre_h = existing.get(HALLUCINATION_KEY)
         pre_h_label = ("Yes" if pre_h == 1 else ("No" if pre_h == 0 else None))
-
-        with st.container(border=True):
+        halluc_desc = (
+            "Does the answer include information that is unsupported by the "
+            "retrieved sources (e.g., fabricated facts, incorrect references, "
+            "or invented details)?"
+        )
+        st.markdown('<div class="met-halluc-wrap met-halluc-row">', unsafe_allow_html=True)
+        halluc_name_col, halluc_radio_col = st.columns([NAME_COL_WIDTH, 5], gap="small")
+        with halluc_name_col:
             st.markdown(
-                '<div class="card-title">Hallucination Check</div>'
-                '<div class="card-desc">Does the answer include information that is unsupported by the retrieved sources (e.g., fabricated facts, incorrect references, or invented details)?</div>',
+                f'<div class="met-name-cell"><span class="met-name">Hallucination'
+                f'<span class="met-tooltip">{halluc_desc}</span></span></div>',
                 unsafe_allow_html=True,
             )
+        with halluc_radio_col:
+            st.markdown('<div class="halluc-row-radio">', unsafe_allow_html=True)
             halluc_chosen = st.radio(
                 label=HALLUCINATION_KEY,
                 options=HALLUC_OPTS,
@@ -629,10 +747,9 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
         if hallucination_flag is None:
             all_scored = False
 
-    # ── Score bar + submit — one line below columns ───────────────────────────
+    # ── Score bar + submit ──────────────────────────────────────────────
     metric_sum = sum(v for v in current_scores.values() if v is not None)
-    # Score bar shows metric scores only (hallucination is a separate audit flag)
-    live_total = metric_sum
+    live_total = metric_sum  # hallucination is a separate audit flag, not added
     bar_pct = int(live_total / MAX_TOTAL * 100)
     btn_label = "Submit & Next →" if q_pos < total_qs - 1 else "Submit & Finish"
 
@@ -640,8 +757,7 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
         '<hr style="border:none;border-top:1px dashed var(--brass-soft);margin:18px 0 18px 0;">',
         unsafe_allow_html=True,
     )
-
-    bar_col, btn_col = st.columns([7, 1], gap="large")
+    bar_col, btn_col = st.columns([5, 1], gap="large")
     with bar_col:
         st.markdown(
             f'<div class="score-row">'
@@ -656,7 +772,6 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
             save_response(evaluator_id, q_idx, final_scores, hallucination_flag)
             st.session_state["q_pos"] = q_pos + 1
             st.rerun()
-
     if not all_scored:
         st.markdown(
             '<p class="ev-incomplete-note">Complete all ratings before submitting.</p>',
