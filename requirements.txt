@@ -15,3 +15,4 @@ torchvision
 tabulate
 openai
 rank-bm25
+requests

@@ -18,16 +18,15 @@ data/06_cleaned_documents/*
 data/07_chunked_documents/*
 !data/07_chunked_documents/.gitkeep
 
-# Ignore merged chunked documents
-data/10_merged_chunked_documents/*
-scripts/17_merge_chunked_documents.py
-
-# Local models
+# Local models (large binaries — not committed)
 models/generator/*
-!model/generator/.gitkeep
+!models/generator/.gitkeep
 
 models/retriever/*
-!model/retriever/.gitkeep
+!models/retriever/.gitkeep
+
+# Locally generated human-evaluation database
+reports/human_answer_evaluation/*.db
 
 # Python
 __pycache__/
