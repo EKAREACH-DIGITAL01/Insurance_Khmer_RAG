@@ -67,15 +67,15 @@ QUESTIONS_PER_EVALUATOR = 25
 
 METRICS = [
     {"key": "context_relevance",  "label": "Context Relevance",
-     "desc": "Did the retrieved sources contain information relevant to the question?"},
+     "desc": "Did the retrieved context contain information relevant to the question?"},
     {"key": "faithfulness",       "label": "Faithfulness",
-     "desc": "Does the answer only contain facts from the sources, with no invented information?"},
+     "desc": "Is the answer fully supported by the retrieved sources, without introducing unsupported information?"},
     {"key": "answer_relevance",   "label": "Answer Relevance",
      "desc": "Does the answer actually address what was asked?"},
     {"key": "answer_correctness", "label": "Answer Correctness",
-     "desc": "How well does the answer match the expected answer?"},
+     "desc": "How accurately does the answer match the expected answer?"},
     {"key": "completeness",       "label": "Completeness",
-     "desc": "Is the answer complete — covering all required points without being cut off?"},
+     "desc": "Is the answer complete and covering all required points without being cut off?"},
 ]
 
 HALLUCINATION_KEY = "hallucination"
@@ -347,11 +347,11 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 
 /* ── Progress ─────────────────────────────────────────────── */
-.prog-wrap { margin-bottom: 10px; }
+.prog-wrap { margin-bottom: 18px; }
 .prog-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--stone-light); margin-bottom: 5px; font-family: 'IBM Plex Mono', monospace; }
 .prog-track { height: 4px; background: var(--brass-soft); border-radius: 99px; overflow: hidden; }
 .prog-fill  { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--lacquer), var(--brass)); transition: width 0.4s; }
-.nav-dots { display: flex; gap: 5px; flex-wrap: wrap; margin: 8px 0 10px 0; }
+.nav-dots { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 18px 0; }
 .nav-dot  { width: 10px; height: 10px; border-radius: 50%; background: var(--brass-soft); }
 .nav-dot.done    { background: var(--signal); }
 .nav-dot.current { background: var(--lacquer); }
@@ -369,25 +369,49 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 
 /* ── Left col ─────────────────────────────────────────────── */
 .ev-category-pill { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--brass); background: var(--brass-mist); border: 1px solid var(--brass-soft); border-radius: 99px; padding: 3px 10px; margin-bottom: 10px; }
-.ev-question-text { font-family: 'Hanuman', sans-serif; font-size: 17px; font-weight: 600; color: var(--ink); line-height: 1.85; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px dashed var(--brass-soft); }
+.ev-question-text {
+    font-family: 'Hanuman', sans-serif;
+    font-size: 21px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.85;
+
+    margin-top: 16px;
+    margin-bottom: 20px;
+
+    padding-bottom: 16px;
+    border-bottom: 1px dashed var(--brass-soft);
+}
 .ev-answer-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .ev-answer-label.expected  { color: var(--signal); }
 .ev-answer-label.generated { color: var(--lacquer); }
 .ev-answer-label .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .ev-answer-label.expected  .dot { background: var(--signal); }
 .ev-answer-label.generated .dot { background: var(--lacquer); }
-.ev-answer-block { border-radius: 8px; padding: 13px 15px; margin-bottom: 14px; font-family: 'Hanuman', sans-serif; font-size: 14px; line-height: 1.9; color: var(--stone); white-space: pre-wrap; }
+.ev-answer-block { border-radius: 8px; padding: 13px 15px; margin-bottom: 30px; font-family: 'Hanuman', sans-serif; font-size: 15px; line-height: 1.9; color: var(--stone); white-space: pre-wrap; }
 .ev-answer-block.expected  { background: var(--signal-soft); border: 1px solid rgba(46,125,82,0.20); }
 .ev-answer-block.generated { background: var(--parchment-soft); border: 1px solid var(--brass-soft); }
 .ev-answer-blank { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--danger); font-style: italic; }
 
 /* ── Score bar ────────────────────────────────────────────── */
-.score-row { display: flex; align-items: center; gap: 16px; padding: 14px 0 4px 0; border-top: 1px dashed var(--brass-soft); margin-top: 12px; }
+.score-row {
+    display:flex;
+    align-items:center;
+    gap:18px;
+    padding:8px 0;
+}
 .score-label { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--stone-light); white-space: nowrap; flex-shrink: 0; }
 .score-label strong { font-size: 22px; font-weight: 700; color: var(--lacquer); }
 .score-track { flex: 1; height: 7px; background: var(--brass-soft); border-radius: 99px; overflow: hidden; min-width: 0; }
 .score-fill  { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--danger), var(--brass) 50%, var(--signal)); transition: width 0.3s ease; }
-.ev-incomplete-note { text-align: center; font-size: 10px; color: var(--stone-light); font-family: 'IBM Plex Mono', monospace; margin-top: 4px; }
+.ev-incomplete-note{
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:12px;
+    color:var(--stone-light);
+    margin-top:10px;
+    text-align:center;
+    font-weight:500;
+}
 
 /* ── Buttons ──────────────────────────────────────────────── */
 [data-testid="stButton"] button { background: var(--lacquer) !important; color: var(--parchment-soft) !important; border: none !important; border-radius: 8px !important; font-family: 'IBM Plex Sans', sans-serif !important; font-weight: 600 !important; font-size: 13px !important; padding: 8px 22px !important; width: auto !important; white-space: nowrap; transition: background 0.15s ease !important; }
@@ -396,6 +420,8 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 [data-testid="stButton"] {
     display: flex;
     justify-content: center;
+    align-items:center;
+    height:100%;
 }
 
 [data-testid="stButton"] > button {
@@ -534,7 +560,7 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
     # ── RIGHT: 6 cards using st.container(border=True) ───────────────────────
     # Everything inside a container (title, desc, radio) is one card.
     with right_col:
-        st.markdown('<div class="ev-scoring-header">Quality Ratings</div>', unsafe_allow_html=True)
+        st.markdown('<div class="ev-scoring-header">Quality Assessment</div>', unsafe_allow_html=True)
 
         current_scores = {}
         all_scored     = True
@@ -569,8 +595,7 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
         with st.container(border=True):
             st.markdown(
                 '<div class="card-title">Hallucination Check</div>'
-                '<div class="card-desc">Does the answer contain facts not found in the sources — '
-                'invented numbers, wrong article references, or fabricated claims?</div>',
+                '<div class="card-desc">Does the answer include information that is unsupported by the retrieved sources (e.g., fabricated facts, incorrect references, or invented details)?</div>',
                 unsafe_allow_html=True,
             )
             halluc_chosen = st.radio(
@@ -592,7 +617,12 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
     bar_pct    = int(live_total / MAX_TOTAL * 100)
     btn_label  = "Submit & Next →" if q_pos < total_qs - 1 else "Submit & Finish"
 
-    bar_col, btn_col = st.columns([5, 1], gap="medium")
+    st.markdown(
+        '<hr style="border:none;border-top:1px dashed var(--brass-soft);margin:18px 0 18px 0;">',
+        unsafe_allow_html=True,
+    )
+
+    bar_col, btn_col = st.columns([7,1], gap="large")
     with bar_col:
         st.markdown(
             f'<div class="score-row">'
@@ -602,17 +632,17 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
             unsafe_allow_html=True,
         )
     with btn_col:
-        st.markdown('<div style="padding-top:14px;">', unsafe_allow_html=True)
+
         if st.button(btn_label, disabled=not all_scored):
             final_scores = {k: v for k, v in current_scores.items() if v is not None}
             save_response(evaluator_id, q_idx, final_scores, hallucination_flag)
             st.session_state["q_pos"] = q_pos + 1
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+
 
     if not all_scored:
         st.markdown(
-            '<p class="ev-incomplete-note">Rate all 5 metrics and the hallucination check to continue.</p>',
+            '<p class="ev-incomplete-note">Complete all ratings before submitting.</p>',
             unsafe_allow_html=True,
         )
 
