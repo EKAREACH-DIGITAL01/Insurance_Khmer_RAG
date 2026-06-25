@@ -334,10 +334,9 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     cursor: help;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 7px;
-    font-weight: 600;
-    letter-spacing: 0.03em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--stone-light);
     text-align: center;
     line-height: 1.1;
     margin: 0 0 6px 0 !important;
@@ -626,20 +625,62 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
     if halluc_sk not in st.session_state:
         st.session_state[halluc_sk] = existing.get(HALLUCINATION_KEY)
 
+    _metric_colors = ["#1D6A9F", "#2E7D52", "#6B41A0", "#B68B4C", "#1B7A8C"]
     card_defs = [
-        {"key": m["key"], "label": m["label"], "desc": m["desc"], "options": CHIP_OPTS, "is_halluc": False}
-        for m in METRICS
+        {"key": m["key"], "label": m["label"], "desc": m["desc"], "options": CHIP_OPTS, "is_halluc": False, "title_color": c}
+        for m, c in zip(METRICS, _metric_colors)
     ] + [{"key": HALLUCINATION_KEY, "label": "Hallucination",
           "desc": "Does the answer include unsupported information — fabricated facts, incorrect references, or invented details?",
-          "options": HALLUC_OPTS, "is_halluc": True}]
+          "options": HALLUC_OPTS, "is_halluc": True, "title_color": "#9C2B1F"}]
+
+    # Per-card theming: key class sits ON stVerticalBlockBorderWrapper, so
+    # ".st-key-card_X [...]" is a valid descendant selector for buttons inside.
+    # Injected after main CSS → wins on same-specificity cascade.
+    _card_css = "<style>"
+    for _cd in card_defs:
+        _c = _cd["title_color"]
+        _k = _cd["key"]
+        _card_css += f"""
+.st-key-metric_cards_row .st-key-card_{_k} {{
+    background:
+        linear-gradient(var(--parchment-soft), var(--parchment-soft)) padding-box,
+        linear-gradient(160deg, {_c}44, {_c}cc) border-box !important;
+    border: 1.5px solid transparent !important;
+}}
+.st-key-metric_cards_row .st-key-card_{_k}:hover {{
+    box-shadow: 0 4px 14px {_c}33 !important;
+}}
+.st-key-card_{_k} [data-testid="stBaseButton-primary"] {{
+    background: {_c} !important;
+    border: 1px solid {_c} !important;
+    color: var(--parchment-soft) !important;
+}}
+.st-key-card_{_k} [data-testid="stBaseButton-primary"]:hover {{
+    background: {_c}dd !important;
+    border-color: {_c}dd !important;
+}}
+.st-key-card_{_k} [data-testid="stBaseButton-secondary"] {{
+    background: transparent !important;
+    border: 1px solid {_c}55 !important;
+    color: var(--stone-light) !important;
+}}
+.st-key-card_{_k} [data-testid="stBaseButton-secondary"]:hover {{
+    background: {_c}22 !important;
+    border-color: {_c}aa !important;
+    color: var(--stone) !important;
+}}
+"""
+    _card_css += "</style>"
+    st.markdown(_card_css, unsafe_allow_html=True)
+
 
     with st.container(key="metric_cards_row"):
         cols = st.columns(6, gap="small")
         for col, card in zip(cols, card_defs):
             with col:
-                with st.container(border=True):
+                with st.container(border=True, key=f"card_{card['key']}"):
                     st.markdown(
-                        f'<p class="metric-card-title">{card["label"]}'
+                        f'<p class="metric-card-title" style="color:{card["title_color"]};">{card["label"]}'
                         f'<span class="metric-tooltip">{card["desc"]}</span>'
                         f'</p>',
                         unsafe_allow_html=True,
