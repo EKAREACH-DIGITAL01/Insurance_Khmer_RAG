@@ -3,9 +3,6 @@ Khmer Insurance RAG — Human Answer Evaluation UI
 -------------------------------------------------
 Launch:  python scripts/13_human_answer_evaluation.py
          (runs Streamlit on port 8502, separate from the chatbot on 8501)
-
-Or directly:
-         streamlit run scripts/13_human_answer_evaluation.py --server.port 8502
 """
 
 import json
@@ -17,30 +14,50 @@ import sys
 import time
 from pathlib import Path
 
-import streamlit as st
+# ----------------------------------------------------------------------------
+# Launch behaviour
+# ----------------------------------------------------------------------------
+# RUN THIS WITH:  python scripts/13_human_answer_evaluation.py
+#
+# Do NOT run with `streamlit run` directly — Streamlit's own launcher opens
+# port 8501 before any of this code executes, which is the stray tab you saw.
+#
+# When run with plain `python`, the sentinel below launches Streamlit on 8502
+# in headless mode (so Streamlit does NOT auto-open a browser tab), waits a
+# moment for the server to come up, then opens exactly one tab at :8502.
+# ----------------------------------------------------------------------------
+_LAUNCHED_KEY = "_EVAL_UI_LAUNCHED"
 
-# ----------------------------------------------------------------------------
-# Self-launching on port 8502
-# When executed as a plain Python script rather than via `streamlit run`,
-# re-launches itself through Streamlit so the user never has to remember
-# the port flag.
-# ----------------------------------------------------------------------------
-if "__streamlit__" not in dir(st) or not st.runtime.exists():
-    subprocess.run(
+if os.environ.get(_LAUNCHED_KEY) != "1":
+    env = {**os.environ, _LAUNCHED_KEY: "1"}
+    proc = subprocess.Popen(
         [
             sys.executable, "-m", "streamlit", "run",
             str(Path(__file__).resolve()),
             "--server.port", "8502",
-            "--client.toolbarMode=minimal",
-            "--browser.gatherUsageStats=false",
-        ]
+            "--server.headless", "true",          # do not auto-open a tab
+            "--client.toolbarMode", "minimal",
+            "--browser.gatherUsageStats", "false",
+        ],
+        env=env,
     )
+    # Give the server ~2.5s to bind to 8502, then open exactly one tab.
+    import webbrowser
+    import time as _time
+    _time.sleep(2.5)
+    webbrowser.open("http://localhost:8502")
+    try:
+        proc.wait()
+    except KeyboardInterrupt:
+        proc.terminate()
     sys.exit(0)
+
+import streamlit as st
 
 # ----------------------------------------------------------------------------
 # Config
 # ----------------------------------------------------------------------------
-DB_PATH   = Path("reports/human_answer_evaluation/human_answer_evaluation.db")
+DB_PATH    = Path("reports/human_answer_evaluation/human_answer_evaluation.db")
 JSONL_PATH = Path(
     "reports/generator_model_comparison/"
     "SeaLLMs-v3-7B-Chat-Q4_K_M/"
@@ -49,29 +66,25 @@ JSONL_PATH = Path(
 QUESTIONS_PER_EVALUATOR = 25
 
 METRICS = [
-    {
-        "key":   "context_relevance",
-        "label": "Context Relevance",
-        "desc":  "Did the retrieved sources actually contain information relevant to the question?",
-    },
-    {
-        "key":   "faithfulness",
-        "label": "Faithfulness",
-        "desc":  "Does the answer only contain facts from the sources, with no invented information?",
-    },
-    {
-        "key":   "answer_relevance",
-        "label": "Answer Relevance",
-        "desc":  "Does the answer actually address what was asked?",
-    },
-    {
-        "key":   "answer_correctness",
-        "label": "Answer Correctness",
-        "desc":  "How well does the answer match the expected answer?",
-    },
+    {"key": "context_relevance",  "label": "Context Relevance",
+     "desc": "Did the retrieved sources contain information relevant to the question?"},
+    {"key": "faithfulness",       "label": "Faithfulness",
+     "desc": "Does the answer only contain facts from the sources, with no invented information?"},
+    {"key": "answer_relevance",   "label": "Answer Relevance",
+     "desc": "Does the answer actually address what was asked?"},
+    {"key": "answer_correctness", "label": "Answer Correctness",
+     "desc": "How well does the answer match the expected answer?"},
+    {"key": "completeness",       "label": "Completeness",
+     "desc": "Is the answer complete — covering all required points without being cut off?"},
 ]
 
-SCORE_LABELS = {1: "Poor", 2: "Fair", 3: "Good", 4: "Very Good", 5: "Excellent"}
+HALLUCINATION_KEY = "hallucination"
+CHIP_OPTS    = ["Poor", "Fair", "Good", "Very Good", "Excellent"]
+CHIP_REVERSE = {label: i + 1 for i, label in enumerate(CHIP_OPTS)}
+HALLUC_OPTS  = ["Yes", "No"]
+HALLUC_MAP   = {"Yes": 1, "No": 0}
+MAX_METRIC   = len(METRICS) * 5   # 25
+MAX_TOTAL    = MAX_METRIC          # 25 — hallucination stored separately, not added to score
 
 # ----------------------------------------------------------------------------
 # Database
@@ -89,48 +102,60 @@ def init_db():
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS evaluators (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            name       TEXT NOT NULL UNIQUE,
+            name       TEXT NOT NULL,
+            session_id TEXT NOT NULL,
             created_at INTEGER NOT NULL
         );
         CREATE TABLE IF NOT EXISTS assignments (
-            evaluator_id  INTEGER NOT NULL,
-            question_idx  INTEGER NOT NULL,
-            position      INTEGER NOT NULL,
+            evaluator_id INTEGER NOT NULL,
+            question_idx INTEGER NOT NULL,
+            position     INTEGER NOT NULL,
             PRIMARY KEY (evaluator_id, question_idx),
             FOREIGN KEY (evaluator_id) REFERENCES evaluators(id)
         );
         CREATE TABLE IF NOT EXISTS responses (
-            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-            evaluator_id        INTEGER NOT NULL,
-            question_idx        INTEGER NOT NULL,
-            context_relevance   INTEGER,
-            faithfulness        INTEGER,
-            answer_relevance    INTEGER,
-            answer_correctness  INTEGER,
-            total_score         INTEGER,
-            submitted_at        INTEGER NOT NULL,
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            evaluator_id       INTEGER NOT NULL,
+            question_idx       INTEGER NOT NULL,
+            context_relevance  INTEGER,
+            faithfulness       INTEGER,
+            answer_relevance   INTEGER,
+            answer_correctness INTEGER,
+            completeness       INTEGER,
+            hallucination      INTEGER,
+            total_score        INTEGER,
+            submitted_at       INTEGER NOT NULL,
             UNIQUE (evaluator_id, question_idx),
             FOREIGN KEY (evaluator_id) REFERENCES evaluators(id)
         );
     """)
+    # Migrate responses table if needed
+    resp_cols = {row[1] for row in conn.execute("PRAGMA table_info(responses)").fetchall()}
+    for col in ("completeness", "hallucination"):
+        if col not in resp_cols:
+            conn.execute(f"ALTER TABLE responses ADD COLUMN {col} INTEGER")
+    # Migrate evaluators table: add session_id if missing (older schema had UNIQUE name)
+    eval_cols = {row[1] for row in conn.execute("PRAGMA table_info(evaluators)").fetchall()}
+    if "session_id" not in eval_cols:
+        conn.execute("ALTER TABLE evaluators ADD COLUMN session_id TEXT")
     conn.commit()
     conn.close()
 
 
-def get_or_create_evaluator(name):
+def create_new_session(name):
+    """Always creates a new evaluator session, even if the same name was used before.
+    Each session gets a unique session_id so evaluations from the same person
+    at different times are stored independently without conflict."""
     conn = get_db()
-    row = conn.execute("SELECT id FROM evaluators WHERE name = ?", (name,)).fetchone()
-    if row:
-        eid = row["id"]
-    else:
-        cur = conn.execute(
-            "INSERT INTO evaluators (name, created_at) VALUES (?, ?)",
-            (name, int(time.time())),
-        )
-        eid = cur.lastrowid
-        conn.commit()
+    session_id = f"{int(time.time())}_{random.randint(1000, 9999)}"
+    cur = conn.execute(
+        "INSERT INTO evaluators (name, session_id, created_at) VALUES (?, ?, ?)",
+        (name, session_id, int(time.time())),
+    )
+    eid = cur.lastrowid
+    conn.commit()
     conn.close()
-    return eid
+    return eid, session_id
 
 
 def get_or_create_assignment(evaluator_id, all_questions):
@@ -157,45 +182,37 @@ def get_or_create_assignment(evaluator_id, all_questions):
 def get_responses(evaluator_id):
     conn = get_db()
     rows = conn.execute(
-        "SELECT question_idx, context_relevance, faithfulness, "
-        "answer_relevance, answer_correctness, total_score "
-        "FROM responses WHERE evaluator_id = ?",
-        (evaluator_id,),
+        "SELECT question_idx, context_relevance, faithfulness, answer_relevance, "
+        "answer_correctness, completeness, hallucination, total_score "
+        "FROM responses WHERE evaluator_id = ?", (evaluator_id,),
     ).fetchall()
     conn.close()
     return {r["question_idx"]: dict(r) for r in rows}
 
 
-def save_response(evaluator_id, question_idx, scores):
+def save_response(evaluator_id, question_idx, scores, hallucination_flag):
+    # total_score = sum of the 5 quality metrics only (max 25)
+    # hallucination is stored separately as an audit flag, not added to total
     total = sum(scores.values())
     conn  = get_db()
     conn.execute(
         """INSERT INTO responses
-           (evaluator_id, question_idx, context_relevance, faithfulness,
-            answer_relevance, answer_correctness, total_score, submitted_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           (evaluator_id, question_idx, context_relevance, faithfulness, answer_relevance,
+            answer_correctness, completeness, hallucination, total_score, submitted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(evaluator_id, question_idx) DO UPDATE SET
-               context_relevance  = excluded.context_relevance,
-               faithfulness       = excluded.faithfulness,
-               answer_relevance   = excluded.answer_relevance,
-               answer_correctness = excluded.answer_correctness,
-               total_score        = excluded.total_score,
-               submitted_at       = excluded.submitted_at
-        """,
-        (
-            evaluator_id, question_idx,
-            scores["context_relevance"], scores["faithfulness"],
-            scores["answer_relevance"],  scores["answer_correctness"],
-            total, int(time.time()),
-        ),
+               context_relevance=excluded.context_relevance, faithfulness=excluded.faithfulness,
+               answer_relevance=excluded.answer_relevance, answer_correctness=excluded.answer_correctness,
+               completeness=excluded.completeness, hallucination=excluded.hallucination,
+               total_score=excluded.total_score, submitted_at=excluded.submitted_at""",
+        (evaluator_id, question_idx,
+         scores["context_relevance"], scores["faithfulness"], scores["answer_relevance"],
+         scores["answer_correctness"], scores["completeness"], hallucination_flag,
+         total, int(time.time())),
     )
     conn.commit()
     conn.close()
 
-
-# ----------------------------------------------------------------------------
-# Data
-# ----------------------------------------------------------------------------
 
 @st.cache_data
 def load_questions():
@@ -215,443 +232,176 @@ def load_questions():
 
 
 # ----------------------------------------------------------------------------
-# CSS — light parchment theme matching app.py
+# CSS — minimal overrides only; cards use st.container(border=True)
 # ----------------------------------------------------------------------------
-
 CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Moul&family=Hanuman:wght@300;400;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root {
-    /* Palette — mirrors app.py exactly */
-    --ink:             #15201C;
-    --ink-line:        #2C3D34;
-    --parchment:       #EDE6D6;
-    --parchment-soft:  #F5F0E4;
-    --parchment-warm:  #FAF7F0;
-    --lacquer:         #9C2B1F;
-    --lacquer-deep:    #7A2118;
-    --lacquer-mist:    rgba(156, 43, 31, 0.08);
-    --lacquer-border:  rgba(156, 43, 31, 0.20);
-    --brass:           #B68B4C;
-    --brass-soft:      #D8BD8B;
-    --brass-mist:      rgba(182, 139, 76, 0.12);
-    --stone:           #3A352B;
-    --stone-light:     #6B6358;
-    --mist:            #9DB6AB;
-    --signal:          #2E7D52;
-    --signal-soft:     rgba(46, 125, 82, 0.10);
-    --danger:          #C0524A;
-    --danger-soft:     rgba(192, 82, 74, 0.08);
-
-    /* Score colours */
-    --score-1: #C0524A;
-    --score-2: #D4843A;
-    --score-3: #B68B4C;
-    --score-4: #2E7D52;
-    --score-5: #1A5C8A;
+    --ink:            #15201C;
+    --parchment:      #EDE6D6;
+    --parchment-soft: #F5F0E4;
+    --lacquer:        #9C2B1F;
+    --lacquer-deep:   #7A2118;
+    --lacquer-mist:   rgba(156,43,31,0.10);
+    --brass:          #B68B4C;
+    --brass-soft:     #D8BD8B;
+    --brass-mist:     rgba(182,139,76,0.12);
+    --stone:          #3A352B;
+    --stone-light:    #6B6358;
+    --signal:         #2E7D52;
+    --signal-soft:    rgba(46,125,82,0.10);
+    --danger:         #C0524A;
 }
 
-/* Reset Streamlit chrome */
 #MainMenu, footer, header,
-[data-testid="stHeader"],
-[data-testid="stToolbar"],
-[data-testid="stDecoration"],
-[data-testid="stStatusWidget"] { display: none !important; }
+[data-testid="stHeader"], [data-testid="stToolbar"],
+[data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none !important; }
 
-html, body,
-[data-testid="stAppViewContainer"],
-.stApp {
-    background: var(--parchment-warm) !important;
+html, body, [data-testid="stAppViewContainer"], .stApp {
+    background: var(--parchment) !important;
     color: var(--stone);
     font-family: 'IBM Plex Sans', sans-serif;
 }
 
-/* Remove Streamlit's default top padding */
 [data-testid="stAppViewContainer"] .block-container {
-    padding-top: 2rem !important;
-    max-width: 780px !important;
+    padding-top: 1.2rem !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+    max-width: 100% !important;
 }
 
-/* ── Login page ───────────────────────────────────────────── */
-.ev-login {
-    max-width: 440px;
-    margin: 12vh auto 0;
-    text-align: center;
-    padding: 0 16px;
-}
-.ev-seal {
-    margin-bottom: 20px;
-}
-.ev-login-title {
-    font-family: 'Moul', serif;
-    font-size: 22px;
-    color: var(--lacquer);
-    margin-bottom: 6px;
-    line-height: 1.4;
-}
-.ev-login-sub {
-    font-size: 13px;
-    color: var(--stone-light);
-    margin-bottom: 28px;
-    font-family: 'IBM Plex Sans', sans-serif;
-}
-.ev-eyebrow {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--brass);
-    margin-bottom: 10px;
-}
-
-/* ── Progress bar ─────────────────────────────────────────── */
-.ev-progress {
-    margin-bottom: 24px;
-}
-.ev-progress-meta {
-    display: flex;
-    justify-content: space-between;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    color: var(--stone-light);
-    margin-bottom: 7px;
-}
-.ev-progress-track {
-    height: 4px;
-    background: var(--brass-soft);
-    border-radius: 99px;
-    overflow: hidden;
-}
-.ev-progress-fill {
-    height: 100%;
-    border-radius: 99px;
-    background: linear-gradient(90deg, var(--lacquer), var(--brass));
-    transition: width 0.35s ease;
-}
-
-/* ── Nav dots ─────────────────────────────────────────────── */
-.ev-dots {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-    margin-bottom: 22px;
-}
-.ev-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: var(--brass-soft);
-    flex-shrink: 0;
-}
-.ev-dot-done    { background: var(--signal); }
-.ev-dot-current { background: var(--lacquer); }
-
-/* ── Question card ───────────────────────────────────────── */
-.ev-question-card {
-    background: var(--parchment);
-    border: 1px solid var(--brass-soft);
-    border-left: 3px solid var(--brass);
-    border-radius: 8px;
-    padding: 20px 24px;
-    margin-bottom: 18px;
-}
-.ev-question-eyebrow {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--brass);
-    margin-bottom: 10px;
-}
-.ev-question-text {
-    font-family: 'Hanuman', sans-serif;
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--ink);
-    line-height: 1.8;
-}
-
-/* ── Answer blocks ───────────────────────────────────────── */
-.ev-answer-block {
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin-bottom: 14px;
-}
-.ev-answer-block.expected {
-    background: var(--signal-soft);
-    border: 1px solid rgba(46, 125, 82, 0.25);
-    border-left: 3px solid var(--signal);
-}
-.ev-answer-block.generated {
-    background: var(--parchment-soft);
-    border: 1px solid var(--brass-soft);
-    border-left: 3px solid var(--lacquer);
-}
-.ev-answer-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-}
-.ev-answer-label.expected  { color: var(--signal); }
-.ev-answer-label.generated { color: var(--lacquer); }
-.ev-answer-text {
-    font-family: 'Hanuman', sans-serif;
-    font-size: 14.5px;
-    line-height: 1.9;
-    color: var(--stone);
-    white-space: pre-wrap;
-}
-.ev-answer-blank {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--danger);
-    font-style: italic;
-}
-
-/* ── Divider ─────────────────────────────────────────────── */
-.ev-divider {
-    border: none;
-    border-top: 1px dashed var(--brass-soft);
-    margin: 20px 0;
-}
-
-/* ── Metric cards ────────────────────────────────────────── */
-.ev-metric-name {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--stone);
-    margin-bottom: 3px;
-}
-.ev-metric-desc {
-    font-size: 11.5px;
-    color: var(--stone-light);
-    line-height: 1.5;
-    margin-bottom: 10px;
-}
-
-/* ── Score total bar ─────────────────────────────────────── */
-.ev-total-row {
-    background: var(--parchment);
-    border: 1px solid var(--brass-soft);
-    border-radius: 8px;
-    padding: 14px 20px;
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    margin-bottom: 16px;
-}
-.ev-total-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    color: var(--stone-light);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    white-space: nowrap;
-}
-.ev-total-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--stone);
-    white-space: nowrap;
-    min-width: 60px;
-}
-.ev-total-value span {
-    font-size: 13px;
-    font-weight: 400;
-    color: var(--stone-light);
-}
-.ev-total-track {
-    flex: 1;
-    height: 5px;
-    background: var(--brass-soft);
-    border-radius: 99px;
-    overflow: hidden;
-}
-.ev-total-fill {
-    height: 100%;
-    border-radius: 99px;
-    background: linear-gradient(90deg, var(--score-1), var(--score-3) 50%, var(--score-5));
-    transition: width 0.3s ease;
-}
-
-/* ── Completion screen ───────────────────────────────────── */
-.ev-done {
-    text-align: center;
-    padding: 72px 24px;
-}
-.ev-done-seal { margin-bottom: 20px; }
-.ev-done-title {
-    font-family: 'Moul', serif;
-    font-size: 22px;
-    color: var(--lacquer);
-    margin-bottom: 8px;
-}
-.ev-done-sub {
-    font-size: 14px;
-    color: var(--stone-light);
-    margin-bottom: 28px;
-}
-.ev-done-stat {
-    display: inline-block;
-    background: var(--parchment);
-    border: 1px solid var(--brass-soft);
-    border-radius: 10px;
-    padding: 18px 36px;
-    font-size: 34px;
-    font-weight: 700;
-    color: var(--lacquer);
-}
-.ev-done-stat span {
-    display: block;
-    font-size: 11px;
-    font-weight: 400;
-    color: var(--stone-light);
-    font-family: 'IBM Plex Mono', monospace;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-top: 4px;
-}
-
-/* ── Streamlit widget overrides ──────────────────────────── */
-
-/* Text input */
-[data-testid="stTextInput"] input {
+/* ── st.container(border=True) card style ─────────────────── */
+[data-testid="stVerticalBlockBorderWrapper"] {
     background: var(--parchment-soft) !important;
     border: 1px solid var(--brass-soft) !important;
     border-radius: 8px !important;
-    color: var(--stone) !important;
-    font-family: 'IBM Plex Sans', sans-serif !important;
-    font-size: 15px !important;
-    padding: 11px 14px !important;
+    padding: 8px 12px 4px 12px !important;
+    margin-bottom: 4px !important;
 }
-[data-testid="stTextInput"] input:focus {
-    border-color: var(--brass) !important;
-    box-shadow: 0 0 0 2px var(--brass-mist) !important;
+/* The inner stVerticalBlock that Streamlit adds — zero its gap */
+[data-testid="stVerticalBlockBorderWrapper"] > div > [data-testid="stVerticalBlock"] {
+    gap: 0 !important;
 }
-[data-testid="stTextInput"] label { display: none !important; }
+/* Every element-container inside card: no margin, no padding */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="element-container"] {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    min-height: 0 !important;
+}
+/* The stMarkdown block inside card (title+desc): tight */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMarkdown"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+}
+/* Card title and desc */
+.card-title { font-size: 13px; font-weight: 600; color: var(--stone); margin: 0 0 1px 0; line-height: 1.2; }
+.card-desc  { font-size: 11px; color: var(--stone-light); line-height: 1.3; margin: 0 0 4px 0; }
 
-/* Primary submit button — login */
-[data-testid="stButton"] button[kind="primary"],
-[data-testid="stBaseButton-primary"] {
-    background: var(--lacquer) !important;
-    color: var(--parchment-soft) !important;
-    border: none !important;
-    border-radius: 8px !important;
-    font-family: 'IBM Plex Sans', sans-serif !important;
-    font-weight: 600 !important;
-    font-size: 14px !important;
-    padding: 10px 28px !important;
-    width: 100% !important;
+/* Radio widget wrapper: no top/bottom space */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] {
+    margin: 0 !important;
+    padding: 0 !important;
 }
-[data-testid="stButton"] button[kind="primary"]:hover,
-[data-testid="stBaseButton-primary"]:hover {
-    background: var(--lacquer-deep) !important;
-}
-
-/* Secondary buttons — submit/next/finish */
-[data-testid="stButton"] button,
-[data-testid="stBaseButton-secondary"] {
-    background: var(--lacquer) !important;
-    color: var(--parchment-soft) !important;
-    border: none !important;
-    border-radius: 8px !important;
-    font-family: 'IBM Plex Sans', sans-serif !important;
-    font-weight: 600 !important;
-    font-size: 14px !important;
-    padding: 10px 28px !important;
-    width: 100% !important;
-    transition: background 0.15s ease !important;
-}
-[data-testid="stButton"] button:hover,
-[data-testid="stBaseButton-secondary"]:hover {
-    background: var(--lacquer-deep) !important;
-}
-[data-testid="stButton"] button:disabled {
-    background: var(--brass-soft) !important;
-    color: var(--stone-light) !important;
-    cursor: not-allowed !important;
-    opacity: 0.7 !important;
-}
-
-/* Radio buttons — score chips */
-[data-testid="stRadio"] > div {
+/* Radio inner flex row */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] > div {
     flex-direction: row !important;
-    gap: 8px !important;
-    flex-wrap: wrap;
+    gap: 4px !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
-[data-testid="stRadio"] label {
-    background: var(--parchment-soft) !important;
-    border: 1.5px solid var(--brass-soft) !important;
-    border-radius: 7px !important;
-    padding: 7px 14px !important;
-    cursor: pointer !important;
+/* Each radio label */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 2px !important;
+    margin: 0 !important;
     font-family: 'IBM Plex Sans', sans-serif !important;
-    font-size: 12.5px !important;
+    font-size: 10px !important;
     color: var(--stone-light) !important;
-    transition: all 0.12s ease !important;
-    min-width: 80px;
-    text-align: center;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    white-space: nowrap;
+    flex: 1 1 0 !important;
+    box-shadow: none !important;
+    line-height: 1 !important;
+    min-height: 0 !important;
 }
-[data-testid="stRadio"] label:hover {
-    border-color: var(--brass) !important;
-    color: var(--stone) !important;
-}
-/* Selected state — one colour per score value via nth-child
-   (Streamlit renders radio options in DOM order matching our 1→5 list) */
-[data-testid="stRadio"] [aria-checked="true"] ~ * { }
-[data-testid="stRadio"] label:has(input[value="1 — Poor"]) {
-    /* handled by aria-checked below */ }
-/* Generic selected style — brass/lacquer accent */
-[data-testid="stRadio"] label:has(input:checked) {
-    background: var(--lacquer-mist) !important;
-    border-color: var(--lacquer) !important;
-    color: var(--lacquer) !important;
-    font-weight: 600 !important;
-}
-/* Hide the actual radio circle */
-[data-testid="stRadio"] [data-testid="stMarkdownContainer"] { display: none; }
-[data-testid="stRadio"] input[type="radio"] {
-    position: absolute !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label:hover { color: var(--stone) !important; }
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label:has(input:checked) { color: var(--lacquer) !important; font-weight: 600 !important; }
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label svg { display: block !important; width: 12px !important; height: 12px !important; flex-shrink: 0 !important; }
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label > span:first-child { display: none !important; }
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] input[type="radio"] { position: absolute !important; opacity: 0 !important; pointer-events: none !important; }
 
-/* Collapse vertical gaps Streamlit inserts between widgets */
-[data-testid="stVerticalBlock"] > [data-testid="element-container"] {
-    margin-bottom: -6px !important;
-}
+/* ── Progress ─────────────────────────────────────────────── */
+.prog-wrap { margin-bottom: 10px; }
+.prog-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--stone-light); margin-bottom: 5px; font-family: 'IBM Plex Mono', monospace; }
+.prog-track { height: 4px; background: var(--brass-soft); border-radius: 99px; overflow: hidden; }
+.prog-fill  { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--lacquer), var(--brass)); transition: width 0.4s; }
+.nav-dots { display: flex; gap: 5px; flex-wrap: wrap; margin: 8px 0 10px 0; }
+.nav-dot  { width: 10px; height: 10px; border-radius: 50%; background: var(--brass-soft); }
+.nav-dot.done    { background: var(--signal); }
+.nav-dot.current { background: var(--lacquer); }
 
-/* Warning for incomplete scoring */
-.ev-incomplete-note {
-    text-align: center;
-    font-size: 11.5px;
-    color: var(--stone-light);
-    font-family: 'IBM Plex Mono', monospace;
-    margin-top: 6px;
-}
+/* ── Column scroll ───────────────────────────────────────── */
+[data-testid="column"]:nth-child(1) { max-height: calc(100vh - 110px); overflow-y: auto; padding-right: 20px !important; }
+[data-testid="column"]:nth-child(1)::-webkit-scrollbar { width: 4px; }
+[data-testid="column"]:nth-child(1)::-webkit-scrollbar-thumb { background: var(--brass-soft); border-radius: 99px; }
+[data-testid="column"]:nth-child(2) { max-height: calc(100vh - 110px); overflow-y: auto; padding-left: 20px !important; border-left: 1px solid var(--brass-soft); }
+[data-testid="column"]:nth-child(2)::-webkit-scrollbar { width: 4px; }
+[data-testid="column"]:nth-child(2)::-webkit-scrollbar-thumb { background: var(--brass-soft); border-radius: 99px; }
+
+/* ── Right col header ─────────────────────────────────────── */
+.ev-scoring-header { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brass); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--brass-soft); }
+
+/* ── Left col ─────────────────────────────────────────────── */
+.ev-category-pill { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--brass); background: var(--brass-mist); border: 1px solid var(--brass-soft); border-radius: 99px; padding: 3px 10px; margin-bottom: 10px; }
+.ev-question-text { font-family: 'Hanuman', sans-serif; font-size: 17px; font-weight: 600; color: var(--ink); line-height: 1.85; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px dashed var(--brass-soft); }
+.ev-answer-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.ev-answer-label.expected  { color: var(--signal); }
+.ev-answer-label.generated { color: var(--lacquer); }
+.ev-answer-label .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.ev-answer-label.expected  .dot { background: var(--signal); }
+.ev-answer-label.generated .dot { background: var(--lacquer); }
+.ev-answer-block { border-radius: 8px; padding: 13px 15px; margin-bottom: 14px; font-family: 'Hanuman', sans-serif; font-size: 14px; line-height: 1.9; color: var(--stone); white-space: pre-wrap; }
+.ev-answer-block.expected  { background: var(--signal-soft); border: 1px solid rgba(46,125,82,0.20); }
+.ev-answer-block.generated { background: var(--parchment-soft); border: 1px solid var(--brass-soft); }
+.ev-answer-blank { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--danger); font-style: italic; }
+
+/* ── Score bar ────────────────────────────────────────────── */
+.score-row { display: flex; align-items: center; gap: 16px; padding: 14px 0 4px 0; border-top: 1px dashed var(--brass-soft); margin-top: 12px; }
+.score-label { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--stone-light); white-space: nowrap; flex-shrink: 0; }
+.score-label strong { font-size: 22px; font-weight: 700; color: var(--lacquer); }
+.score-track { flex: 1; height: 7px; background: var(--brass-soft); border-radius: 99px; overflow: hidden; min-width: 0; }
+.score-fill  { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--danger), var(--brass) 50%, var(--signal)); transition: width 0.3s ease; }
+.ev-incomplete-note { text-align: center; font-size: 10px; color: var(--stone-light); font-family: 'IBM Plex Mono', monospace; margin-top: 4px; }
+
+/* ── Buttons ──────────────────────────────────────────────── */
+[data-testid="stButton"] button { background: var(--lacquer) !important; color: var(--parchment-soft) !important; border: none !important; border-radius: 8px !important; font-family: 'IBM Plex Sans', sans-serif !important; font-weight: 600 !important; font-size: 13px !important; padding: 8px 22px !important; width: auto !important; white-space: nowrap; transition: background 0.15s ease !important; }
+[data-testid="stButton"] button:hover    { background: var(--lacquer-deep) !important; }
+[data-testid="stButton"] button:disabled { background: var(--brass-soft) !important; color: var(--stone-light) !important; opacity: 0.75 !important; }
+
+/* ── Text input ──────────────────────────────────────────── */
+[data-testid="stTextInput"] input { background: var(--parchment-soft) !important; border: 1px solid var(--brass-soft) !important; border-radius: 8px !important; color: var(--stone) !important; font-family: 'IBM Plex Sans', sans-serif !important; font-size: 14px !important; padding: 8px 12px !important; box-shadow: none !important; }
+[data-testid="stTextInput"] input:focus { border-color: var(--brass) !important; box-shadow: 0 0 0 2px var(--brass-mist) !important; }
+
+/* ── Completion ──────────────────────────────────────────── */
+.done-wrap  { text-align: center; padding: 60px 20px; }
+.done-icon  { font-size: 52px; margin-bottom: 16px; }
+.done-title { font-size: 24px; font-weight: 700; color: var(--stone); margin-bottom: 8px; }
+.done-sub   { font-size: 14px; color: var(--stone-light); }
+.done-stat  { display: inline-block; background: var(--parchment-soft); border: 1px solid var(--brass-soft); border-radius: 10px; padding: 16px 32px; margin-top: 24px; font-size: 32px; font-weight: 700; color: var(--lacquer); }
+.done-stat span { display: block; font-size: 12px; font-weight: 400; color: var(--stone-light); margin-top: 2px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; }
 </style>
 """
-
-SEAL_SVG = """<svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="22" cy="22" r="20" fill="none" stroke="#B68B4C" stroke-width="1.2"/>
-  <circle cx="22" cy="22" r="13" fill="none" stroke="#B68B4C" stroke-width="1.2"/>
-  <g stroke="#B68B4C" stroke-width="1.2">
-    <line x1="22" y1="2"  x2="22" y2="9"/>
-    <line x1="22" y1="35" x2="22" y2="42"/>
-    <line x1="2"  y1="22" x2="9"  y2="22"/>
-    <line x1="35" y1="22" x2="42" y2="22"/>
-    <line x1="8"  y1="8"  x2="13" y2="13"/>
-    <line x1="31" y1="31" x2="36" y2="36"/>
-    <line x1="8"  y1="36" x2="13" y2="31"/>
-    <line x1="31" y1="13" x2="36" y2="8"/>
-  </g>
-  <circle cx="22" cy="22" r="3.5" fill="#B68B4C"/>
-</svg>"""
 
 
 # ----------------------------------------------------------------------------
@@ -660,27 +410,30 @@ SEAL_SVG = """<svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.
 
 def page_login():
     st.markdown(CSS, unsafe_allow_html=True)
+    # Centred title + subtitle as full-width HTML
     st.markdown(
-        f'<div class="ev-login">'
-        f'<div class="ev-seal">{SEAL_SVG}</div>'
-        f'<div class="ev-eyebrow">RAG · Insurance Law Corpus</div>'
-        f'<div class="ev-login-title">Human Answer Evaluation</div>'
-        f'<div class="ev-login-sub">'
-        f'Enter your name to begin. You will be assigned {QUESTIONS_PER_EVALUATOR} questions to rate.'
-        f'</div>'
-        f'</div>',
+        '<div style="text-align:center; padding-top:22vh; padding-bottom:18px;">'
+        '<div style="font-size:28px;font-weight:700;color:var(--stone);margin-bottom:8px;letter-spacing:-0.5px;">Khmer Insurance RAG Evaluation</div>'
+        '<div style="font-size:15px;color:var(--stone-light);">Enter your name to begin. You will be assigned 25 questions.</div>'
+        '</div>',
         unsafe_allow_html=True,
     )
-
-    col = st.columns([1, 2, 1])[1]
-    with col:
-        name = st.text_input("Your name", placeholder="e.g. Bunmeng", key="login_name")
-        if st.button("Begin Evaluation", type="primary"):
+    # Input in narrow centred column; button in its own centred column
+    _, c_input, _ = st.columns([1.2, 1, 1.2])
+    with c_input:
+        name = st.text_input("name", placeholder="Enter your name", label_visibility="collapsed")
+    _, c_btn, _ = st.columns([2.2, 0.6, 2.2])
+    with c_btn:
+        if st.button("Start Evaluation", use_container_width=True):
             if name.strip():
+                # Clear any previous session so a new evaluator_id is created
+                st.session_state.pop("evaluator_id", None)
+                st.session_state.pop("session_id", None)
+                st.session_state.pop("q_pos", None)
                 st.session_state["evaluator_name"] = name.strip()
                 st.rerun()
             else:
-                st.error("Please enter your name to continue.")
+                st.error("Please enter your name.")
 
 
 def page_evaluate(evaluator_id, evaluator_name, all_questions):
@@ -693,197 +446,176 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
 
     if "q_pos" not in st.session_state:
         st.session_state["q_pos"] = next(
-            (i for i, qidx in enumerate(assignment) if qidx not in responses),
-            total_qs,
+            (i for i, qidx in enumerate(assignment) if qidx not in responses), total_qs,
         )
 
     q_pos = st.session_state["q_pos"]
 
-    # ── Completion ──────────────────────────────────────────────────────────
     if q_pos >= total_qs:
-        avg = (
-            sum(r["total_score"] for r in responses.values()) / len(responses)
-            if responses else 0
-        )
+        avg = (sum(r["total_score"] for r in responses.values()) / len(responses) if responses else 0)
+        halluc_count = sum(1 for r in responses.values() if r.get("hallucination") == 1)
         st.markdown(
-            f'<div class="ev-done">'
-            f'<div class="ev-done-seal">{SEAL_SVG}</div>'
-            f'<div class="ev-done-title">Evaluation Complete</div>'
-            f'<div class="ev-done-sub">'
-            f'Thank you, {evaluator_name}. All {total_qs} questions have been rated.'
-            f'</div>'
-            f'<div class="ev-done-stat">{avg:.1f}'
-            f'<span>avg total score / 20</span>'
-            f'</div>'
-            f'</div>',
+            f'<div class="done-wrap"><div class="done-icon">✓</div>'
+            f'<div class="done-title">Evaluation Complete</div>'
+            f'<div class="done-sub">Thank you, {evaluator_name}. All {total_qs} questions have been rated.</div>'
+            f'<div class="done-stat">{avg:.1f}<span>avg score / {MAX_TOTAL}</span></div>'
+            f'<p style="margin-top:16px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:var(--stone-light);">'
+            f'Hallucination flagged: {halluc_count} / {total_qs} answers</p></div>',
             unsafe_allow_html=True,
         )
         return
 
     q_idx    = assignment[q_pos]
     question = all_questions[q_idx]
+    existing = responses.get(q_idx, {})
 
-    # ── Progress ─────────────────────────────────────────────────────────────
     pct = int(done_count / total_qs * 100)
     dots_html = "".join(
-        f'<div class="ev-dot '
-        f'{"ev-dot-done" if assignment[i] in responses else ("ev-dot-current" if i == q_pos else "")}'
-        f'"></div>'
+        f'<div class="nav-dot {"done" if assignment[i] in responses else ("current" if i == q_pos else "")}"></div>'
         for i in range(total_qs)
     )
     st.markdown(
-        f'<div class="ev-progress">'
-        f'<div class="ev-progress-meta">'
-        f'<span>Question {q_pos + 1} of {total_qs}</span>'
-        f'<span>{done_count} done · {evaluator_name}</span>'
-        f'</div>'
-        f'<div class="ev-progress-track">'
-        f'<div class="ev-progress-fill" style="width:{pct}%"></div>'
-        f'</div>'
-        f'</div>'
-        f'<div class="ev-dots">{dots_html}</div>',
+        f'<div class="prog-wrap"><div class="prog-label"><span>Question {q_pos + 1} of {total_qs}</span>'
+        f'<span>{done_count} done · {evaluator_name}</span></div>'
+        f'<div class="prog-track"><div class="prog-fill" style="width:{pct}%"></div></div></div>'
+        f'<div class="nav-dots">{dots_html}</div>',
         unsafe_allow_html=True,
     )
 
-    # ── Question ─────────────────────────────────────────────────────────────
-    category = question.get("category", "").replace("_", " ").title()
-    st.markdown(
-        f'<div class="ev-question-card">'
-        f'<div class="ev-question-eyebrow">Question {q_pos + 1} · {category}</div>'
-        f'<div class="ev-question-text">{question["question"]}</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    left_col, right_col = st.columns([2.5, 1.5], gap="medium")
 
-    # ── Expected answer ───────────────────────────────────────────────────────
-    expected = question.get("expected_answer", "")
-    st.markdown(
-        f'<div class="ev-answer-block expected">'
-        f'<div class="ev-answer-label expected">Expected Answer</div>'
-        f'<div class="ev-answer-text">{expected if expected else "—"}</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    with left_col:
+        category = question.get("category", "").replace("_", " ").title()
+        st.markdown(f'<div class="ev-category-pill">{category}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="ev-question-text">{question["question"]}</div>', unsafe_allow_html=True)
+        expected = question.get("expected_answer") or ""
+        st.markdown(
+            '<div class="ev-answer-label expected"><span class="dot"></span>Expected Answer</div>'
+            f'<div class="ev-answer-block expected">{expected if expected else "—"}</div>',
+            unsafe_allow_html=True,
+        )
+        generated = question.get("generated_answer") or ""
+        gen_body = (
+            '<span class="ev-answer-blank">[ No answer was generated ]</span>'
+            if not generated.strip() else generated
+        )
+        st.markdown(
+            '<div class="ev-answer-label generated"><span class="dot"></span>Chatbot Answer</div>'
+            f'<div class="ev-answer-block generated">{gen_body}</div>',
+            unsafe_allow_html=True,
+        )
 
-    # ── Generated answer ──────────────────────────────────────────────────────
-    generated = question.get("generated_answer", "")
-    is_blank  = not generated.strip()
-    gen_body  = (
-        f'<div class="ev-answer-blank">[ No answer was generated ]</div>'
-        if is_blank
-        else f'<div class="ev-answer-text">{generated}</div>'
-    )
-    st.markdown(
-        f'<div class="ev-answer-block generated">'
-        f'<div class="ev-answer-label generated">Chatbot Answer</div>'
-        f'{gen_body}'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    # ── RIGHT: 6 cards using st.container(border=True) ───────────────────────
+    # Everything inside a container (title, desc, radio) is one card.
+    with right_col:
+        st.markdown('<div class="ev-scoring-header">Quality Ratings</div>', unsafe_allow_html=True)
 
-    st.markdown('<hr class="ev-divider">', unsafe_allow_html=True)
+        current_scores = {}
+        all_scored     = True
 
-    # ── Metric rating ─────────────────────────────────────────────────────────
-    existing     = responses.get(q_idx, {})
-    current_scores = {}
-    all_scored     = True
-
-    score_opts = [f"{s} — {SCORE_LABELS[s]}" for s in range(1, 6)]
-    reverse    = {label: s for s, label in enumerate(score_opts, start=1)}
-
-    col1, col2 = st.columns(2)
-    cols = [col1, col2, col1, col2]
-
-    for i, metric in enumerate(METRICS):
-        with cols[i]:
+        for metric in METRICS:
             pre = existing.get(metric["key"])
-            pre_label = (
-                f"{pre} — {SCORE_LABELS[pre]}" if pre in SCORE_LABELS else None
-            )
-            st.markdown(
-                f'<div class="ev-metric-name">{metric["label"]}</div>'
-                f'<div class="ev-metric-desc">{metric["desc"]}</div>',
-                unsafe_allow_html=True,
-            )
-            chosen = st.radio(
-                label=metric["key"],
-                options=score_opts,
-                index=score_opts.index(pre_label) if pre_label in score_opts else None,
-                horizontal=True,
-                key=f"radio_{metric['key']}_{q_pos}",
-                label_visibility="collapsed",
-            )
-            val = reverse.get(chosen)
+            pre_label = (CHIP_OPTS[pre - 1] if isinstance(pre, int) and 1 <= pre <= 5 else None)
+
+            with st.container(border=True):
+                st.markdown(
+                    f'<div class="card-title">{metric["label"]}</div>'
+                    f'<div class="card-desc">{metric["desc"]}</div>',
+                    unsafe_allow_html=True,
+                )
+                chosen = st.radio(
+                    label=metric["key"],
+                    options=CHIP_OPTS,
+                    index=(CHIP_OPTS.index(pre_label) if pre_label in CHIP_OPTS else None),
+                    horizontal=True,
+                    key=f"radio_{metric['key']}_{q_pos}",
+                    label_visibility="collapsed",
+                )
+            val = CHIP_REVERSE.get(chosen)
             current_scores[metric["key"]] = val
             if val is None:
                 all_scored = False
 
-    st.markdown('<hr class="ev-divider">', unsafe_allow_html=True)
+        # 6th card: hallucination
+        pre_h = existing.get(HALLUCINATION_KEY)
+        pre_h_label = ("Yes" if pre_h == 1 else ("No" if pre_h == 0 else None))
 
-    # ── Live total ─────────────────────────────────────────────────────────────
-    filled = [v for v in current_scores.values() if v is not None]
-    live_total = sum(filled)
-    max_total  = len(METRICS) * 5
-    bar_pct    = int(live_total / max_total * 100)
+        with st.container(border=True):
+            st.markdown(
+                '<div class="card-title">Hallucination Check</div>'
+                '<div class="card-desc">Does the answer contain facts not found in the sources — '
+                'invented numbers, wrong article references, or fabricated claims?</div>',
+                unsafe_allow_html=True,
+            )
+            halluc_chosen = st.radio(
+                label=HALLUCINATION_KEY,
+                options=HALLUC_OPTS,
+                index=(HALLUC_OPTS.index(pre_h_label) if pre_h_label in HALLUC_OPTS else None),
+                horizontal=True,
+                key=f"radio_hallucination_{q_pos}",
+                label_visibility="collapsed",
+            )
+        hallucination_flag = HALLUC_MAP.get(halluc_chosen)
+        if hallucination_flag is None:
+            all_scored = False
 
-    st.markdown(
-        f'<div class="ev-total-row">'
-        f'<div class="ev-total-label">Total Score</div>'
-        f'<div class="ev-total-value">{live_total}<span> / {max_total}</span></div>'
-        f'<div class="ev-total-track">'
-        f'<div class="ev-total-fill" style="width:{bar_pct}%"></div>'
-        f'</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    # ── Score bar + submit — one line below columns ───────────────────────────
+    metric_sum = sum(v for v in current_scores.values() if v is not None)
+    # Score bar shows metric scores only (hallucination is a separate audit flag)
+    live_total = metric_sum
+    bar_pct    = int(live_total / MAX_TOTAL * 100)
+    btn_label  = "Submit & Next →" if q_pos < total_qs - 1 else "Submit & Finish"
 
-    # ── Submit ──────────────────────────────────────────────────────────────
-    btn_label = (
-        "Submit & Next →"
-        if q_pos < total_qs - 1
-        else "Submit & Finish"
-    )
-    if st.button(btn_label, disabled=not all_scored):
-        save_response(evaluator_id, q_idx, current_scores)
-        st.session_state["q_pos"] = q_pos + 1
-        st.rerun()
+    bar_col, btn_col = st.columns([5, 1], gap="medium")
+    with bar_col:
+        st.markdown(
+            f'<div class="score-row">'
+            f'<div class="score-label">Score <strong>{live_total}</strong> / {MAX_TOTAL}</div>'
+            f'<div class="score-track"><div class="score-fill" style="width:{bar_pct}%"></div></div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with btn_col:
+        st.markdown('<div style="padding-top:14px;">', unsafe_allow_html=True)
+        if st.button(btn_label, disabled=not all_scored):
+            final_scores = {k: v for k, v in current_scores.items() if v is not None}
+            save_response(evaluator_id, q_idx, final_scores, hallucination_flag)
+            st.session_state["q_pos"] = q_pos + 1
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if not all_scored:
         st.markdown(
-            '<p class="ev-incomplete-note">Rate all 4 metrics to continue.</p>',
+            '<p class="ev-incomplete-note">Rate all 5 metrics and the hallucination check to continue.</p>',
             unsafe_allow_html=True,
         )
 
-
-# ----------------------------------------------------------------------------
-# Main
-# ----------------------------------------------------------------------------
 
 def main():
     st.set_page_config(
         page_title="RAG Evaluation · Khmer Insurance",
         page_icon="📋",
-        layout="centered",
+        layout="wide",
         initial_sidebar_state="collapsed",
     )
-
     init_db()
     all_questions = load_questions()
-
     if not all_questions:
         st.markdown(CSS, unsafe_allow_html=True)
-        st.error(
-            f"No questions found at `{JSONL_PATH}`. "
-            "Run `scripts/10_compare_generator_models.py` first."
-        )
+        st.error(f"No questions found at `{JSONL_PATH}`. Run scripts/10 first.")
         return
-
     if "evaluator_name" not in st.session_state:
         page_login()
         return
-
-    name         = st.session_state["evaluator_name"]
-    evaluator_id = get_or_create_evaluator(name)
+    name = st.session_state["evaluator_name"]
+    # Evaluator id and session_id are created once per login and stored in session_state.
+    # This means refreshing the page within the same browser session continues the
+    # same evaluation; opening a new tab or re-running the script starts a fresh session.
+    if "evaluator_id" not in st.session_state:
+        eid, sid = create_new_session(name)
+        st.session_state["evaluator_id"]  = eid
+        st.session_state["session_id"]    = sid
+    evaluator_id = st.session_state["evaluator_id"]
     page_evaluate(evaluator_id, name, all_questions)
 
 
