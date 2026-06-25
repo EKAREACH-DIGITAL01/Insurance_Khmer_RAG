@@ -4,6 +4,7 @@
   "valid_questions": 100,
   "failed_questions": 0,
   "truncated_answers": 23,
+  "blank_answers": 0,
   "scores_avg": {
     "context_relevance": 4.44,
     "faithfulness": 4.5,
