@@ -43,8 +43,8 @@ if os.environ.get(_LAUNCHED_KEY) != "1":
     )
     # Give the server ~2.5s to bind to 8502, then open exactly one tab.
     import webbrowser
-    import time as _time
-    _time.sleep(2.5)
+
+    time.sleep(2.5)
     webbrowser.open("http://localhost:8502")
     try:
         proc.wait()
@@ -57,7 +57,7 @@ import streamlit as st
 # ----------------------------------------------------------------------------
 # Config
 # ----------------------------------------------------------------------------
-DB_PATH    = Path("reports/human_answer_evaluation/human_answer_evaluation.db")
+DB_PATH = Path("reports/human_answer_evaluation/human_answer_evaluation.db")
 JSONL_PATH = Path(
     "reports/generator_model_comparison/"
     "SeaLLMs-v3-7B-Chat-Q4_K_M/"
@@ -66,29 +66,48 @@ JSONL_PATH = Path(
 QUESTIONS_PER_EVALUATOR = 25
 
 METRICS = [
-    {"key": "context_relevance",  "label": "Context Relevance",
-     "desc": "Did the retrieved context contain information relevant to the question?"},
-    {"key": "faithfulness",       "label": "Faithfulness",
-     "desc": "Is the answer fully supported by the retrieved sources, without introducing unsupported information?"},
-    {"key": "answer_relevance",   "label": "Answer Relevance",
-     "desc": "Does the answer actually address what was asked?"},
-    {"key": "answer_correctness", "label": "Answer Correctness",
-     "desc": "How accurately does the answer match the expected answer?"},
-    {"key": "completeness",       "label": "Completeness",
-     "desc": "Is the answer complete and covering all required points without being cut off?"},
+    {
+        "key": "context_relevance",
+        "label": "Context Relevance",
+        "desc": "Did the retrieved context contain information relevant to the question?",
+    },
+    {
+        "key": "faithfulness",
+        "label": "Faithfulness",
+        "desc": (
+            "Is the answer fully supported by the retrieved sources, "
+            "without introducing unsupported information?"
+        ),
+    },
+    {
+        "key": "answer_relevance",
+        "label": "Answer Relevance",
+        "desc": "Does the answer actually address what was asked?",
+    },
+    {
+        "key": "answer_correctness",
+        "label": "Answer Correctness",
+        "desc": "How accurately does the answer match the expected answer?",
+    },
+    {
+        "key": "completeness",
+        "label": "Completeness",
+        "desc": "Is the answer complete and covering all required points without being cut off?",
+    },
 ]
 
 HALLUCINATION_KEY = "hallucination"
-CHIP_OPTS    = ["Poor", "Fair", "Good", "Very Good", "Excellent"]
+CHIP_OPTS = ["Poor", "Fair", "Good", "Very Good", "Excellent"]
 CHIP_REVERSE = {label: i + 1 for i, label in enumerate(CHIP_OPTS)}
-HALLUC_OPTS  = ["Yes", "No"]
-HALLUC_MAP   = {"Yes": 1, "No": 0}
-MAX_METRIC   = len(METRICS) * 5   # 25
-MAX_TOTAL    = MAX_METRIC          # 25 — hallucination stored separately, not added to score
+HALLUC_OPTS = ["Yes", "No"]
+HALLUC_MAP = {"Yes": 1, "No": 0}
+MAX_METRIC = len(METRICS) * 5  # 25
+MAX_TOTAL = MAX_METRIC  # 25 — hallucination stored separately, not added to score
 
 # ----------------------------------------------------------------------------
 # Database
 # ----------------------------------------------------------------------------
+
 
 def get_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -167,7 +186,7 @@ def get_or_create_assignment(evaluator_id, all_questions):
     if rows:
         assignment = [r["question_idx"] for r in rows]
     else:
-        indices    = list(range(len(all_questions)))
+        indices = list(range(len(all_questions)))
         assignment = random.sample(indices, min(QUESTIONS_PER_EVALUATOR, len(indices)))
         for pos, qidx in enumerate(assignment):
             conn.execute(
@@ -194,7 +213,7 @@ def save_response(evaluator_id, question_idx, scores, hallucination_flag):
     # total_score = sum of the 5 quality metrics only (max 25)
     # hallucination is stored separately as an audit flag, not added to total
     total = sum(scores.values())
-    conn  = get_db()
+    conn = get_db()
     conn.execute(
         """INSERT INTO responses
            (evaluator_id, question_idx, context_relevance, faithfulness, answer_relevance,
@@ -491,8 +510,8 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
     st.markdown(CSS, unsafe_allow_html=True)
 
     assignment = get_or_create_assignment(evaluator_id, all_questions)
-    responses  = get_responses(evaluator_id)
-    total_qs   = len(assignment)
+    responses = get_responses(evaluator_id)
+    total_qs = len(assignment)
     done_count = len(responses)
 
     if "q_pos" not in st.session_state:
@@ -516,7 +535,7 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
         )
         return
 
-    q_idx    = assignment[q_pos]
+    q_idx = assignment[q_pos]
     question = all_questions[q_idx]
     existing = responses.get(q_idx, {})
 
@@ -563,7 +582,7 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
         st.markdown('<div class="ev-scoring-header">Quality Assessment</div>', unsafe_allow_html=True)
 
         current_scores = {}
-        all_scored     = True
+        all_scored = True
 
         for metric in METRICS:
             pre = existing.get(metric["key"])
@@ -614,15 +633,15 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
     metric_sum = sum(v for v in current_scores.values() if v is not None)
     # Score bar shows metric scores only (hallucination is a separate audit flag)
     live_total = metric_sum
-    bar_pct    = int(live_total / MAX_TOTAL * 100)
-    btn_label  = "Submit & Next →" if q_pos < total_qs - 1 else "Submit & Finish"
+    bar_pct = int(live_total / MAX_TOTAL * 100)
+    btn_label = "Submit & Next →" if q_pos < total_qs - 1 else "Submit & Finish"
 
     st.markdown(
         '<hr style="border:none;border-top:1px dashed var(--brass-soft);margin:18px 0 18px 0;">',
         unsafe_allow_html=True,
     )
 
-    bar_col, btn_col = st.columns([7,1], gap="large")
+    bar_col, btn_col = st.columns([7, 1], gap="large")
     with bar_col:
         st.markdown(
             f'<div class="score-row">'
@@ -632,13 +651,11 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
             unsafe_allow_html=True,
         )
     with btn_col:
-
         if st.button(btn_label, disabled=not all_scored):
             final_scores = {k: v for k, v in current_scores.items() if v is not None}
             save_response(evaluator_id, q_idx, final_scores, hallucination_flag)
             st.session_state["q_pos"] = q_pos + 1
             st.rerun()
-
 
     if not all_scored:
         st.markdown(
@@ -669,8 +686,8 @@ def main():
     # same evaluation; opening a new tab or re-running the script starts a fresh session.
     if "evaluator_id" not in st.session_state:
         eid, sid = create_new_session(name)
-        st.session_state["evaluator_id"]  = eid
-        st.session_state["session_id"]    = sid
+        st.session_state["evaluator_id"] = eid
+        st.session_state["session_id"] = sid
     evaluator_id = st.session_state["evaluator_id"]
     page_evaluate(evaluator_id, name, all_questions)
 
