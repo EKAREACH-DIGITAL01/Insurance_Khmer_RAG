@@ -62,61 +62,22 @@ happen at chat time.
 
 ## Architecture
 
-```
-PDF source documents
-        |
-        v
- [01] Convert pages to PNG images
-        |
-        v
- [02] OCR each page with Gemini  ─────────────> raw page text (JSON)
-        |
-        v
- [03] Clean OCR artifacts per category
-        |
-        v
- [04] Merge pages back into full documents
-        |
-        v
- [05] Document-level cleaning (headers, signatures, appendices)
-        |
-        v
- [06] Chunk documents (legal-unit chunking for laws/prakas/sub_decrees,
-      heading-hierarchy chunking for guidance)
-        |
-        v
- [07] Merge per-category chunks into unified chunk files
-      → data/08_merged_chunked_documents/
-        |
-        v
- [08] Embed chunks with ALL installed retriever models
-      → vector_db/BAAI-BGE-M3/
-      → vector_db/multilingual-e5-large/
-      → vector_db/MiniLM-paraphrase-multilingual-L12-v2/
-        |
-        v
- [09] Compare embedding models head-to-head
- [10] Evaluate retrieval quality (hybrid vs. dense)
- [11] Compare generator models (RAGAS-style LLM-judge)
- [12-13] Diagnose / rescore generator scores
- [14-15] Human answer evaluation UI + merged report
- [16] Evaluate safety gates against the adversarial set
- [17] Generate the data card
-        |
-        v
-   vector_db/<ACTIVE_EMBEDDING_MODEL_DIR>/ (used by live app)
-        |
-        v
-+------------------------------------------------------------------+
-|                      app.py (Streamlit)                          |
-|                                                                  |
-|  question → Khmer-script check → length check → scope gate       |
-|           → BGE-M3 embed → FAISS search + BM25 search → RRF      |
-|           → score gate → build context (capped, deduped)         |
-|           → prompt → llama-server (selected generator, GGUF)     |
-|           → streamed answer + sources + diagnostics              |
-+------------------------------------------------------------------+
-```
+![Khmer Insurance Law Assistant — development flow: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–17), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/Development%20Flow.png)
+
+The diagram above reads in three stages:
+
+- **Stage A — Data-Build Pipeline (`01`–`08`):** raw source PDFs are OCR'd,
+  cleaned, merged, chunked, and embedded into the FAISS indices under
+  `vector_db/`. Run once, or whenever the corpus changes.
+- **Stage B — Evaluation & Reporting (`09`–`17`):** benchmarks the corpus and
+  models (embedding comparison, retrieval modes, generator LLM-judge scoring,
+  human evaluation, safety gates) and rolls everything into a data card,
+  writing JSON + Markdown to `reports/`. This is where **BGE-M3 is selected
+  as the production retriever**; it does not affect the live app.
+- **Stage C — Live Chatbot (`start_chatbot.py` → `app.py`):** the fully-local
+  chat-time path — input gates, BGE-M3 embedding, hybrid FAISS + BM25 / RRF
+  retrieval, a score gate, context building, and streamed generation via
+  `llama-server`.
 
 `start_chatbot.py` is the entry point for actually *using* the assistant:
 it launches `llama-server` with the chosen generator model, waits for it to
