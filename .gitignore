@@ -18,6 +18,10 @@ data/06_cleaned_documents/*
 data/07_chunked_documents/*
 !data/07_chunked_documents/.gitkeep
 
+# Ignore chunked documents
+data/08_merged_chunked_documents/*
+!data/08_merged_chunked_documents/.gitkeep
+
 # Local models (large binaries — not committed)
 models/generator/*
 !models/generator/.gitkeep
