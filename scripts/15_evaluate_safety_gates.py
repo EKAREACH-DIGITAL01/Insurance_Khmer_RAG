@@ -65,7 +65,7 @@ ACTIVE_MODEL_DIR     = "BAAI-BGE-M3"
 INDEX_PATH           = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
 METADATA_PATH        = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
 ADVERSARIAL_ROOT     = Path("data/09_adversarial")
-REPORTS_DIR          = Path("reports/generator")
+REPORTS_DIR          = Path("reports/safety_gate_evaluation")
 LLM_DIR              = Path("models/generator")
 
 LLAMA_SERVER_URL             = "http://localhost:8080/v1"
@@ -473,6 +473,87 @@ def outcome_label(outcome):
     return labels.get(outcome, outcome)
 
 
+# Single source of truth for the gate buckets (used by terminal + report).
+GATE_BUCKETS = {
+    "gate1_no_khmer_script": "Gate 1 — No Khmer script",
+    "gate1_too_short":       "Gate 1 — Too short",
+    "gate1_scope_violation": "Gate 1 — Scope violation (regex)",
+    "gate2_score":           "Gate 2 — Score below threshold",
+    "gate3_llm_refusal":     "Gate 3 — LLM canned refusal",
+    "none":                  "No gate — LLM answered",
+}
+
+
+def _counts(results):
+    """Confusion counts for a list of results."""
+    return {
+        "TR": sum(1 for r in results if r["outcome"] == "TR"),
+        "FA": sum(1 for r in results if r["outcome"] == "FA"),
+        "TA": sum(1 for r in results if r["outcome"] == "TA"),
+        "FR": sum(1 for r in results if r["outcome"] == "FR"),
+    }
+
+
+def build_summary(all_results):
+    """Aggregates everything the JSON + Markdown reports need."""
+    categories = sorted({r["category"] for r in all_results})
+
+    per_category = []
+    for cat in categories:
+        cat_results = [r for r in all_results if r["category"] == cat]
+        c     = _counts(cat_results)
+        total = len(cat_results)
+        correct = c["TR"] + c["TA"]
+        per_category.append({
+            "category": cat,
+            "total":    total,
+            **c,
+            "correct":  correct,
+            "accuracy": round(correct / total, 4) if total else 0,
+        })
+
+    totals       = _counts(all_results)
+    grand_total  = len(all_results)
+    grand_correct = totals["TR"] + totals["TA"]
+
+    gate_breakdown = []
+    for gate_key, gate_label in GATE_BUCKETS.items():
+        matching = [r for r in all_results if r["gate_fired"] == gate_key]
+        if not matching:
+            continue
+        gate_breakdown.append({
+            "gate":      gate_key,
+            "label":     gate_label,
+            "questions": len(matching),
+            **_counts(matching),
+        })
+
+    failures = [
+        {
+            "outcome":          r["outcome"],
+            "category":         r["category"],
+            "question":         r["question"],
+            "expected_behavior": r["expected_behavior"],
+            "gate_fired":       r["gate_fired"],
+            "faiss_best_score": r["faiss_best_score"],
+            "llm_answer":       r["llm_answer"],
+        }
+        for r in all_results if not r["correct"]
+    ]
+
+    return {
+        "totals": {
+            **totals,
+            "total":    grand_total,
+            "correct":  grand_correct,
+            "accuracy": round(grand_correct / grand_total, 4) if grand_total else 0,
+        },
+        "per_category":   per_category,
+        "gate_breakdown": gate_breakdown,
+        "failures":       failures,
+    }
+
+
 def print_results(all_results):
     from tabulate import tabulate
 
@@ -567,17 +648,8 @@ def print_results(all_results):
     print(f"{BOLD}GATE BREAKDOWN -- WHERE EACH REFUSAL WAS CAUGHT{RESET}")
     print(banner)
 
-    gate_buckets = {
-        "gate1_no_khmer_script":    "Gate 1 — No Khmer script",
-        "gate1_too_short":          "Gate 1 — Too short",
-        "gate1_scope_violation":    "Gate 1 — Scope violation (regex)",
-        "gate2_score":              "Gate 2 — Score below threshold",
-        "gate3_llm_refusal":        "Gate 3 — LLM canned refusal",
-        "none":                     "No gate — LLM answered",
-    }
-
     gate_rows = []
-    for gate_key, gate_label in gate_buckets.items():
+    for gate_key, gate_label in GATE_BUCKETS.items():
         matching = [r for r in all_results if r["gate_fired"] == gate_key]
         tr_count = sum(1 for r in matching if r["outcome"] == "TR")
         fa_count = sum(1 for r in matching if r["outcome"] == "FA")
@@ -618,23 +690,107 @@ def print_results(all_results):
     return grand_correct, grand_total
 
 
-def write_report(all_results, model_label, grand_correct, grand_total):
+def write_report(all_results, model_label, summary):
+    from tabulate import tabulate
+
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    totals = summary["totals"]
 
+    # ---- JSON ----
     payload = {
-        "model":          model_label,
-        "total":          grand_total,
-        "correct":        grand_correct,
-        "accuracy":       round(grand_correct / grand_total, 4) if grand_total else 0,
+        "generated_at":            int(time.time()),
+        "model":                   model_label,
         "out_of_domain_threshold": OUT_OF_DOMAIN_THRESHOLD,
-        "results":        all_results,
+        "total":                   totals["total"],
+        "correct":                 totals["correct"],
+        "accuracy":                totals["accuracy"],
+        "confusion":               {k: totals[k] for k in ("TR", "FA", "TA", "FR")},
+        "per_category":            summary["per_category"],
+        "gate_breakdown":          summary["gate_breakdown"],
+        "failures":                summary["failures"],
+        "results":                 all_results,
     }
-
-    json_path = REPORTS_DIR / "safety_gate_eval.json"
+    json_path = REPORTS_DIR / "safety_gate_evaluation.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
-    print(f"\nSaved report : {json_path}")
+    # ---- Markdown ----
+    md = [
+        "# Safety Gate Evaluation Report\n\n",
+        f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n",
+        f"**Model:** {model_label}  \n",
+        f"**Out-of-domain threshold (Gate 2):** {OUT_OF_DOMAIN_THRESHOLD}  \n",
+        f"**Questions:** {totals['total']}  \n",
+        f"**Accuracy:** {totals['correct']}/{totals['total']} "
+        f"({totals['accuracy']:.0%})  \n\n",
+        "**Outcomes:** TR = True Refuse (correctly blocked), "
+        "TA = True Answer (correctly answered), "
+        "FA = False Answer (gate missed a refusal case), "
+        "FR = False Refuse (legitimate question wrongly blocked).\n\n",
+    ]
+
+    md.append("## Confusion Totals\n\n")
+    md.append(tabulate(
+        [[
+            f"{totals['TR']}", f"{totals['TA']}",
+            f"{totals['FA']}", f"{totals['FR']}",
+        ]],
+        headers=["TR ✓", "TA ✓", "FA ✗", "FR ✗"],
+        tablefmt="github",
+    ) + "\n\n")
+
+    md.append("## Per-Category Summary\n\n")
+    cat_rows = [
+        [c["category"], c["total"], c["TR"], c["FA"], c["TA"], c["FR"],
+         f"{c['correct']}/{c['total']}", f"{c['accuracy']:.0%}"]
+        for c in summary["per_category"]
+    ]
+    cat_rows.append([
+        "TOTAL", totals["total"], totals["TR"], totals["FA"], totals["TA"], totals["FR"],
+        f"{totals['correct']}/{totals['total']}", f"{totals['accuracy']:.0%}",
+    ])
+    md.append(tabulate(
+        cat_rows,
+        headers=["Category", "Total", "TR ✓", "FA ✗", "TA ✓", "FR ✗", "Correct", "Accuracy"],
+        tablefmt="github",
+    ) + "\n\n")
+
+    md.append("## Gate Breakdown — Where Each Decision Was Made\n\n")
+    gate_rows = [
+        [g["label"], g["questions"], g["TR"], g["FA"], g["TA"], g["FR"]]
+        for g in summary["gate_breakdown"]
+    ]
+    md.append(tabulate(
+        gate_rows,
+        headers=["Gate", "Questions", "TR ✓", "FA ✗", "TA ✓", "FR ✗"],
+        tablefmt="github",
+    ) + "\n\n")
+
+    md.append("## Failures\n\n")
+    if not summary["failures"]:
+        md.append(f"All {totals['total']} questions were handled correctly — no failures. ✅\n")
+    else:
+        md.append(f"**{len(summary['failures'])} question(s) require review:**\n\n")
+        for f in summary["failures"]:
+            score = (f"{f['faiss_best_score']:.4f}"
+                     if f["faiss_best_score"] is not None else "—")
+            md.append(
+                f"### [{f['outcome']}] {f['category']}\n\n"
+                f"- **Question:** {f['question']}\n"
+                f"- **Expected:** {f['expected_behavior']} | "
+                f"**Gate fired:** {f['gate_fired']} | **FAISS score:** {score}\n"
+            )
+            if f["llm_answer"]:
+                preview = f["llm_answer"].strip().replace("\n", " ")[:300]
+                md.append(f"- **LLM answer:** {preview}…\n")
+            md.append("\n")
+
+    md_path = REPORTS_DIR / "safety_gate_evaluation.md"
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write("".join(md))
+
+    print(f"\nSaved JSON report     : {json_path}")
+    print(f"Saved Markdown report : {md_path}")
 
 
 # ----------------------------------------------------------------------------
@@ -749,8 +905,9 @@ def main():
             print(f"\nStopping llama-server for: {WINNER_MODEL['label']}")
             stop_llama_server(process)
 
-    grand_correct, grand_total = print_results(all_results)
-    write_report(all_results, WINNER_MODEL["label"], grand_correct, grand_total)
+    print_results(all_results)
+    summary = build_summary(all_results)
+    write_report(all_results, WINNER_MODEL["label"], summary)
 
     wall_clock_total = time.time() - wall_clock_start
     hours, rem       = divmod(int(wall_clock_total), 3600)
