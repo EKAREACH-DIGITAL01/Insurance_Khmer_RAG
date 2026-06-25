@@ -464,8 +464,8 @@ def page_login():
     # Centred title + subtitle as full-width HTML
     st.markdown(
         '<div style="text-align:center; padding-top:22vh; padding-bottom:18px;">'
-        '<div style="font-size:28px;font-weight:700;color:var(--stone);margin-bottom:8px;letter-spacing:-0.5px;">Khmer Insurance RAG Evaluation</div>'
-        '<div style="font-size:15px;color:var(--stone-light);">Enter your name to begin. You will be assigned 25 questions.</div>'
+        '<div style="font-size:28px;font-weight:700;color:var(--stone);margin-bottom:8px;letter-spacing:-0.5px;">Khmer Rag Insurance Chatbot Evaluation</div>'
+        '<div style="font-size:15px;color:var(--stone-light);">Enter your name to begin your evaluation. You will be assigned 25 questions.</div>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -475,7 +475,7 @@ def page_login():
         name = st.text_input("name", placeholder="Enter your name", label_visibility="collapsed")
     _, c_btn, _ = st.columns([2.2, 0.6, 2.2])
     with c_btn:
-        if st.button("Start Evaluation", use_container_width=True):
+        if st.button("Begin Evaluation", use_container_width=True):
             if name.strip():
                 # Clear any previous session so a new evaluator_id is created
                 st.session_state.pop("evaluator_id", None)
