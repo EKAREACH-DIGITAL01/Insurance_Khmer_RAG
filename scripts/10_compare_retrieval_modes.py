@@ -23,7 +23,7 @@ ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
 
 INDEX_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
 METADATA_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
-EVALUATION_ROOT = Path("data/08_evaluation")
+EVALUATION_ROOT = Path("data/09_evaluation")
 REPORTS_DIR = Path("reports/retrieval_mode_comparison")
 
 EVAL_KS = list(range(1, 11))

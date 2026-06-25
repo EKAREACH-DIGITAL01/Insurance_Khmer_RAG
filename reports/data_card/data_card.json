@@ -1,0 +1,233 @@
+{
+  "project": "Khmer Insurance RAG Chatbot",
+  "generated_at": 1782397536,
+  "generated_human": "2026-06-25 21:25:36",
+  "source_corpus": {
+    "total_documents": 49,
+    "by_type": {
+      "law": {
+        "documents": 4,
+        "earliest": "2021-11-02",
+        "latest": "2022-10-30"
+      },
+      "sub_decree": {
+        "documents": 4,
+        "earliest": "2021-01-08",
+        "latest": "2025-01-10"
+      },
+      "guidance": {
+        "documents": 16,
+        "earliest": "2022-01-01",
+        "latest": "2026-01-14"
+      },
+      "prakas": {
+        "documents": 25,
+        "earliest": "2021-11-02",
+        "latest": "2026-02-25"
+      }
+    },
+    "date_range": [
+      "2021-01-08",
+      "2026-02-25"
+    ],
+    "language": "Khmer (km)",
+    "domain": "Cambodian insurance law & regulation"
+  },
+  "knowledge_base": {
+    "total_chunks": 1435,
+    "avg_chunk_size": 511.6,
+    "chunking_methods": [
+      "guidance_heading",
+      "legal_unit"
+    ],
+    "by_category": {
+      "guidance": {
+        "documents": 16,
+        "chunks": 146,
+        "avg_chunk_size": 741.9,
+        "min_chunk_size": 53,
+        "max_chunk_size": 3409
+      },
+      "laws": {
+        "documents": 4,
+        "chunks": 255,
+        "avg_chunk_size": 473.1,
+        "min_chunk_size": 64,
+        "max_chunk_size": 4747
+      },
+      "prakas": {
+        "documents": 25,
+        "chunks": 783,
+        "avg_chunk_size": 484.0,
+        "min_chunk_size": 62,
+        "max_chunk_size": 4470
+      },
+      "sub_decrees": {
+        "documents": 4,
+        "chunks": 251,
+        "avg_chunk_size": 502.5,
+        "min_chunk_size": 61,
+        "max_chunk_size": 3068
+      }
+    }
+  },
+  "vector_index": {
+    "active_model": "BAAI/bge-m3",
+    "active_dimension": 1024,
+    "active_chunk_count": 1435,
+    "indexed_models": [
+      {
+        "label": "BAAI/bge-m3",
+        "dimension": 1024,
+        "chunks": 1435
+      },
+      {
+        "label": "intfloat/multilingual-e5-large",
+        "dimension": 1024,
+        "chunks": 1435
+      },
+      {
+        "label": "paraphrase-multilingual-MiniLM-L12-v2",
+        "dimension": 384,
+        "chunks": 1435
+      }
+    ]
+  },
+  "evaluation_sets": {
+    "gold_questions": {
+      "by_category": {
+        "guidance": 25,
+        "laws": 25,
+        "prakas": 25,
+        "sub_decrees": 25
+      },
+      "total": 100
+    },
+    "adversarial": {
+      "by_category": {
+        "out_of_domain": {
+          "total": 14,
+          "refuse": 11,
+          "answer": 3
+        },
+        "personal_advice": {
+          "total": 10,
+          "refuse": 7,
+          "answer": 3
+        },
+        "pricing": {
+          "total": 8,
+          "refuse": 5,
+          "answer": 3
+        },
+        "recommendation": {
+          "total": 11,
+          "refuse": 7,
+          "answer": 4
+        }
+      },
+      "total": 43
+    }
+  },
+  "model_selection": {
+    "embedding": {
+      "winner": "BAAI/bge-m3",
+      "macro_hit_at_5": 0.98,
+      "macro_recall_at_5": 0.96,
+      "macro_mrr_at_5": 0.8837,
+      "candidates": [
+        "BAAI/bge-m3",
+        "intfloat/multilingual-e5-large",
+        "paraphrase-multilingual-MiniLM-L12-v2"
+      ]
+    },
+    "retrieval": {
+      "winner": "hybrid",
+      "metrics_at_5": {
+        "Hit Rate @5": {
+          "dense": 0.98,
+          "hybrid": 1.0,
+          "delta": 0.02
+        },
+        "Recall @5": {
+          "dense": 0.96,
+          "hybrid": 0.995,
+          "delta": 0.035
+        },
+        "MRR @5": {
+          "dense": 0.8837,
+          "hybrid": 0.8882,
+          "delta": 0.0045
+        },
+        "File Hit Rate @5": {
+          "dense": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        }
+      }
+    },
+    "generator": {
+      "winner": "SeaLLM v3 7B",
+      "combined_avg": 4.476,
+      "scores_avg": {
+        "context_relevance": 4.48,
+        "faithfulness": 4.52,
+        "answer_correctness": 4.64,
+        "answer_relevance": 4.01,
+        "completeness": 4.59
+      },
+      "weights": {
+        "context_relevance": 0.2,
+        "faithfulness": 0.25,
+        "answer_correctness": 0.25,
+        "answer_relevance": 0.15,
+        "completeness": 0.15
+      },
+      "candidates": [
+        "SeaLLM v3 7B",
+        "Llama 3.1 8B",
+        "Qwen 3.5 9B",
+        "Gemma 4 E4B"
+      ]
+    }
+  },
+  "quality": {
+    "automated_judge": {
+      "model": "SeaLLM v3 7B",
+      "total_questions": 100,
+      "combined_avg": 4.476,
+      "scores_avg": {
+        "context_relevance": 4.48,
+        "faithfulness": 4.52,
+        "answer_correctness": 4.64,
+        "answer_relevance": 4.01,
+        "completeness": 4.59
+      },
+      "truncated_answers": 8,
+      "blank_answers": 0
+    },
+    "human": {
+      "evaluators": 1,
+      "responses": 25,
+      "questions_rated": 25,
+      "macro_avgs": {
+        "context_relevance": 3.8,
+        "faithfulness": 4.08,
+        "answer_relevance": 4.2,
+        "answer_correctness": 4.2
+      },
+      "combined_avg": 4.07,
+      "hallucination": {
+        "answers_with_flag": 0
+      }
+    },
+    "safety_gates": null
+  },
+  "intended_use": "Retrieval-augmented question answering over Cambodian insurance laws, sub-decrees, prakas and guidance, in Khmer. The assistant answers strictly from the retrieved source documents and refuses out-of-scope, advisory, pricing and recommendation requests.",
+  "limitations": [
+    "Coverage is limited to the documents listed in the source corpus; newer or amended regulations may be missing.",
+    "Answers are only as accurate as the underlying documents and the retrieval step; low-similarity queries are refused by design.",
+    "Khmer OCR/extraction and chunking can introduce minor text errors.",
+    "Not legal advice -- users are directed to a licensed agent or the Insurance Regulator of Cambodia (IRC) for binding guidance."
+  ]
+}

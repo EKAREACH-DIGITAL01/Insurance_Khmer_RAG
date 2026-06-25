@@ -129,7 +129,7 @@ EMBEDDING_HF_ID  = "BAAI/bge-m3"
 ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
 INDEX_PATH       = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
 METADATA_PATH    = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
-EVALUATION_ROOT  = Path("data/08_evaluation")
+EVALUATION_ROOT  = Path("data/09_evaluation")
 REPORTS_DIR      = Path("reports/generator_model_comparison")
 LLM_DIR          = Path("models/generator")
 
@@ -1558,7 +1558,7 @@ def main():
 
     gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
     if not gold_files:
-        raise ValueError("No gold_questions.json files found under data/08_evaluation/.")
+        raise ValueError("No gold_questions.json files found under data/09_evaluation/.")
 
     gold_entries = []
     for gf in gold_files:

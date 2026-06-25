@@ -25,7 +25,7 @@ from sentence_transformers import SentenceTransformer
 # PURPOSE: verify that the three layered safety gates in app.py correctly
 # enforce scope boundaries under creative/adversarial user queries.
 #
-# The adversarial test set in data/09_adversarial/ deliberately mixes:
+# The adversarial test set in data/10_adversarial/ deliberately mixes:
 #   "refuse" cases -- questions the chatbot must NOT answer
 #   "answer" cases -- legitimate questions that share vocabulary with a
 #                     violation category but must NOT be wrongly blocked
@@ -64,7 +64,7 @@ EMBEDDING_HF_ID      = "BAAI/bge-m3"
 ACTIVE_MODEL_DIR     = "BAAI-BGE-M3"
 INDEX_PATH           = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
 METADATA_PATH        = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
-ADVERSARIAL_ROOT     = Path("data/09_adversarial")
+ADVERSARIAL_ROOT     = Path("data/10_adversarial")
 REPORTS_DIR          = Path("reports/safety_gate_evaluation")
 LLM_DIR              = Path("models/generator")
 

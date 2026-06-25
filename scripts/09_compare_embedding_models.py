@@ -50,7 +50,7 @@ from sentence_transformers import SentenceTransformer
 #     at a different time than the other two models' indices, from a
 #     different version of data/07_chunked_documents/ (e.g. after a
 #     re-chunking run that renumbered the chunks).
-#   - The gold questions in data/08_evaluation/ reference chunk IDs from
+#   - The gold questions in data/09_evaluation/ reference chunk IDs from
 #     a DIFFERENT run -- so every expected_chunk lookup returns None,
 #     making every question "missing" and producing 0/0 = 0.0 across all
 #     metrics.
@@ -77,7 +77,7 @@ from sentence_transformers import SentenceTransformer
 # If the chunk counts differ or first IDs don't match, the rebuild is needed.
 # ----------------------------------------------------------------------------
 
-EVALUATION_ROOT = Path("data/08_evaluation")
+EVALUATION_ROOT = Path("data/09_evaluation")
 VECTOR_DB_ROOT = Path("vector_db")
 REPORTS_DIR = Path("reports/embedding_model_comparison")
 

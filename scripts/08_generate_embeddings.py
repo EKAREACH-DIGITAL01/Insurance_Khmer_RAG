@@ -14,7 +14,7 @@ os.environ["HF_HOME"] = str(_HF_CACHE_DIR)
 
 from sentence_transformers import SentenceTransformer
 
-input_root = Path("data/07_chunked_documents")
+input_root = Path("data/08_merged_chunked_documents")
 output_root = Path("vector_db")
 
 output_root.mkdir(parents=True, exist_ok=True)
