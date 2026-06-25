@@ -13,21 +13,37 @@ from pathlib import Path
 #
 # WHAT THIS SCRIPT DOES
 # Re-derives every score-able metric from values ALREADY STORED in each
-# model's reports/generator_model_comparison/<model>/generated_answer_results.jsonl file
-# (specifically: detail.answer_correctness_similarity, detail.
-# answer_relevance_similarity, detail.faithfulness_grounded /
+# model's reports/generator_model_comparison/<model>/generated_answer_results.jsonl
+# file (specifically: detail.answer_correctness_similarity,
+# detail.answer_relevance_similarity, detail.faithfulness_grounded /
 # faithfulness_total_numbers, detail.completeness_ends_cleanly /
-# completeness_length_ratio). It NEVER re-runs generation, embedding, or
-# llama-server -- every raw measurement this script reads was computed
-# once, by scripts/10, and is permanent ground truth. This script only
-# changes how those raw measurements get BUCKETED into a 1-5 score and
-# how the weighted combined score is computed from those buckets.
+# completeness_length_ratio, detail.blank_answer).
 #
-# This means recalibrating a threshold here, or changing how Completeness
-# weighs answer length, costs nothing -- no re-generation, no waiting on
-# llama-server, just re-running this script (seconds) followed by
-# scripts/10_compare_generator_models.py (which will see all models
-# already at 100/100 and just recompute summaries).
+# It NEVER re-runs generation, embedding, or llama-server -- every raw
+# measurement this script reads was computed once, by scripts/10, and is
+# permanent ground truth. This script only changes how those raw
+# measurements get BUCKETED into a 1-5 score and how the weighted
+# combined score is computed from those buckets.
+#
+# BLANK ANSWER POLICY (added alongside scripts/10 fix):
+#   When detail.blank_answer is True (or generated_answer is empty and
+#   blank_answer key is absent from older JSONL entries):
+#     - answer_correctness:  forced to score = 1  (similarity = 0.0)
+#     - answer_relevance:    forced to score = 1  (similarity = 0.0)
+#   These are NOT set to None. None is reserved for genuinely
+#   uncomputable metrics (missing expected_answer). A blank answer is
+#   a computable outcome -- it is definitively wrong, and must be
+#   penalised as such in the combined score rather than excluded from
+#   the denominator.
+#
+#   Rationale: the original scripts/10 used None for blank answers,
+#   which caused weighted_combined() to normalise by the sum of weights
+#   that HAD values, effectively inflating Gemma's combined score by
+#   removing two 0.25-weight metrics from the denominator on its 7
+#   blank answers. The corrected scripts/10 encodes " " as a proxy
+#   and clamps similarity to 0.0. This script applies the same
+#   correction retroactively to already-generated JSONL data without
+#   needing to re-generate.
 #
 # WHY EACH METRIC IS CALIBRATED THE WAY IT IS BELOW -- see the comment
 # block directly above each threshold constant. Every one of these is
@@ -35,7 +51,7 @@ from pathlib import Path
 # 400-answer dataset; none of them are textbook defaults.
 #
 # USAGE:
-#   python scripts/rescore_generator_eval.py
+#   python scripts/12_rescore_generator_scores.py
 #
 # SAFETY: writes a .bak backup of each JSONL file before overwriting.
 # Re-running this script multiple times (e.g. after adjusting a
@@ -57,25 +73,13 @@ REPORTS_DIR = Path("reports/generator_model_comparison")
 # across all 400 real answers, 4 models x 100 questions):
 #   SeaLLM: min=0.5697 p10=0.8010 p25=0.8861 p50=0.9398 p75=0.9749 p90=0.9946 max=1.0000
 #   Qwen:   min=0.4718 p10=0.7922 p25=0.8615 p50=0.9047 p75=0.9349 p90=0.9631 max=0.9861
-#   Gemma:  min=0.4718 p10=0.7249 p25=0.8892 p50=0.9401 p75=0.9848 p90=0.9960 max=1.0000
+#   Gemma:  min=0.4718 p10=0.6737 p25=0.8337 p50=0.9288 p75=0.9765 p90=0.9951 max=1.0000
 #   Llama:  min=0.6208 p10=0.8029 p25=0.8650 p50=0.9213 p75=0.9682 p90=0.9946 max=1.0000
+#   (Gemma n=93 at time of calibration; updated to n=100 after blank fix)
 #
-# Every model's median sits at 0.90-0.94 -- expected, since every gold
-# question in this corpus was written directly from a real source chunk
-# (no out-of-scope noise pulling similarity down). The bands below place
-# boundaries near these real percentile breakpoints so the actual data
-# spreads meaningfully across 1-5, instead of nearly everything landing
-# in one bucket (which is what happened under this project's FIRST
-# threshold attempt: (0.85,5)/(0.75,4)/(0.60,3)/(0.45,2)/(0.00,1) --
-# that version put the median answer from every model at a perfect 5,
-# which measures "is this in-domain Khmer legal text" more than it
-# measures "is this answer actually correct").
-#
-# Floor at 0.50 reflects this project's own OUT_OF_DOMAIN_THRESHOLD in
-# app.py (0.49) -- every gold question here is in-domain by construction,
-# so no answer should legitimately fall below 0.50. The tiny number of
-# real values observed just under it (0.4718, 0.47) get the same floor
-# score of 1 via the (0.00, 1) catch-all, rather than a dedicated band.
+# Bands placed near real percentile breakpoints so actual data spreads
+# meaningfully across 1-5. Floor at 0.50 reflects OUT_OF_DOMAIN_THRESHOLD
+# in app.py (0.49) -- every gold question is in-domain by construction.
 # ----------------------------------------------------------------------------
 ANSWER_CORRECTNESS_THRESHOLDS = [
     (0.90, 5),
@@ -101,13 +105,8 @@ ANSWER_CORRECTNESS_THRESHOLDS = [
 #   Gemma:  min=0.3489 p10=0.6444 p25=0.7244 p50=0.7622 p75=0.7891 p90=0.8211 max=0.8741
 #   Llama:  min=0.6771 p10=0.7207 p25=0.7504 p50=0.7721 p75=0.8095 p90=0.8380 max=0.8741
 #
-# The MAX observed across all 400 real answers, every model combined,
-# was 0.9037 -- and that was a single outlier; the real p90 across
-# models sits at 0.82-0.84. Sharing Answer Correctness's thresholds
-# (which require >=0.90 for a 5) would make a 5 nearly IMPOSSIBLE on
-# this metric for any model, regardless of answer quality -- that's a
-# measurement ceiling mismatch, not a quality signal. Bands below are
-# scaled to this metric's own real range instead.
+# Max across all 400 real answers = 0.9037. Bands scaled to this
+# metric's own real range rather than sharing Answer Correctness's bands.
 # ----------------------------------------------------------------------------
 ANSWER_RELEVANCE_THRESHOLDS = [
     (0.82, 5),
@@ -119,34 +118,15 @@ ANSWER_RELEVANCE_THRESHOLDS = [
 
 # ----------------------------------------------------------------------------
 # METRIC: Faithfulness
-# Number-overlap check: what fraction of Arabic/Khmer numerals in the
-# generated answer also appear in the retrieved context? NOT an
-# embedding-similarity metric -- two texts can be semantically close
-# while disagreeing on a specific fact (a wrong date, a fabricated fee),
-# which is exactly the failure mode cosine similarity is worst at
-# catching and exactly what matters most in a legal-citation domain.
-#
-# CALIBRATION EVIDENCE (aggregated across all 100 answers per model):
-#   SeaLLM: 111 numbers total, 97.3% grounded, 48 answers had zero numbers
-#   Qwen:   418 numbers total, 72.0% grounded, 13 answers had zero numbers
-#   Gemma:   98 numbers total, 93.9% grounded, 63 answers had zero numbers
-#   Llama:  145 numbers total, 100.0% grounded, 50 answers had zero numbers
-#
-# This is the metric this calibration most CONFIRMED rather than needed
-# to fix. Qwen writes 2.9-4.3x more numbers per answer than the other
-# three models AND grounds a meaningfully smaller fraction of them
-# (72% vs 94-100%) -- roughly 117 numbers across Qwen's 100 answers were
-# not found anywhere in the context it was given. This is a real,
-# substantial difference in hallucination behavior, not a per-answer
-# length artifact (the scoring is fraction-based per answer, already
-# normalized for length) -- the bands below were left as originally
-# designed because the evidence supports them as-is.
+# Number-overlap check: fraction of Arabic/Khmer numerals in the
+# generated answer that also appear in the retrieved context.
+# Unchanged from original design -- real evidence confirmed it works:
+#   SeaLLM: 113 numbers, 98.2% grounded
+#   Qwen:   418 numbers, 72.0% grounded  ← real hallucination signal
+#   Gemma:   116 numbers, 92.2% grounded
+#   Llama:  145 numbers, 100.0% grounded
 # ----------------------------------------------------------------------------
 def score_faithfulness(grounded, total):
-    """grounded/total numbers in the generated answer that were found
-    somewhere in the retrieved context. total==0 (no numbers to check)
-    scores a neutral 4, not an automatic 5 -- "nothing to verify" is
-    weaker evidence of faithfulness than "verified and grounded"."""
     if total == 0:
         return 4
     fraction = grounded / total
@@ -164,62 +144,33 @@ def score_faithfulness(grounded, total):
 
 # ----------------------------------------------------------------------------
 # METRIC: Completeness
-# Two checks: (1) does the answer end with real Khmer sentence-final
-# punctuation (។ or ៕), as opposed to being cut off mid-sentence by
-# hitting max_tokens, and (2) is the answer's LENGTH appropriate relative
-# to expected_answer -- not too short (truncated/thin) and, as of this
-# calibration pass, NOT TOO LONG either.
+# Floor AND ceiling on length_ratio = len(generated) / len(expected_answer).
 #
-# CALIBRATION EVIDENCE -- length_ratio = len(generated) / len(expected_answer):
-#   SeaLLM: p50=0.992 p75=1.260 p90=1.736 p95=2.808 max=5.772  | >2.0x: 9/100  >3.0x: 5/100
-#   Qwen:   p50=1.979 p75=3.240 p90=4.386 p95=4.812 max=10.009 | >2.0x: 49/100 >3.0x: 30/100
-#   Gemma:  p50=0.914 p75=1.135 p90=1.444 p95=1.786 max=2.416  | >2.0x: 2/100  >3.0x: 0/100
-#   Llama:  p50=1.127 p75=1.885 p90=2.695 p95=2.940 max=5.935  | >2.0x: 21/100 >3.0x: 5/100
+# CALIBRATION EVIDENCE:
+#   SeaLLM: p50=0.992  p90=1.736  max=5.772  | >2.0x:  9/100  >3.0x:  5/100
+#   Qwen:   p50=1.979  p90=4.386  max=10.009 | >2.0x: 49/100  >3.0x: 30/100
+#   Gemma:  p50=1.000  p90=1.460  max=2.416  | >2.0x:  2/100  >3.0x:  0/100
+#   Llama:  p50=1.127  p90=2.695  max=5.935  | >2.0x: 21/100  >3.0x:  5/100
 #
-# THIS IS THE METRIC THIS CALIBRATION PASS ACTUALLY FIXED. The original
-# version of this scoring only checked a FLOOR (length_ratio >= 0.80 ->
-# automatic 5 if ends cleanly), with no ceiling -- a length_ratio of
-# 0.85 and a length_ratio of 10.0 scored IDENTICALLY. The evidence above
-# shows this isn't a hypothetical edge case: for Qwen specifically, a
-# length_ratio over 2.0x isn't a rare outlier (only 2/100 for Gemma,
-# 9/100 for SeaLLM) -- it's the model's TYPICAL behavior (49/100, with
-# the median itself already at 1.98x). Combined with Faithfulness's
-# finding that Qwen also grounds a smaller fraction of the (much larger
-# number of) numbers it states, the evidence points to a real pattern:
-# Qwen routinely writes long, elaborated answers containing more
-# unverified detail than the other three models -- and the original
-# Completeness scoring was rewarding this with a free perfect score
-# every time, as long as the answer happened to end on a clean sentence
-# boundary.
+# Ceiling at 2.0x was added because Qwen's TYPICAL answer (p50=1.98x)
+# was getting a free 5 under the old floor-only logic. See
+# docs/SCORING_CALIBRATION.md for the full evidence.
 #
-# The new ceiling bands below were placed so that "a bit more thorough
-# than the terse gold answer" (up to ~2x, which covers SeaLLM's and
-# Gemma's typical range, and most of Llama's) keeps the top score, while
-# "routinely 2-4x+ longer" (Qwen's typical range) no longer does.
+# Blank answers: ends_cleanly=False, length_ratio=0.0 → truncated branch
+# → score = 1 (length_ratio < 0.40). No special-casing needed.
 # ----------------------------------------------------------------------------
 def score_completeness(ends_cleanly, length_ratio):
-    """ends_cleanly: bool. length_ratio: float, or None if no
-    expected_answer existed to compare against (falls back to punctuation
-    only, same as the original design)."""
     if length_ratio is None:
         return 5 if ends_cleanly else 2
 
     if ends_cleanly:
         if 0.80 <= length_ratio <= 2.00:
             return 5
-        elif length_ratio >= 0.60 and length_ratio <= 3.00:
+        elif (0.60 <= length_ratio < 0.80) or (2.00 < length_ratio <= 3.00):
             return 4
-        elif length_ratio < 0.60:
-            return 3
         else:
-            # ends cleanly but well past 3x expected length -- not
-            # penalized as harshly as a genuine truncation, since the
-            # model DID finish its thought, but no longer a free top score.
             return 3
     else:
-        # Truncated (didn't end on a real sentence boundary) -- original
-        # floor-based logic preserved exactly, since the evidence above
-        # was specifically about the ceiling, not this branch.
         if length_ratio >= 0.80:
             return 3
         elif length_ratio >= 0.40:
@@ -229,30 +180,14 @@ def score_completeness(ends_cleanly, length_ratio):
 
 
 # ----------------------------------------------------------------------------
-# METRIC: Context Relevance
-# Deterministic chunk-ID overlap between expected_chunks and the actual
-# CONTEXT_K=5 chunks sent to the LLM -- not a proxy, an exact measurement,
-# so it needs no recalibration. CONFIRMED FINE by the evidence: score
-# distribution is nearly identical across all 4 models ({1: 11-12, 3: 4,
-# 5: 84-85}), exactly as expected since retrieval is generator-
-# independent (same embedding index, same BM25, same fusion regardless
-# of which LLM is generating the answer). Included here only so this
-# script's WEIGHTS/combine logic has a consistent place to read it from
-# -- the score itself is taken as-is from what scripts/10 already
-# computed (round(1 + recall * 4)), never re-bucketed by this script.
-# ----------------------------------------------------------------------------
-
-# ----------------------------------------------------------------------------
-# Weights for the combined score. Must match scripts/10_compare_
-# generator_models.py's WEIGHTS exactly, or the recomputed combined score
-# will silently drift from what a fresh run of scripts/10 would compute.
+# Weights -- must match scripts/10_compare_generator_models.py exactly.
 # ----------------------------------------------------------------------------
 WEIGHTS = {
     "context_relevance": 0.20,
-    "faithfulness": 0.25,
+    "faithfulness":       0.25,
     "answer_correctness": 0.25,
-    "answer_relevance": 0.15,
-    "completeness": 0.15,
+    "answer_relevance":   0.15,
+    "completeness":       0.15,
 }
 
 
@@ -263,11 +198,24 @@ def bucket_score(sim, thresholds):
     return 1
 
 
+def is_blank_answer(entry):
+    """Returns True if the entry represents a blank generated answer.
+    Checks detail.blank_answer first (set by updated scripts/10), then
+    falls back to inspecting generated_answer directly for older JSONL
+    entries that predate the blank_answer field.
+    """
+    detail = entry.get("detail", {})
+    if "blank_answer" in detail:
+        return bool(detail["blank_answer"])
+    return not entry.get("generated_answer", "").strip()
+
+
 def weighted_combined(scores):
-    """Normalises by the sum of weights that actually had a value, so a
-    missing metric (e.g. answer_correctness when expected_answer was
-    absent for that question) doesn't artificially deflate the result
-    by being divided against the full weight sum of 1.0."""
+    """Normalises by the sum of weights that had a non-None value.
+    None is only legitimate for genuinely uncomputable metrics
+    (missing expected_answer). Blank answers must produce score=1,
+    not None, before this function is called.
+    """
     total = 0.0
     weight_sum = 0.0
     for key, weight in WEIGHTS.items():
@@ -287,6 +235,7 @@ def rescore_file(path):
     rescored_lines = []
     changed_count = 0
     total_count = 0
+    blank_fixed_count = 0
 
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
@@ -305,38 +254,52 @@ def rescore_file(path):
             detail = entry.get("detail", {})
             scores = entry["scores"]
 
-            old_combined = entry.get("combined")
-            old_correctness = scores.get("answer_correctness")
-            old_relevance = scores.get("answer_relevance")
+            old_combined     = entry.get("combined")
+            old_correctness  = scores.get("answer_correctness")
+            old_relevance    = scores.get("answer_relevance")
             old_faithfulness = scores.get("faithfulness")
             old_completeness = scores.get("completeness")
 
-            # Answer Correctness -- re-bucket from the permanent raw similarity.
-            correctness_sim = detail.get("answer_correctness_similarity")
-            if correctness_sim is not None:
-                scores["answer_correctness"] = bucket_score(
-                    correctness_sim, ANSWER_CORRECTNESS_THRESHOLDS
-                )
+            blank = is_blank_answer(entry)
 
-            # Answer Relevance -- re-bucket using ITS OWN threshold set.
-            relevance_sim = detail.get("answer_relevance_similarity")
-            if relevance_sim is not None:
-                scores["answer_relevance"] = bucket_score(
-                    relevance_sim, ANSWER_RELEVANCE_THRESHOLDS
-                )
+            # Ensure blank_answer field is written for future passes
+            if "blank_answer" not in detail:
+                detail["blank_answer"] = blank
+                entry["detail"] = detail
 
-            # Faithfulness -- re-derive from the permanent raw grounded/total
-            # counts (currently unchanged from the original logic, but
-            # routed through score_faithfulness() so any future
-            # recalibration only needs to change one function, same as
-            # every other metric here).
-            grounded = detail.get("faithfulness_grounded")
+            # Answer Correctness
+            if blank:
+                # Blank answer: similarity = 0.0 → score = 1 (NOT None)
+                scores["answer_correctness"] = 1
+                detail["answer_correctness_similarity"] = 0.0
+                if old_correctness is None:
+                    blank_fixed_count += 1
+            else:
+                correctness_sim = detail.get("answer_correctness_similarity")
+                if correctness_sim is not None:
+                    scores["answer_correctness"] = bucket_score(
+                        correctness_sim, ANSWER_CORRECTNESS_THRESHOLDS
+                    )
+
+            # Answer Relevance
+            if blank:
+                # Blank answer: similarity = 0.0 → score = 1 (NOT None)
+                scores["answer_relevance"] = 1
+                detail["answer_relevance_similarity"] = 0.0
+            else:
+                relevance_sim = detail.get("answer_relevance_similarity")
+                if relevance_sim is not None:
+                    scores["answer_relevance"] = bucket_score(
+                        relevance_sim, ANSWER_RELEVANCE_THRESHOLDS
+                    )
+
+            # Faithfulness (re-derive from permanent raw counts)
+            grounded      = detail.get("faithfulness_grounded")
             total_numbers = detail.get("faithfulness_total_numbers")
             if grounded is not None and total_numbers is not None:
                 scores["faithfulness"] = score_faithfulness(grounded, total_numbers)
 
-            # Completeness -- re-derive from the permanent raw ends_cleanly
-            # flag and length_ratio, now using the ceiling-aware logic.
+            # Completeness (re-derive from permanent raw flags)
             ends_cleanly = detail.get("completeness_ends_cleanly")
             length_ratio = detail.get("completeness_length_ratio")
             if ends_cleanly is not None:
@@ -358,7 +321,7 @@ def rescore_file(path):
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(rescored_lines) + "\n")
 
-    return total_count, changed_count, backup_path
+    return total_count, changed_count, blank_fixed_count, backup_path
 
 
 def main():
@@ -366,41 +329,50 @@ def main():
     if not jsonl_files:
         raise SystemExit(f"No generated_answer_results.jsonl files found in {REPORTS_DIR}/.")
 
-    print("Rescoring with current calibration (see this script's header comments")
-    print("for the full evidence behind every threshold below):\n")
-    print("  Answer Correctness:")
+    print("Rescoring with current calibration.\n")
+    print("  Answer Correctness thresholds:")
     for threshold, score in ANSWER_CORRECTNESS_THRESHOLDS[:-1]:
         print(f"    >= {threshold:.2f} -> {score}")
-    print("  Answer Relevance:")
+    print("  Answer Relevance thresholds:")
     for threshold, score in ANSWER_RELEVANCE_THRESHOLDS:
         print(f"    >= {threshold:.2f} -> {score}")
-    print("  Faithfulness: fraction-of-numbers-grounded (unchanged from original design)")
-    print("  Completeness: floor AND ceiling on length_ratio (NEW -- see header comment)")
+    print("  Faithfulness: fraction-of-numbers-grounded (unchanged from original)")
+    print("  Completeness: floor AND ceiling on length_ratio")
+    print("  Blank answers: answer_correctness=1, answer_relevance=1 (NOT None)")
     print()
 
+    total_blank_fixed = 0
     for path in jsonl_files:
-        total, changed, backup_path = rescore_file(path)
-        print(f"{path.name}: {changed}/{total} entries rescored differently. Backup: {backup_path.name}")
+        total, changed, blank_fixed, backup_path = rescore_file(path)
+        total_blank_fixed += blank_fixed
+        print(
+            f"{path.parent.name}: {changed}/{total} entries rescored differently "
+            f"({blank_fixed} blank-answer None→1 fixes). Backup: {backup_path.name}"
+        )
 
-    # Stale summary JSON files now reflect the OLD calibration -- delete
-    # them so scripts/10's model-level resume check is forced to recompute
-    # via summarise() rather than trusting an outdated cached summary.
+    # Delete stale summary files so scripts/10's resume logic recomputes them.
     summary_files = sorted(REPORTS_DIR.glob("*/generated_answer_results_summary.json"))
-    print(f"\nRemoving {len(summary_files)} stale summary file(s) (will be regenerated):")
-    for path in summary_files:
-        print(f"  - {path.name}")
+    md_files      = sorted(REPORTS_DIR.glob("*/generated_answer_results_summary.md"))
+    stale = summary_files + md_files
+    print(f"\nRemoving {len(stale)} stale summary file(s) (will be regenerated by scripts/10):")
+    for path in stale:
+        print(f"  - {path.parent.name}/{path.name}")
         path.unlink()
 
-    comparison_path = REPORTS_DIR / "generator_model_comparison.json"
-    if comparison_path.exists():
-        print(f"  - {comparison_path.name}")
-        comparison_path.unlink()
+    comparison_json = REPORTS_DIR / "generator_model_comparison.json"
+    comparison_md   = REPORTS_DIR / "generator_model_comparison.md"
+    for p in [comparison_json, comparison_md]:
+        if p.exists():
+            print(f"  - {p.name}")
+            p.unlink()
 
+    print(f"\nTotal blank-answer None→1 fixes applied: {total_blank_fixed}")
     print(
-        "\nDone. Now run: python scripts/10_compare_generator_models.py\n"
-        "All models are still at 100/100 in their JSONL files, so no "
-        "generation will happen -- it will only recompute summaries and "
-        "the final comparison report from the rescored data."
+        "\nDone. Now run:\n"
+        "  python scripts/10_compare_generator_models.py\n"
+        "All models are at 100/100 in their JSONL files so no generation\n"
+        "will happen -- it will only recompute summaries and the final\n"
+        "comparison report from the rescored data."
     )
 
 

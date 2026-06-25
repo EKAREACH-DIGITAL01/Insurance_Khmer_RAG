@@ -25,7 +25,7 @@ from sentence_transformers import SentenceTransformer
 # PURPOSE: rank all installed generator models against each other on the full
 # gold question set (25 questions × 4 categories = 100 questions per model)
 # using five automated proxy metrics. The winning model is then used for the
-# human-scored RAGAS evaluation in scripts/11_evaluate_rag.py.
+# human-scored RAGAS evaluation in scripts/13_human_answer_evaluation.py.
 #
 # METRICS (all automated, no LLM judge):
 #
@@ -76,6 +76,23 @@ from sentence_transformers import SentenceTransformer
 #   Answer Relevance   0.15  -- addresses the question
 #   Completeness       0.15  -- full answer, not truncated mid-sentence,
 #                               not padded well past the expected length
+#
+# BLANK ANSWER POLICY:
+#   A blank generated_answer is NOT a free pass. When answer_text is empty:
+#     - answer_correctness: cosine similarity = 0.0 → score = 1
+#     - answer_relevance:   cosine similarity = 0.0 → score = 1
+#   This is enforced in score_answer() by passing a zero-vector for the
+#   generated answer when answer_text.strip() is empty, rather than
+#   returning None (which previously caused weighted_combined() to exclude
+#   those metrics from the denominator, artificially inflating the score
+#   for models with blank answers).
+#
+#   Rationale: a model that produced no output has definitively failed to
+#   answer the question. Setting similarity = 0.0 → score = 1 is the
+#   correct representation: "worst possible on this metric." It is NOT the
+#   same as "metric is unavailable" (None), which is reserved for cases
+#   where the metric genuinely cannot be computed (e.g. expected_answer is
+#   missing from the gold set entirely).
 #
 # REAL-TIME WRITING: every generated answer is written to disk immediately
 # after generation. If the run is interrupted (laptop dies, crash), every
@@ -324,15 +341,13 @@ def score_faithfulness(generated_answer, context):
     also appear in the retrieved context? Returns (score_1_to_5, grounded,
     total, ungrounded_list).
 
-    CONFIRMED by real evidence (see docs/SCORING_CALIBRATION.md): this
-    metric correctly separated Qwen (writes 2.9-4.3x more numbers per
-    answer than the other 3 models, with only 72% grounded vs 94-100%
-    for the others) from the rest -- a real, substantial difference in
-    hallucination behaviour, not a length artifact (this is fraction-
-    based per answer, already normalised for length). Left unchanged."""
+    A blank answer has no numbers to check -- returns neutral 4, consistent
+    with the original design (no numbers = nothing to verify, not a
+    fabrication). The blank-answer penalty is applied separately via
+    answer_correctness and answer_relevance (both forced to score 1).
+    """
     answer_numbers = set(NUMBER_PATTERN.findall(generated_answer))
     if not answer_numbers:
-        # No numbers to check -- neutral score, not automatic 5
         return 4, 0, 0, []
     context_numbers = set(NUMBER_PATTERN.findall(context))
     grounded   = answer_numbers & context_numbers
@@ -358,36 +373,14 @@ def score_completeness(generated_answer, expected_answer):
     2. Length ratio: len(generated) / len(expected). Both TOO SHORT and
        TOO LONG relative to the expected answer are penalised.
 
-    FIXED by real evidence (see docs/SCORING_CALIBRATION.md): the
-    original version of this function only checked a FLOOR
-    (length_ratio >= 0.80 -> automatic 5 if ends cleanly), with NO
-    CEILING -- a length_ratio of 0.85 and a length_ratio of 10.0 scored
-    identically. Real data showed this isn't a hypothetical edge case:
-    Qwen's length_ratio median across 100 real answers was already 1.98x
-    (49/100 answers over 2x, 30/100 over 3x, max 10.0x), while SeaLLM and
-    Gemma rarely exceeded 2x (9/100 and 2/100 respectively). Combined
-    with Faithfulness's finding that Qwen also grounds a smaller
-    fraction of the numbers it states, the evidence points to a real
-    pattern -- Qwen routinely writes long, elaborated answers containing
-    more unverified detail -- that the floor-only version was silently
-    rewarding with a free perfect score.
-
-    Score 1-5 (ends_cleanly branch):
-       5 = ends cleanly AND 0.80 <= length ratio <= 2.00
-       4 = ends cleanly AND (0.60 <= ratio < 0.80, OR 2.00 < ratio <= 3.00)
-       3 = ends cleanly AND (ratio < 0.60, OR ratio > 3.00)
-    Score 1-5 (truncated branch -- UNCHANGED from original design, since
-    the evidence above was specifically about the ceiling, not this
-    branch):
-       3 = truncated AND ratio >= 0.80
-       2 = truncated AND ratio >= 0.40
-       1 = truncated AND ratio < 0.40
+    A blank answer fails the punctuation check AND has length_ratio = 0.0,
+    which falls into the truncated branch at score = 1 (length_ratio < 0.40).
+    No special-casing needed -- the existing logic handles it correctly.
     """
     stripped     = generated_answer.strip()
     ends_cleanly = bool(stripped) and stripped[-1] in KHMER_END_PUNCT
 
     if not expected_answer or len(expected_answer) == 0:
-        # No expected answer to compare against -- score only on punctuation
         return (5 if ends_cleanly else 2), ends_cleanly, None
 
     length_ratio = len(stripped) / len(expected_answer)
@@ -398,10 +391,6 @@ def score_completeness(generated_answer, expected_answer):
         elif (0.60 <= length_ratio < 0.80) or (2.00 < length_ratio <= 3.00):
             score = 4
         else:
-            # either genuinely short (< 0.60) or well past 3x expected
-            # length (> 3.00) -- not penalised as harshly as a real
-            # truncation, since the model DID finish its thought, but no
-            # longer a free top score either way.
             score = 3
     else:
         if length_ratio >= 0.80:
@@ -418,12 +407,16 @@ def weighted_combined(scores):
     """Weighted sum of the five proxy metric scores (each 1-5).
     Returns a value in [1, 5].
 
-    BUG FIX: when expected_answer is missing, answer_correctness is None and
-    skipped. If we used the full weight denominator (1.0) the combined score
-    would be artificially low because we'd be dividing a partial sum by 1.0
-    instead of the sum of weights that actually had values. We normalise by
-    the sum of the weights that contributed, so the result stays on the
-    correct [1, 5] scale regardless of which metrics are available."""
+    IMPORTANT: None is ONLY acceptable when a metric genuinely cannot be
+    computed (e.g. expected_answer is absent from the gold set, making
+    answer_correctness unmeasurable). It must NEVER be used to represent
+    "the model produced no output" -- that case must be scored as 1 (worst)
+    on the affected metrics before this function is called.
+
+    When a metric is genuinely None (missing expected_answer), we normalise
+    by the sum of weights that actually had values so the result stays on
+    the [1, 5] scale.
+    """
     total        = 0.0
     weight_sum   = 0.0
     for key, weight in WEIGHTS.items():
@@ -433,7 +426,6 @@ def weighted_combined(scores):
             weight_sum += weight
     if weight_sum == 0:
         return 0.0
-    # Normalise so the result is always on [1, 5] regardless of missing metrics
     return round(total / weight_sum, 4)
 
 
@@ -490,7 +482,6 @@ def stop_llama_server(process):
     except subprocess.TimeoutExpired:
         process.kill()
         process.wait()
-    # Give the OS a moment to reclaim GPU/RAM before the next model loads
     time.sleep(2)
 
 
@@ -540,47 +531,69 @@ def score_answer(
 ):
     """Runs all five proxy metrics and returns a dict of scores + detail.
 
-    BUG FIX: answer_text may be an empty string if the model produced no
-    output (silent failure -- no exception raised, just zero tokens). Cosine
-    similarity between an empty-string embedding and any other vector is
-    undefined / produces near-zero results that corrupt the ranking. Guard
-    on non-empty answer_text before encoding for metrics 3 and 4."""
+    BLANK ANSWER HANDLING:
+    When answer_text is empty, answer_correctness and answer_relevance are
+    scored as 1 (worst) with similarity = 0.0, rather than None. This
+    ensures blank answers are penalised in the combined score rather than
+    silently excluded from the denominator. The None path is reserved for
+    cases where the metric is genuinely uncomputable (missing expected_answer).
 
-    # 1. Context Relevance (deterministic)
+    Concretely: we encode a single space " " as a stand-in for a blank
+    answer. After L2 normalisation a near-zero vector will have cosine
+    similarity ≈ 0.0 against any real answer or question embedding, which
+    maps to score = 1 under both threshold sets. This avoids the need for
+    special-case branching in weighted_combined().
+    """
+    is_blank = not answer_text.strip()
+
+    # 1. Context Relevance (deterministic -- unaffected by blank answer)
     ctx_rel = score_context_relevance(context_chunk_ids, expected_chunks)
 
-    # 2. Faithfulness (number overlap)
+    # 2. Faithfulness (number overlap -- blank answer has no numbers, scores 4)
     faith_score, faith_grounded, faith_total, faith_ungrounded = score_faithfulness(
         answer_text, context
     )
 
     # 3. Answer Correctness (BGE-M3 cosine vs expected_answer)
+    #    Blank answer: encode " " → similarity ≈ 0.0 → score = 1.
+    #    Missing expected_answer: score = None (genuinely uncomputable).
     ans_correct_score = None
     ans_correct_sim   = None
-    if answer_text.strip() and expected_answer and expected_answer.strip():
+    if expected_answer and expected_answer.strip():
+        # Use " " as proxy for blank so cosine similarity resolves to ~0.0
+        answer_for_embed = answer_text if not is_blank else " "
         vecs = np.asarray(
             embedding_model.encode(
-                [answer_text, expected_answer], normalize_embeddings=True
+                [answer_for_embed, expected_answer], normalize_embeddings=True
             ),
             dtype="float32",
         )
         ans_correct_sim   = cosine_similarity(vecs[0], vecs[1])
+        # Blank: clamp to 0.0 explicitly (space vector can have tiny
+        # non-zero dot product from tokenisation artefacts)
+        if is_blank:
+            ans_correct_sim = 0.0
         ans_correct_score = similarity_to_score(ans_correct_sim, ANSWER_CORRECTNESS_THRESHOLDS)
 
     # 4. Answer Relevance (BGE-M3 cosine vs question)
+    #    Blank answer: encode " " → similarity ≈ 0.0 → score = 1.
+    #    Always computable (question is always present).
     ans_rel_score = None
     ans_rel_sim   = None
-    if answer_text.strip():
-        vecs = np.asarray(
-            embedding_model.encode(
-                [answer_text, question], normalize_embeddings=True
-            ),
-            dtype="float32",
-        )
-        ans_rel_sim   = cosine_similarity(vecs[0], vecs[1])
-        ans_rel_score = similarity_to_score(ans_rel_sim, ANSWER_RELEVANCE_THRESHOLDS)
+    answer_for_embed = answer_text if not is_blank else " "
+    vecs = np.asarray(
+        embedding_model.encode(
+            [answer_for_embed, question], normalize_embeddings=True
+        ),
+        dtype="float32",
+    )
+    ans_rel_sim   = cosine_similarity(vecs[0], vecs[1])
+    if is_blank:
+        ans_rel_sim = 0.0
+    ans_rel_score = similarity_to_score(ans_rel_sim, ANSWER_RELEVANCE_THRESHOLDS)
 
-    # 5. Completeness (punctuation + length ratio, floor AND ceiling)
+    # 5. Completeness (punctuation + length ratio)
+    #    Blank answer: ends_cleanly = False, length_ratio = 0.0 → score = 1.
     comp_score, ends_cleanly, length_ratio = score_completeness(
         answer_text, expected_answer
     )
@@ -604,6 +617,7 @@ def score_answer(
             "answer_relevance_similarity":   ans_rel_sim,
             "completeness_ends_cleanly":     ends_cleanly,
             "completeness_length_ratio":     length_ratio,
+            "blank_answer":                  is_blank,
         },
     }
 
@@ -628,6 +642,12 @@ def summary_path(label):
     path = model_dir(label)
     path.mkdir(parents=True, exist_ok=True)
     return path / "generated_answer_results_summary.json"
+
+
+def summary_md_path(label):
+    path = model_dir(label)
+    path.mkdir(parents=True, exist_ok=True)
+    return path / "generated_answer_results_summary.md"
 
 
 def load_existing_results(label):
@@ -673,9 +693,6 @@ def evaluate_model(
     embedding_model,
     dry_run=False,
 ):
-    # BUG FIX: dry-run must ALWAYS run the first question fresh regardless of
-    # what's already saved -- its purpose is to verify current model behaviour,
-    # not to replay a cached result. The resume logic only applies to full runs.
     if dry_run:
         existing = {}
         entries  = gold_entries[:1]
@@ -696,7 +713,6 @@ def evaluate_model(
         expected_answer = entry.get("expected_answer", "")
         category        = entry["category"]
 
-        # Skip already-done questions (full run resume only -- dry_run always runs)
         if not dry_run and question in existing:
             print(f"  [{i}/{total}] Skipping (already done): {question[:60]}...")
             continue
@@ -764,6 +780,9 @@ def evaluate_model(
             continue
 
         # --- Scoring ---
+        # Note: score_answer() now handles blank answer_text correctly --
+        # blank produces score=1 for answer_correctness and answer_relevance
+        # (not None), so weighted_combined() includes them in the denominator.
         scored = score_answer(
             answer_text,
             question,
@@ -795,10 +814,10 @@ def evaluate_model(
             },
         }
 
-        # Write to disk immediately -- real-time persistence
         append_result(label, entry_out)
         results.append(entry_out)
 
+        blank_flag = " [BLANK]" if scored["detail"].get("blank_answer") else ""
         print(
             f"    combined={scored['combined']:.3f} | "
             f"ctx={scored['scores'].get('context_relevance')} "
@@ -807,6 +826,7 @@ def evaluate_model(
             f"rel={scored['scores'].get('answer_relevance')} "
             f"comp={scored['scores'].get('completeness')} | "
             f"ttft={first_token_time:.1f}s tok/s={tokens_per_s:.1f}"
+            f"{blank_flag}"
         )
 
     return results
@@ -820,8 +840,9 @@ def summarise(results, label):
     valid = [r for r in results if "error" not in r and r.get("scores")]
 
     def avg_metric(key):
-        # Only include entries where the key is both present AND not None --
-        # answer_correctness is None when expected_answer is missing.
+        # None means genuinely uncomputable (missing expected_answer).
+        # Score=1 from blank answers is a real numeric value, not None,
+        # so it IS included in this average -- that's the intended behaviour.
         vals = [
             r["scores"][key]
             for r in valid
@@ -830,7 +851,6 @@ def summarise(results, label):
         return round(sum(vals) / len(vals), 4) if vals else None
 
     def timing_vals(key):
-        # Error entries have timing={} -- guard with .get() on both levels.
         return [
             r["timing"].get(key)
             for r in valid
@@ -842,7 +862,6 @@ def summarise(results, label):
         return round(sum(vals) / len(vals), 4) if vals else None
 
     def percentile(vals, p):
-        """Returns the p-th percentile of a sorted list of floats."""
         if not vals:
             return None
         s = sorted(vals)
@@ -852,12 +871,9 @@ def summarise(results, label):
 
     scores_avg = {k: avg_metric(k) for k in WEIGHTS}
 
-    # Combined average -- average the per-question combined scores directly
-    # so it stays consistent with the normalised weighted_combined per entry.
     combined_vals = [r["combined"] for r in valid if r.get("combined") is not None]
     combined_avg  = round(sum(combined_vals) / len(combined_vals), 4) if combined_vals else 0.0
 
-    # Timing detail
     ttft_vals     = timing_vals("first_token_time")
     gentime_vals  = timing_vals("generation_time")
     tokps_vals    = timing_vals("tokens_per_sec")
@@ -878,10 +894,6 @@ def summarise(results, label):
         "tokens_out_max":       max(tokout_vals) if tokout_vals else None,
     }
 
-    # Per-category breakdown -- scores AND timing so you can see if
-    # certain document categories are consistently slower (e.g. laws
-    # questions tend to have longer legal-unit chunks → bigger context
-    # → slower prefill → higher TTFT).
     categories   = sorted({r["category"] for r in valid})
     per_category = {}
     for cat in categories:
@@ -928,17 +940,21 @@ def summarise(results, label):
         if r.get("detail", {}).get("completeness_ends_cleanly") is False
     )
 
+    blank_count = sum(
+        1 for r in valid
+        if r.get("detail", {}).get("blank_answer") is True
+    )
+
     summary = {
         "label":             label,
         "total_questions":   len(results),
         "valid_questions":   len(valid),
         "failed_questions":  len(results) - len(valid),
         "truncated_answers": truncated_count,
+        "blank_answers":     blank_count,
         "scores_avg":        scores_avg,
         "combined_avg":      combined_avg,
         "per_category":      per_category,
-        # Keep timing_avg as a flat dict for backward compat with anything
-        # that reads the summary JSON -- timing_detail has the full picture.
         "timing_avg": {
             "first_token_time": timing_detail["first_token_time_avg"],
             "generation_time":  timing_detail["generation_time_avg"],
@@ -947,13 +963,122 @@ def summarise(results, label):
         "timing_detail": timing_detail,
     }
 
-    # Save summary JSON for this model immediately
     path = summary_path(label)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
+    # Write per-model markdown summary
+    write_model_summary_md(summary, label)
+
     return summary
+
+
+# ----------------------------------------------------------------------------
+# Per-model markdown report
+# ----------------------------------------------------------------------------
+
+def write_model_summary_md(summary, label):
+    """Writes a human-readable markdown summary for a single model.
+    Mirrors the terminal print_model_summary() output but in a persistent
+    file, consistent with how scripts/08 and scripts/09 each produce a .md
+    alongside their .json.
+    """
+    from tabulate import tabulate
+
+    def fmt(v, decimals=2):
+        return f"{v:.{decimals}f}" if v is not None else "N/A"
+
+    td = summary.get("timing_detail", {})
+
+    lines = []
+    lines.append(f"# Generator Evaluation Summary: {label}\n\n")
+
+    # -- Quality scores --
+    score_rows = [
+        [k.replace("_", " ").title(), fmt(v, 4) if v is not None else "N/A"]
+        for k, v in summary["scores_avg"].items()
+    ]
+    score_rows.append(["**Combined (weighted)**", f"**{summary['combined_avg']:.4f}**"])
+    lines.append("## Proxy Metric Averages (1–5 scale)\n\n")
+    lines.append(
+        "> Blank answers score 1 on Answer Correctness and Answer Relevance "
+        "(not excluded from the average).\n\n"
+    )
+    lines.append(tabulate(score_rows, headers=["Metric", "Avg Score"], tablefmt="github"))
+    lines.append("\n\n")
+
+    # -- Coverage --
+    lines.append("## Coverage\n\n")
+    lines.append(tabulate(
+        [
+            ["Total questions",   summary["total_questions"]],
+            ["Valid (scored)",    summary["valid_questions"]],
+            ["Failed (error)",    summary["failed_questions"]],
+            ["Blank answers",     summary["blank_answers"]],
+            ["Truncated answers", summary["truncated_answers"]],
+        ],
+        tablefmt="github",
+    ))
+    lines.append("\n\n")
+
+    # -- Latency --
+    lines.append("## Latency & Throughput\n\n")
+    lines.append(tabulate(
+        [
+            ["Avg first-token time (s)",       fmt(td.get("first_token_time_avg"))],
+            ["P50 first-token time (s)",       fmt(td.get("first_token_time_p50"))],
+            ["P95 first-token time (s)",       fmt(td.get("first_token_time_p95"))],
+            ["Avg total generation time (s)",  fmt(td.get("generation_time_avg"))],
+            ["Avg decode speed (tok/s)",       fmt(td.get("tokens_per_sec_avg"))],
+            ["Avg tokens out",                 fmt(td.get("tokens_out_avg"), 1)],
+            ["Min tokens out",                 str(td.get("tokens_out_min", "N/A"))],
+            ["Max tokens out",                 str(td.get("tokens_out_max", "N/A"))],
+        ],
+        tablefmt="github",
+    ))
+    lines.append("\n\n")
+
+    # -- Per-category scores --
+    lines.append("## Per-Category Scores\n\n")
+    metric_keys = list(WEIGHTS.keys())
+    cat_rows = []
+    for cat, data in sorted(summary["per_category"].items()):
+        row = [cat]
+        for k in metric_keys:
+            v = data["scores"].get(k)
+            row.append(fmt(v, 4) if v is not None else "N/A")
+        cat_rows.append(row)
+    lines.append(tabulate(
+        cat_rows,
+        headers=["Category"] + [k.replace("_", " ").title() for k in metric_keys],
+        tablefmt="github",
+    ))
+    lines.append("\n\n")
+
+    # -- Per-category timing --
+    lines.append("## Per-Category Timing (avg, seconds)\n\n")
+    cat_timing_rows = []
+    for cat, data in sorted(summary["per_category"].items()):
+        t = data.get("timing", {})
+        cat_timing_rows.append([
+            cat,
+            fmt(t.get("first_token_time_avg")),
+            fmt(t.get("generation_time_avg")),
+            fmt(t.get("tokens_out_avg"), 1),
+        ])
+    lines.append(tabulate(
+        cat_timing_rows,
+        headers=["Category", "Avg TTFT (s)", "Avg Gen Time (s)", "Avg Tokens Out"],
+        tablefmt="github",
+    ))
+    lines.append("\n")
+
+    md_path = summary_md_path(label)
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write("".join(lines))
+
+    print(f"  Saved model markdown : {md_path}")
 
 
 # ----------------------------------------------------------------------------
@@ -968,7 +1093,6 @@ def print_model_summary(summary):
     print(f"{BOLD}GENERATOR: {summary['label']}{RESET}")
     print(banner)
 
-    # --- Quality scores ---
     score_rows = [
         [k.replace("_", " ").title(), f"{v:.4f}" if v is not None else "N/A"]
         for k, v in summary["scores_avg"].items()
@@ -980,7 +1104,6 @@ def print_model_summary(summary):
     print(SEPARATOR)
     print(tabulate(score_rows, headers=["Metric", "Avg Score"], tablefmt="grid"))
 
-    # --- Latency detail ---
     td = summary.get("timing_detail", {})
 
     def fmt(v, decimals=2):
@@ -999,6 +1122,7 @@ def print_model_summary(summary):
             ["Avg tokens out",              fmt(td.get("tokens_out_avg"), 1)],
             ["Min tokens out",              str(td.get("tokens_out_min", "N/A"))],
             ["Max tokens out",              str(td.get("tokens_out_max", "N/A"))],
+            ["Blank answers",               summary["blank_answers"]],
             ["Truncated answers",           summary["truncated_answers"]],
             ["Valid / Failed / Total",
              f"{summary['valid_questions']} / {summary['failed_questions']} / {summary['total_questions']}"],
@@ -1006,7 +1130,6 @@ def print_model_summary(summary):
         tablefmt="grid",
     ))
 
-    # --- Per-category timing breakdown ---
     print(f"\n{SEPARATOR}")
     print(f"\t\t{BOLD}PER-CATEGORY TIMING (avg, seconds){RESET}")
     print(SEPARATOR)
@@ -1040,7 +1163,6 @@ def print_final_comparison(summaries):
     def fmt(v, decimals=2):
         return f"{v:.{decimals}f}" if v is not None else "N/A"
 
-    # --- Quality metrics ---
     metric_keys = list(WEIGHTS.keys()) + ["combined_avg"]
     metric_display = {
         "context_relevance":  "Context Relevance",
@@ -1062,7 +1184,6 @@ def print_final_comparison(summaries):
                 row.append(fmt(v, 4) if v is not None else "N/A")
         rows.append(row)
 
-    # --- Latency metrics ---
     rows.append(
         ["── Avg TTFT (s) ──"] + [
             fmt(s.get("timing_detail", {}).get("first_token_time_avg"))
@@ -1100,6 +1221,9 @@ def print_final_comparison(summaries):
         ]
     )
     rows.append(
+        ["── Blank answers ──"] + [str(s["blank_answers"]) for s in summaries]
+    )
+    rows.append(
         ["── Truncated answers ──"] + [str(s["truncated_answers"]) for s in summaries]
     )
 
@@ -1111,7 +1235,6 @@ def print_final_comparison(summaries):
         colalign=("left",) + ("center",) * len(labels),
     ))
 
-    # --- Ranking ---
     ranked = sorted(summaries, key=lambda s: s["combined_avg"], reverse=True)
     print(f"\n{banner}")
     print(f"{BOLD}RANKING (by weighted combined score){RESET}")
@@ -1125,6 +1248,7 @@ def print_final_comparison(summaries):
             f"combined={s['combined_avg']:.4f} | "
             f"avg TTFT={ttft:.1f}s | "
             f"tok/s={tok:.2f} | "
+            f"blank={s['blank_answers']} | "
             f"truncated={s['truncated_answers']}"
         )
 
@@ -1133,14 +1257,16 @@ def print_final_comparison(summaries):
         if gap < 0.05:
             print(
                 f"\n  NOTE: top two models are close (gap={gap:.4f}). "
-                "Check TTFT, tok/s, and truncated counts as tiebreakers."
+                "Check TTFT, tok/s, blank and truncated counts as tiebreakers."
             )
 
     print(f"\n  {BOLD}RECOMMENDATION: {ranked[0]['label']}{RESET}")
-    print(f"  → Use this model for human-scored evaluation in scripts/11_evaluate_rag.py")
+    print(f"  → Use this model for human-scored evaluation in scripts/13_human_answer_evaluation.py")
 
 
 def write_final_report(summaries):
+    from tabulate import tabulate
+
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     ranked = sorted(summaries, key=lambda s: s["combined_avg"], reverse=True)
@@ -1159,10 +1285,13 @@ def write_final_report(summaries):
             "this corpus's real distribution (see docs/SCORING_CALIBRATION.md). "
             "Completeness checks sentence-final punctuation and BOTH a floor "
             "and a ceiling on length ratio vs expected answer. "
-            "weighted_combined is normalised by the sum of weights that had values, "
-            "so missing metrics (e.g. answer_correctness when expected_answer is absent) "
-            "do not artificially deflate the combined score. "
-            "Run scripts/11_evaluate_rag.py on the winning model for human-verified RAGAS scores."
+            "BLANK ANSWERS score 1 on Answer Correctness and Answer Relevance "
+            "(not excluded from averages). "
+            "weighted_combined is normalised by the sum of weights that had "
+            "values -- None is reserved for genuinely uncomputable metrics "
+            "(missing expected_answer), not for blank generated answers. "
+            "Run scripts/13_human_answer_evaluation.py on the winning model "
+            "for human-verified RAGAS scores."
         ),
     }
 
@@ -1170,14 +1299,99 @@ def write_final_report(summaries):
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
-    print(f"\nSaved final JSON report : {json_path}")
+    # --- Top-level markdown comparison report ---
+    labels = [s["label"] for s in summaries]
+
+    def fmt(v, decimals=4):
+        return f"{v:.{decimals}f}" if v is not None else "N/A"
+
+    metric_keys = list(WEIGHTS.keys())
+    metric_display = {
+        "context_relevance":  "Context Relevance",
+        "faithfulness":       "Faithfulness",
+        "answer_correctness": "Answer Correctness",
+        "answer_relevance":   "Answer Relevance",
+        "completeness":       "Completeness",
+    }
+
+    score_rows = []
+    for key in metric_keys:
+        row = [metric_display[key]]
+        for s in summaries:
+            v = s["scores_avg"].get(key)
+            row.append(fmt(v) if v is not None else "N/A")
+        score_rows.append(row)
+    combined_row = ["**Combined (weighted)**"] + [f"**{fmt(s['combined_avg'])}**" for s in summaries]
+    score_rows.append(combined_row)
+
+    latency_rows = []
+    for label in ["── Avg TTFT (s) ──", "── P50 TTFT (s) ──", "── P95 TTFT (s) ──",
+                  "── Avg gen time (s) ──", "── Avg tok/s ──", "── Blank answers ──",
+                  "── Truncated answers ──"]:
+        td_key_map = {
+            "── Avg TTFT (s) ──": ("first_token_time_avg", 2),
+            "── P50 TTFT (s) ──": ("first_token_time_p50", 2),
+            "── P95 TTFT (s) ──": ("first_token_time_p95", 2),
+            "── Avg gen time (s) ──": ("generation_time_avg", 2),
+            "── Avg tok/s ──": ("tokens_per_sec_avg", 2),
+        }
+        if label in td_key_map:
+            td_key, dec = td_key_map[label]
+            row = [label] + [fmt(s.get("timing_detail", {}).get(td_key), dec) for s in summaries]
+        elif "Blank" in label:
+            row = [label] + [str(s["blank_answers"]) for s in summaries]
+        else:
+            row = [label] + [str(s["truncated_answers"]) for s in summaries]
+        latency_rows.append(row)
+
+    headers = ["Metric"] + labels
+
+    md_lines = []
+    md_lines.append("# Generator Model Comparison Report\n\n")
+    md_lines.append(
+        "> Blank answers score **1** on Answer Correctness and Answer Relevance "
+        "(not excluded from averages). See `docs/SCORING_CALIBRATION.md`.\n\n"
+    )
+
+    md_lines.append("## Quality Scores (macro-avg, 1–5 scale)\n\n")
+    md_lines.append(tabulate(score_rows, headers=headers, tablefmt="github"))
+    md_lines.append("\n\n")
+
+    md_lines.append("## Latency & Coverage\n\n")
+    md_lines.append(tabulate(latency_rows, headers=headers, tablefmt="github"))
+    md_lines.append("\n\n")
+
+    md_lines.append("## Ranking\n\n")
+    for i, s in enumerate(ranked, start=1):
+        td = s.get("timing_detail", {})
+        md_lines.append(
+            f"{i}. **{s['label']}** — combined={s['combined_avg']:.4f} | "
+            f"blank={s['blank_answers']} | "
+            f"avg TTFT={fmt(td.get('first_token_time_avg'))}s\n"
+        )
+    md_lines.append(f"\n**Recommendation: {ranked[0]['label']}**\n\n")
+    md_lines.append(
+        f"Use this model for human-scored evaluation in "
+        f"`scripts/13_human_answer_evaluation.py`.\n"
+    )
+
+    md_path = REPORTS_DIR / "generator_model_comparison.md"
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write("".join(md_lines))
+
+    print(f"\nSaved final JSON report    : {json_path}")
+    print(f"Saved final markdown report: {md_path}")
     print(
-        f"Per-model results       : "
+        f"Per-model results          : "
         f"{REPORTS_DIR}/<model>/generated_answer_results.jsonl"
     )
     print(
-        f"Per-model summaries     : "
+        f"Per-model summaries (JSON) : "
         f"{REPORTS_DIR}/<model>/generated_answer_results_summary.json"
+    )
+    print(
+        f"Per-model summaries (MD)   : "
+        f"{REPORTS_DIR}/<model>/generated_answer_results_summary.md"
     )
 
 
@@ -1213,7 +1427,6 @@ def main():
     ]
     bm25_index = BM25Okapi(bm25_corpus)
 
-    # Load all gold questions across all categories
     gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
     if not gold_files:
         raise ValueError("No gold_questions.json files found under data/08_evaluation/.")
@@ -1247,11 +1460,6 @@ def main():
     if not installed:
         raise SystemExit("No generator models installed. Run: python scripts/13_install_models.py")
 
-    # Load any summaries already saved from a previous interrupted run so the
-    # final comparison table is always built from ALL completed models, not just
-    # the ones that finished in this particular invocation. Without this, if you
-    # finish 3 models, crash mid-model-4, restart and finish model-4, the final
-    # comparison would only show model-4 because all_summaries starts empty.
     all_summaries = []
     if not DRY_RUN:
         for info in installed.values():
@@ -1270,10 +1478,6 @@ def main():
     for key, info in installed.items():
         label = info["label"]
 
-        # Skip models that already have a complete summary saved -- all 100
-        # questions done, summary written. This is the model-level resume: if
-        # SeaLLM and Qwen are fully done and the script crashed during Gemma,
-        # restarting skips SeaLLM and Qwen entirely and starts from Gemma.
         if not DRY_RUN and label in already_done_labels:
             existing = load_existing_results(label)
             if len(existing) >= len(gold_entries):
@@ -1303,9 +1507,6 @@ def main():
 
             if not DRY_RUN:
                 summary = summarise(results, label)
-                # Replace any stale in-memory entry for this label with the
-                # freshly computed one (handles the case where an incomplete
-                # summary was loaded at startup and the model just finished)
                 all_summaries = [s for s in all_summaries if s["label"] != label]
                 all_summaries.append(summary)
                 print_model_summary(summary)
@@ -1322,7 +1523,6 @@ def main():
         print(f"{'=' * SEPARATOR_WIDTH}")
         return
 
-    # Final comparison and report
     print_final_comparison(all_summaries)
     write_final_report(all_summaries)
 
