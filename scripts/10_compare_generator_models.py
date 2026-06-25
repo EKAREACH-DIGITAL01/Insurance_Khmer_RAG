@@ -146,6 +146,14 @@ RRF_K             = 60
 NGRAM_SIZE        = 3
 MAX_TOKENS        = 1024  # same as live app -- evaluate under production conditions
 
+# Safety / scope gates -- mirror app.py EXACTLY so a gold question that the
+# live app would reject (canned message, no LLM call) is rejected here the
+# same way, instead of being silently generated for. See app.py for the
+# full calibration rationale behind each threshold.
+MIN_SCORE              = 0.50  # below this (but >= OUT_OF_DOMAIN_THRESHOLD) => low_confidence prompt
+OUT_OF_DOMAIN_THRESHOLD = 0.49  # raw FAISS best_score below this => out-of-domain, no generation
+MIN_QUESTION_LENGTH    = 8      # shorter questions are treated as degenerate input
+
 # Metric weights -- must sum to 1.0
 WEIGHTS = {
     "context_relevance":  0.20,
@@ -162,6 +170,78 @@ KHMER_END_PUNCT = {"។", "៕"}
 NUMBER_PATTERN = re.compile(r"[0-9]+|[០១២៣៤៥៦៧៨៩]+")
 
 KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
+
+# ----------------------------------------------------------------------------
+# Scope / domain gates -- duplicated from app.py.
+# If you update any of these in app.py, update them here too. They must stay
+# byte-for-byte identical so script 10 rejects exactly the same gold
+# questions the live UI rejects (and with the same canned wording).
+# ----------------------------------------------------------------------------
+REDIRECT_TEXT = (
+    "សូមទាក់ទងភ្នាក់ងារធានារ៉ាប់រងដែលមានអាជ្ញាប័ណ្ណ ឬនិយ័តករធានារ៉ាប់រងកម្ពុជា (IRC) "
+    "សម្រាប់ជំនួយបន្ថែម។"
+)
+
+SCOPE_VIOLATION_PATTERNS = [
+    re.compile(r"(សូម)?ណែនាំ.{0,30}(ក្រុមហ៊ុន|ផលិតផល|គម្រោង)"),
+    re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,30}ល្អ(បំផុត|ជាង)"),
+    re.compile(r"មួយណា.{0,15}ល្អ(ជាង|បំផុត)?"),
+    re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,40}និយម.{0,15}ជាងគេ"),
+    re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,40}ពេញនិយម"),
+    re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,40}ល្បី.{0,15}ជាងគេ"),
+    re.compile(r"(ក្រុមហ៊ុន|ផលិតផល|គម្រោង).{0,40}កេរ្តិ៍ឈ្មោះ.{0,10}ល្អ"),
+    re.compile(r"គួរ.{0,15}(ទិញ|ជ្រើសរើស|ប្រើ).{0,30}ក្រុមហ៊ុន"),
+    re.compile(r"ខ្ញុំគួរ.{0,20}(ជ្រើសរើស|ទិញ|ប្រើ|មើល)"),
+    re.compile(r"មិន.{0,10}(សុំ|ចង់បាន).{0,10}ប្រឹក្សា"),
+    re.compile(r"បើអ្នកជាខ្ញុំ"),
+    re.compile(r"ត្រូវ(បង់|ចំណាយ|ខាត).{0,10}ប៉ុន្មាន"),
+    re.compile(r"(បុព្វលាភ|ថ្លៃ|តម្លៃ).{0,30}ប៉ុន្មាន"),
+]
+
+
+def contains_khmer_script(text):
+    return bool(KHMER_SCRIPT_PATTERN.search(text))
+
+
+def is_scope_violation(text):
+    return any(pattern.search(text) for pattern in SCOPE_VIOLATION_PATTERNS)
+
+
+def gate_question(question, faiss_results=None):
+    """Mirror of app.py's run_pipeline_in_thread gating, in app.py's exact
+    order. Returns the canned answer string the live UI would show if the
+    question is rejected, or None if it should proceed to generation.
+
+    The pre-retrieval gates (Khmer-script, length, scope) need no scores.
+    The out-of-domain score gate needs the raw FAISS results, so it is only
+    applied when faiss_results is passed (after the FAISS search)."""
+    out_of_domain_msg = (
+        "សំណួររបស់អ្នកហាក់ដូចជាមិនទាក់ទងនឹងច្បាប់ ឬបទប្បញ្ញត្តិធានារ៉ាប់រងកម្ពុជាទេ។ "
+        "ជំនួយការនេះអាចឆ្លើយបានតែសំណួរទាក់ទងនឹងច្បាប់ធានារ៉ាប់រងប៉ុណ្ណោះ។ "
+        f"{REDIRECT_TEXT}"
+    )
+    scope_msg = (
+        "សំណួររបស់អ្នកស្នើសុំការណែនាំ ឬប្រៀបធៀបក្រុមហ៊ុន/ផលិតផលជាក់លាក់ "
+        "ការផ្តល់ប្រឹក្សាផ្ទាល់ខ្លួន ឬការគណនាប្រាក់ផ្ទាល់ខ្លួន ដែលជំនួយការនេះ"
+        "មិនអាចផ្តល់បានទេ។ "
+        f"{REDIRECT_TEXT}"
+    )
+
+    if faiss_results is None:
+        # Pre-retrieval gates (same order as app.py)
+        if not contains_khmer_script(question):
+            return out_of_domain_msg, "not_khmer"
+        if len(question.strip()) < MIN_QUESTION_LENGTH:
+            return out_of_domain_msg, "too_short"
+        if is_scope_violation(question):
+            return scope_msg, "scope_violation"
+        return None
+    else:
+        # Post-FAISS score gate (before BM25/fusion, exactly like app.py)
+        best_score = float(faiss_results[0][0]) if faiss_results else 0.0
+        if best_score < OUT_OF_DOMAIN_THRESHOLD:
+            return out_of_domain_msg, "low_score"
+        return None
 
 # Cosine similarity -> 1-5 bucket thresholds. Two SEPARATE sets because
 # Answer Correctness (answer vs. expected_answer) and Answer Relevance
@@ -269,23 +349,36 @@ def build_context(results):
 
 
 # ----------------------------------------------------------------------------
-# Prompt -- duplicated from app.py's build_prompt().
-# If you update the prompt in app.py, update it here too.
-# The low_confidence branch is omitted -- script 10 generates for every
-# gold question unconditionally (no score gating during evaluation).
+# Prompt -- duplicated from app.py's build_prompt() (INCLUDING the
+# low_confidence branch). If you update the prompt in app.py, update it here
+# too -- it must stay byte-for-byte identical so the LLM sees the same prompt
+# in both places. low_confidence is passed as best_score < MIN_SCORE, exactly
+# as app.py does.
 # ----------------------------------------------------------------------------
 
-def build_prompt(question, context):
+def build_prompt(question, context, low_confidence=False):
+    relevance_check = ""
+    if low_confidence:
+        relevance_check = """
+IMPORTANT: The retrieved context below has LOW relevance confidence for this
+question. Before answering, first check whether the context is actually
+ABOUT the same topic as the question -- not just whether it shares similar
+words or phrasing. If the context discusses a different subject, or the
+question is not really about Cambodian insurance law at all (for example,
+a question about the assistant itself, or unrelated small talk), you MUST
+reply with the "not found" message below instead of extracting a loosely
+related answer.
+"""
+
     not_found_message = (
-        "រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។ "
-        "សូមទាក់ទងភ្នាក់ងារធានារ៉ាប់រងដែលមានអាជ្ញាប័ណ្ណ "
-        "ឬនិយ័តករធានារ៉ាប់រងកម្ពុជា (IRC) សម្រាប់ជំនួយបន្ថែម។"
+        f"រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។ {REDIRECT_TEXT}"
     )
+
     return f"""
 You are a Khmer legal assistant.
 
 Answer ONLY from the provided context.
-
+{relevance_check}
 Rules:
 
 - Answer in Khmer.
@@ -293,10 +386,10 @@ Rules:
 - Preserve dates, fees, deadlines and requirements exactly.
 - Provide a complete and detailed answer. If the context lists multiple conditions, sub-points, exceptions, or requirements, enumerate ALL of them.
 - Only combine information from multiple sources if EACH of them directly addresses the question asked. Do not stitch together unrelated facts from different sources just because they were retrieved -- if most of the retrieved sources don't actually answer the question, say so instead of forcing a combined answer out of all of them.
-- Do not reinterpret a number, rate, or statistic for a purpose other than what it was stated for in the source.
+- Do not reinterpret a number, rate, or statistic for a purpose other than what it was stated for in the source (for example, a mortality or incidence rate expressed "per 1,000 people" is NOT the same as a total population count -- never restate a rate's denominator as if it were the literal answer to a "how many" question).
 - Do not recommend, endorse, or compare any specific insurance product, company, or policy, even if the context mentions one and the question asks for a recommendation.
 - Do not calculate, estimate, or infer a premium, payout, deductible, or any monetary amount that is not stated explicitly and directly in the context for that exact purpose.
-- Do not give personalized financial or legal advice. If the question asks for a personal recommendation, a calculation, or advice tailored to the user's situation, decline and reply with the message below instead of attempting an answer.
+- Do not give personalized financial or legal advice (e.g. "should I buy X", "what should I do in my situation"). If the question asks for a personal recommendation, a calculation, or advice tailored to the user's situation, decline and reply with the message below instead of attempting an answer.
 - If the answer is not found in the context, OR the question asks for a product recommendation, a premium/payout calculation, or personalized advice, reply EXACTLY with this message and nothing else:
 
 {not_found_message}
@@ -719,51 +812,86 @@ def evaluate_model(
 
         print(f"  [{i}/{total}] {category} | {question[:70]}...")
 
-        # --- Retrieval (hybrid, mirrors app.py) ---
-        query_emb = np.asarray(
-            embedding_model.encode([question], normalize_embeddings=True),
-            dtype="float32",
-        )
-        faiss_scores, faiss_indices = faiss_index.search(query_emb, k=TOP_K)
-        dense_results = [
-            (float(faiss_scores[0][j]), chunks[faiss_indices[0][j]])
-            for j in range(len(faiss_indices[0]))
-            if faiss_indices[0][j] >= 0
-        ]
-
-        bm25_tokens  = khmer_aware_tokenize(question)
-        bm25_scores  = bm25_index.get_scores(bm25_tokens)
-        bm25_top     = np.argsort(bm25_scores)[::-1][:BM25_TOP_K]
-        bm25_results = [(float(bm25_scores[j]), chunks[j]) for j in bm25_top]
-
-        fused             = reciprocal_rank_fusion([dense_results, bm25_results])
-        context_chunks    = select_context_chunks(fused)
-        context           = build_context(context_chunks)
-        context_chunk_ids = [c["chunk_id"] for _, c in context_chunks]
-
-        # --- Generation ---
-        prompt = build_prompt(question, context)
-        try:
-            answer_text, first_token_time, generation_time, tokens_out = generate_answer(
-                client, model_name, prompt
+        # --- Pre-retrieval gates (mirror app.py: Khmer-script, length, scope).
+        # A gated question never reaches the LLM in the live app -- it returns
+        # a fixed canned message. We record that exact canned message as the
+        # "generated_answer" so the evaluation reflects what the UI would
+        # actually answer for this gold question. ---
+        gate_reason = None
+        gated = gate_question(question)
+        if gated is not None:
+            answer_text, gate_reason = gated
+            context           = ""
+            context_chunk_ids = []
+            first_token_time  = 0.0
+            generation_time   = 0.0
+            tokens_out        = 0
+        else:
+            # --- Retrieval (hybrid, mirrors app.py) ---
+            query_emb = np.asarray(
+                embedding_model.encode([question], normalize_embeddings=True),
+                dtype="float32",
             )
-        except Exception as e:
-            print(f"    Generation failed: {e}")
-            entry_out = {
-                "question":         question,
-                "category":         category,
-                "expected_chunks":  expected_chunks,
-                "expected_answer":  expected_answer,
-                "generated_answer": "",
-                "error":            str(e),
-                "scores":           {},
-                "combined":         0.0,
-                "detail":           {},
-                "timing":           {},
-            }
-            append_result(label, entry_out)
-            results.append(entry_out)
-            continue
+            faiss_scores, faiss_indices = faiss_index.search(query_emb, k=TOP_K)
+            dense_results = [
+                (float(faiss_scores[0][j]), chunks[faiss_indices[0][j]])
+                for j in range(len(faiss_indices[0]))
+                if faiss_indices[0][j] >= 0
+            ]
+
+            # --- Out-of-domain score gate (mirror app.py: BEFORE BM25/fusion,
+            # computed from raw FAISS best_score only) ---
+            gated = gate_question(question, faiss_results=dense_results)
+            if gated is not None:
+                answer_text, gate_reason = gated
+                context           = ""
+                context_chunk_ids = []
+                first_token_time  = 0.0
+                generation_time   = 0.0
+                tokens_out        = 0
+            else:
+                best_score = float(dense_results[0][0]) if dense_results else 0.0
+
+                bm25_tokens  = khmer_aware_tokenize(question)
+                bm25_scores  = bm25_index.get_scores(bm25_tokens)
+                bm25_top     = np.argsort(bm25_scores)[::-1][:BM25_TOP_K]
+                bm25_results = [(float(bm25_scores[j]), chunks[j]) for j in bm25_top]
+
+                fused             = reciprocal_rank_fusion([dense_results, bm25_results])
+                context_chunks    = select_context_chunks(fused)
+                context           = build_context(context_chunks)
+                context_chunk_ids = [c["chunk_id"] for _, c in context_chunks]
+
+                # --- Generation ---
+                # low_confidence mirrors app.py exactly: best_score < MIN_SCORE
+                # (but >= OUT_OF_DOMAIN_THRESHOLD, since lower already gated out)
+                prompt = build_prompt(
+                    question, context, low_confidence=best_score < MIN_SCORE
+                )
+                try:
+                    answer_text, first_token_time, generation_time, tokens_out = generate_answer(
+                        client, model_name, prompt
+                    )
+                except Exception as e:
+                    print(f"    Generation failed: {e}")
+                    entry_out = {
+                        "question":         question,
+                        "category":         category,
+                        "expected_chunks":  expected_chunks,
+                        "expected_answer":  expected_answer,
+                        "generated_answer": "",
+                        "error":            str(e),
+                        "scores":           {},
+                        "combined":         0.0,
+                        "detail":           {},
+                        "timing":           {},
+                    }
+                    append_result(label, entry_out)
+                    results.append(entry_out)
+                    continue
+
+        if gate_reason is not None:
+            print(f"    GATED ({gate_reason}) -- canned answer, no LLM call.")
 
         # Dry-run: print raw answer and skip scoring/saving
         if dry_run:
@@ -803,6 +931,7 @@ def evaluate_model(
             "expected_answer":   expected_answer,
             "generated_answer":  answer_text,
             "context_chunk_ids": context_chunk_ids,
+            "gate_reason":       gate_reason,
             "scores":            scored["scores"],
             "combined":          scored["combined"],
             "detail":            scored["detail"],
