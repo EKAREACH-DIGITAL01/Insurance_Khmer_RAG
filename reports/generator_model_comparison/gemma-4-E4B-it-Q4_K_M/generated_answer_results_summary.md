@@ -8,10 +8,10 @@
 |-------------------------|-------------|
 | Context Relevance       | 4.4400      |
 | Faithfulness            | 4.3000      |
-| Answer Correctness      | 4.2366      |
-| Answer Relevance        | 3.4301      |
+| Answer Correctness      | 4.0100      |
+| Answer Relevance        | 3.2600      |
 | Completeness            | 3.5100      |
-| **Combined (weighted)** | **4.0373**  |
+| **Combined (weighted)** | **3.9810**  |
 
 ## Coverage
 
@@ -19,7 +19,7 @@
 | Total questions   | 100 |
 | Valid (scored)    | 100 |
 | Failed (error)    |   0 |
-| Blank answers     |   0 |
+| Blank answers     |   7 |
 | Truncated answers |  45 |
 
 ## Latency & Throughput
@@ -38,10 +38,10 @@
 
 | Category    |   Context Relevance |   Faithfulness |   Answer Correctness |   Answer Relevance |   Completeness |
 |-------------|---------------------|----------------|----------------------|--------------------|----------------|
-| guidance    |                4.76 |           4.48 |               4.5217 |             3.7391 |           3.72 |
-| laws        |                4.04 |           4.48 |               4.1304 |             3.087  |           3.72 |
-| prakas      |                4.28 |           4.08 |               4.5417 |             3.75   |           3.96 |
-| sub_decrees |                4.68 |           4.16 |               3.7391 |             3.1304 |           2.64 |
+| guidance    |                4.76 |           4.48 |                 4.24 |               3.52 |           3.72 |
+| laws        |                4.04 |           4.48 |                 3.88 |               2.92 |           3.72 |
+| prakas      |                4.28 |           4.08 |                 4.4  |               3.64 |           3.96 |
+| sub_decrees |                4.68 |           4.16 |                 3.52 |               2.96 |           2.64 |
 
 ## Per-Category Timing (avg, seconds)
 
