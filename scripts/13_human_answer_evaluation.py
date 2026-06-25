@@ -266,10 +266,11 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 
 [data-testid="stAppViewContainer"] .block-container {
-    padding-top: 1.2rem !important;
-    padding-left: 1.5rem !important;
-    padding-right: 1.5rem !important;
-    max-width: 100% !important;
+    padding-top: 1.5rem !important;
+    padding-left: 3.5rem !important;
+    padding-right: 3.5rem !important;
+    max-width: 1600px !important;
+    margin: 0 auto !important;
 }
 
 /* ── st.container(border=True) card style ─────────────────── */
@@ -277,7 +278,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     background: var(--parchment-soft) !important;
     border: 1px solid var(--brass-soft) !important;
     border-radius: 8px !important;
-    padding: 8px 12px 4px 12px !important;
+    padding: 5px 12px 0px 12px !important;
     margin-bottom: 4px !important;
 }
 /* The inner stVerticalBlock that Streamlit adds — zero its gap */
@@ -300,7 +301,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 /* Card title and desc */
 .card-title { font-size: 13px; font-weight: 600; color: var(--stone); margin: 0 0 1px 0; line-height: 1.2; }
-.card-desc  { font-size: 11px; color: var(--stone-light); line-height: 1.3; margin: 0 0 4px 0; }
+.card-desc  { font-size: 11px; color: var(--stone-light); line-height: 1.3; margin: 0 0 -3px 0}
 
 /* Radio widget wrapper: no top/bottom space */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] {
@@ -310,17 +311,18 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 /* Radio inner flex row */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] > div {
     flex-direction: row !important;
-    gap: 4px !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
+    gap: 2px !important;
     margin: 0 !important;
     padding: 0 !important;
+    min-height: 18px !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
 }
 /* Each radio label */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label {
     background: transparent !important;
     border: none !important;
-    padding: 0 2px !important;
+    padding: 0 !important;
     margin: 0 !important;
     font-family: 'IBM Plex Sans', sans-serif !important;
     font-size: 10px !important;
@@ -337,9 +339,12 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label:hover { color: var(--stone) !important; }
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label:has(input:checked) { color: var(--lacquer) !important; font-weight: 600 !important; }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label svg { display: block !important; width: 12px !important; height: 12px !important; flex-shrink: 0 !important; }
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label svg { display: block !important; width: 5px !important; height: 5px !important; flex-shrink: 0 !important; }
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] label > span:first-child { display: none !important; }
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] input[type="radio"] { position: absolute !important; opacity: 0 !important; pointer-events: none !important; }
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stRadio"] {
+    margin-bottom: -2px !important;
+}
 
 /* ── Progress ─────────────────────────────────────────────── */
 .prog-wrap { margin-bottom: 10px; }
@@ -388,10 +393,30 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 [data-testid="stButton"] button { background: var(--lacquer) !important; color: var(--parchment-soft) !important; border: none !important; border-radius: 8px !important; font-family: 'IBM Plex Sans', sans-serif !important; font-weight: 600 !important; font-size: 13px !important; padding: 8px 22px !important; width: auto !important; white-space: nowrap; transition: background 0.15s ease !important; }
 [data-testid="stButton"] button:hover    { background: var(--lacquer-deep) !important; }
 [data-testid="stButton"] button:disabled { background: var(--brass-soft) !important; color: var(--stone-light) !important; opacity: 0.75 !important; }
+[data-testid="stButton"] {
+    display: flex;
+    justify-content: center;
+}
+
+[data-testid="stButton"] > button {
+    width: auto !important;
+}
 
 /* ── Text input ──────────────────────────────────────────── */
 [data-testid="stTextInput"] input { background: var(--parchment-soft) !important; border: 1px solid var(--brass-soft) !important; border-radius: 8px !important; color: var(--stone) !important; font-family: 'IBM Plex Sans', sans-serif !important; font-size: 14px !important; padding: 8px 12px !important; box-shadow: none !important; }
-[data-testid="stTextInput"] input:focus { border-color: var(--brass) !important; box-shadow: 0 0 0 2px var(--brass-mist) !important; }
+[data-testid="stTextInput"] input:focus { border-color: var(--brass) !important; box-shadow: 0 0 0 2px var(--brass-mist) !important; text-align: center !important;}
+[data-testid="stTextInput"] div[data-baseweb="input"] {
+    text-align: center !important;
+}
+[data-testid="stTextInput"] div[data-baseweb="input"] input {
+    text-align: center !important;
+}
+[data-testid="stTextInput"] div[data-baseweb="input"] input::placeholder {
+    text-align: center !important;
+}
+[data-testid="InputInstructions"] {
+    display: none !important;
+}
 
 /* ── Completion ──────────────────────────────────────────── */
 .done-wrap  { text-align: center; padding: 60px 20px; }
@@ -419,7 +444,7 @@ def page_login():
         unsafe_allow_html=True,
     )
     # Input in narrow centred column; button in its own centred column
-    _, c_input, _ = st.columns([1.2, 1, 1.2])
+    _, c_input, _ = st.columns([1, 2, 1])
     with c_input:
         name = st.text_input("name", placeholder="Enter your name", label_visibility="collapsed")
     _, c_btn, _ = st.columns([2.2, 0.6, 2.2])
@@ -486,6 +511,7 @@ def page_evaluate(evaluator_id, evaluator_name, all_questions):
 
     with left_col:
         category = question.get("category", "").replace("_", " ").title()
+        st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
         st.markdown(f'<div class="ev-category-pill">{category}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="ev-question-text">{question["question"]}</div>', unsafe_allow_html=True)
         expected = question.get("expected_answer") or ""
