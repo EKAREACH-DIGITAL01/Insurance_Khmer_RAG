@@ -349,6 +349,37 @@ def select_context_chunks(results):
     return selected
 
 
+LIST_MARKER_PATTERN = re.compile(
+    r"^(?:[០-៩0-9]+\s*[.)៖]|[ក-អ]\s*[.)]|មាត្រា|ប្រការ|[-•])"
+)
+
+
+def clean_provision_text(text):
+    """Fold PDF line-wrap newlines inside the verbatim provision text into
+    spaces, while preserving the breaks that begin a heading or list item, so
+    the deterministic provision answer reads as clean paragraphs/lists instead
+    of one hard break per wrapped line. Mirrors app.py EXACTLY."""
+    out = []
+    force_break = False  # a blank line was seen -- don't fold across it
+    for raw in text.split("\n"):
+        line = raw.strip()
+        if not line:
+            # Blank lines in the corpus are stray PDF artifacts (e.g. one sits
+            # mid-list before "៤." in laws មាត្រា ៣). Don't emit a visible empty
+            # line, but do stop the next line from folding back up.
+            force_break = True
+            continue
+        # Fold this line into the previous one (a mid-sentence wrap) unless it
+        # opens a new structural block (heading / numbered / lettered / dash
+        # item) or a blank line just separated them.
+        if out and not force_break and not LIST_MARKER_PATTERN.match(line):
+            out[-1] = out[-1] + " " + line
+        else:
+            out.append(line)
+        force_break = False
+    return "\n".join(out).strip()
+
+
 def resolve_provision_lookup(question, context_results):
     """Deterministic verbatim answer for explicit provision lookups
     (មាត្រា N / ប្រការ N). Mirrors app.py EXACTLY: bypasses the LLM and returns
@@ -387,7 +418,7 @@ def resolve_provision_lookup(question, context_results):
             doc = chunk.get("metadata", {}).get("document_name", "")
             if named_docs and doc not in named_docs:
                 continue
-            match = text
+            match = clean_provision_text(text)
             break
         if match is not None:
             texts.append(match)
