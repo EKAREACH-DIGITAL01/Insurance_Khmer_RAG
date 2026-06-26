@@ -37,7 +37,22 @@ LLAMA_SERVER_ROOT = "http://localhost:8080"
 
 TOP_K = 10
 CONTEXT_K = 5  # how many chunks actually go into the LLM prompt (<= TOP_K)
-MAX_CHUNKS_PER_DOC = 1  # cap near-duplicate chunks from the same document
+MAX_CHUNKS_PER_DOC = 2  # cap near-duplicate chunks from the same document.
+                        # NOTE: must stay > 1. Many laws are a single source
+                        # document split into per-article chunks, so two
+                        # DIFFERENT questions about adjacent articles of the
+                        # same law (e.g. "មាត្រា ១ - គោលបំណង" vs
+                        # "មាត្រា ២ - គោលដៅ") retrieve the same top chunk under
+                        # dense search -- the embedder can't separate the
+                        # near-synonym Khmer keywords. With a cap of 1 only that
+                        # single top chunk reaches the LLM, so both questions
+                        # collapse to an identical answer. Allowing 2 article
+                        # chunks from the same document into the prompt lets the
+                        # model answer from the article whose header actually
+                        # matches the question. 2 is the minimum that fixes the
+                        # collapse (both adjacent articles reach the model) while
+                        # adding the least prefill/TTFT; CONTEXT_K still caps the
+                        # total, so prompt size stays bounded.
 BM25_TOP_K = TOP_K  # lexical candidate pool size, matched to FAISS's TOP_K
                      # so neither ranker dominates the fused pool just by
                      # having a bigger candidate list to draw from
@@ -45,6 +60,24 @@ RRF_K = 60  # standard Reciprocal Rank Fusion constant from the IR
             # literature (Cormack et al. 2009) -- not something tuned on
             # this corpus, just the conventional default
 NGRAM_SIZE = 3  # character n-gram size for Khmer-script BM25 tokens
+# Maximal runs of digits -- Khmer (U+17E0-17E9) or ASCII -- pulled out of
+# Khmer-script tokens so article numbers match lexically despite no spacing.
+DIGIT_RUN_PATTERN = re.compile(r"[០១២៣៤៥៦៧៨៩0-9]+")
+# Explicit provision references ("មាត្រា ១០", "មាត្រា១០", "ប្រការ ៤") emitted
+# as a single compound token ("មាត្រា១០"), normalizing away the optional space
+# so the query and the corpus heading match regardless of spacing. Laws and
+# sub-decrees number provisions with "មាត្រា"; prakas use "ប្រការ" -- same
+# structure, different keyword -- so both are matched. A bare digit run alone
+# can't surface the right chunk: it's one term against dozens of shared
+# common-word n-grams from the document title, and "មាត្រា ១០" is short with
+# little gram overlap, so it ranks ~40th. The compound is near-unique (only the
+# provision heading and chunks that cross-reference it), but to overcome the
+# n-gram noise it has to carry weight, so it's emitted ARTICLE_REF_BOOST times
+# -- enough to lift the matching chunk into the BM25 top-K candidate pool that
+# rank-based RRF fusion draws from. No effect on questions that don't name a
+# provision number (no match -> no tokens emitted -> normal behaviour).
+ARTICLE_REF_PATTERN = re.compile(r"(មាត្រា|ប្រការ)\s*([០១២៣៤៥៦៧៨៩0-9]+)")
+ARTICLE_REF_BOOST = 20
 DIAG_DISPLAY_K = 10  # how many fused chunks the diagnostics page SHOWS --
                       # presentation-only. The fused candidate pool itself
                       # (up to BM25_TOP_K + TOP_K unique chunks if FAISS and
@@ -129,8 +162,25 @@ def khmer_aware_tokenize(text):
     necessarily the hybrid approach itself -- is the first thing to
     re-examine."""
     tokens = []
+    # Compound provision-reference tokens first (see ARTICLE_REF_PATTERN). Done
+    # over the whole text, not per-word, since the keyword ("មាត្រា"/"ប្រការ")
+    # and its number sit in separate whitespace tokens in the corpus heading
+    # ("មាត្រា ១០"). Keeping the keyword in the compound prevents a "មាត្រា ៥"
+    # query from matching a "ប្រការ ៥" heading in another document.
+    for keyword, ref_num in ARTICLE_REF_PATTERN.findall(text):
+        tokens.extend([keyword + ref_num] * ARTICLE_REF_BOOST)
     for word in text.split():
         if KHMER_SCRIPT_PATTERN.search(word):
+            # Khmer is unspaced, so an entire question collapses into one
+            # whitespace-token. Article numbers ("មាត្រា១០") then get glued to
+            # surrounding script and shredded into n-grams, so the
+            # distinguishing digit run never survives as a standalone token to
+            # match the corpus -- where "មាត្រា ១០" keeps "១០" separate. Pull
+            # every maximal digit run (Khmer ០-៩ U+17E0-17E9 or ASCII 0-9) out
+            # as its own token first, so the article number matches lexically
+            # regardless of spacing on either side.
+            for digit_run in DIGIT_RUN_PATTERN.findall(word):
+                tokens.append(digit_run)
             chars = list(word)
             if len(chars) < NGRAM_SIZE:
                 tokens.append(word)
@@ -1363,6 +1413,7 @@ Rules:
 - Do not invent facts.
 - Preserve dates, fees, deadlines and requirements exactly.
 - Provide a complete and detailed answer. If the context lists multiple conditions, sub-points, exceptions, or requirements, enumerate ALL of them.
+- CRITICAL: If the question names a specific provision (មាត្រា N for a law or sub-decree, ប្រការ N for a prakas), you MUST reproduce that provision's ENTIRE text from the context word-for-word -- its heading line AND every following sentence, clause, condition, and sub-point. This rule applies EVEN IF the question is phrased as "និយាយអំពីអ្វី" / "មានន័យដូចម្តេច" / "about what" -- such phrasing does NOT permit a one-line topic summary. A reply that gives only the provision's subject or title is WRONG and forbidden. Quote the full provision.
 - Only combine information from multiple sources if EACH of them directly addresses the question asked. Do not stitch together unrelated facts from different sources just because they were retrieved -- if most of the retrieved sources don't actually answer the question, say so instead of forcing a combined answer out of all of them.
 - Do not reinterpret a number, rate, or statistic for a purpose other than what it was stated for in the source (for example, a mortality or incidence rate expressed "per 1,000 people" is NOT the same as a total population count -- never restate a rate's denominator as if it were the literal answer to a "how many" question).
 - Do not recommend, endorse, or compare any specific insurance product, company, or policy, even if the context mentions one and the question asks for a recommendation.
@@ -1380,6 +1431,72 @@ Question:
 
 Answer:
 """
+
+
+def resolve_provision_lookup(question, context_results):
+    """Deterministic answer for questions that explicitly name a provision
+    (មាត្រា N / ប្រការ N). Bypasses the local model, which both summarizes such
+    provisions down to their topic AND hallucinates scope not in the text
+    (e.g. inventing "សេវា ឬការអះអាង..." onto មាត្រា ១០), so the provision's own
+    words are the most faithful, complete answer to "what does it say".
+
+    Returns:
+      - a list of verbatim provision texts, when the chunk(s) for the named
+        provision(s) -- from the document the question names -- were retrieved;
+      - a one-element list with a "no such provision" message, when the
+        question names a document but that document has no such provision in
+        context (e.g. asking for មាត្រា ១០០ of a 67-article law). This is what
+        stops a same-numbered provision from ANOTHER document being returned;
+      - None, when no provision was named -- fall back to the model.
+    """
+    refs = []
+    seen = set()
+    for keyword, num in ARTICLE_REF_PATTERN.findall(question):
+        if (keyword, num) not in seen:
+            seen.add((keyword, num))
+            refs.append((keyword, num))
+    if not refs:
+        return None
+
+    qn = re.sub(r"\s+", "", question)
+    # Document titles the question explicitly names, matched against the known
+    # document_name of every retrieved chunk. When the question names a
+    # document, a provision is only accepted if it comes from that document.
+    named_docs = {
+        chunk.get("metadata", {}).get("document_name", "")
+        for _score, chunk in context_results
+        if re.sub(r"\s+", "", chunk.get("metadata", {}).get("document_name", ""))
+        and re.sub(r"\s+", "", chunk.get("metadata", {}).get("document_name", "")) in qn
+    }
+
+    texts = []
+    for keyword, num in refs:
+        # Corpus heading: "មាត្រា ១០ - ...". Match keyword + number as a whole
+        # unit; the lookahead stops "១០" from also matching "១០០"/"១០២".
+        heading = re.compile(
+            r"^\s*" + re.escape(keyword) + r"\s*" + re.escape(num)
+            + r"(?![០១២៣៤៥៦៧៨៩0-9])"
+        )
+        match = None
+        for _score, chunk in context_results:
+            text = (chunk.get("text") or "").strip()
+            if not heading.match(text):
+                continue
+            doc = chunk.get("metadata", {}).get("document_name", "")
+            if named_docs and doc not in named_docs:
+                continue  # right number, wrong document
+            match = text
+            break
+        if match is not None:
+            texts.append(match)
+        elif named_docs:
+            # Question named a document, but it has no such provision: don't
+            # fall through to a same-numbered provision from another law.
+            doc_title = next(iter(named_docs))
+            return [
+                f"រកមិនឃើញ{keyword} {num} នៅក្នុង{doc_title}ឡើយ។ {REDIRECT_TEXT}"
+            ]
+    return texts or None
 
 
 def select_context_chunks(results):
@@ -1586,33 +1703,50 @@ def run_pipeline_in_thread(
         total_chars = 0
         total_tokens_out = 0
         was_stopped = False
+        answer_text = ""
 
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=1024,
-            stream=True,
-        )
-        for chunk in response:
-            if stop_event.is_set():
-                was_stopped = True
-                break
-            delta = chunk.choices[0].delta.content
-            if delta:
-                total_chars += len(delta)
-                # llama-server streams one token per content delta, so this
-                # count is a direct token count, not a character estimate.
-                total_tokens_out += 1
-                if first_token_time is None:
-                    first_token_time = time.time() - gen_start
-                    out_q.put(("phase", "generating_response"))
-                out_q.put(("token", delta))
+        # Deterministic provision lookup. When the question explicitly names a
+        # provision (មាត្រា N / ប្រការ N) and we retrieved its exact chunk,
+        # answer with the provision verbatim and skip the local model entirely.
+        # The model can't be trusted here: it summarizes the provision down to
+        # its topic AND hallucinates scope not in the text. The provision's own
+        # words are the most faithful, complete answer to "what does it say".
+        provision_texts = resolve_provision_lookup(question, context_results)
+        if provision_texts:
+            answer_text = "\n\n".join(provision_texts)
+            first_token_time = time.time() - gen_start
+            out_q.put(("phase", "generating_response"))
+            out_q.put(("token", answer_text))
+            total_chars = len(answer_text)
+            total_tokens_out = len(answer_text)
+        else:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=1024,
+                stream=True,
+            )
+            for chunk in response:
+                if stop_event.is_set():
+                    was_stopped = True
+                    break
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    answer_text += delta
+                    total_chars += len(delta)
+                    # llama-server streams one token per content delta, so this
+                    # count is a direct token count, not a character estimate.
+                    total_tokens_out += 1
+                    if first_token_time is None:
+                        first_token_time = time.time() - gen_start
+                        out_q.put(("phase", "generating_response"))
+                    out_q.put(("token", delta))
 
-        try:
-            response.close()
-        except Exception:
-            pass
+            try:
+                response.close()
+            except Exception:
+                pass
 
         generation_time = time.time() - gen_start
 
