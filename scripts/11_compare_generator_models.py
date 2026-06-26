@@ -140,7 +140,7 @@ LLAMA_SERVER_STARTUP_TIMEOUT = 120
 # Mirrors app.py constants exactly
 TOP_K             = 10
 CONTEXT_K         = 5
-MAX_CHUNKS_PER_DOC = 1
+MAX_CHUNKS_PER_DOC = 2
 BM25_TOP_K        = TOP_K
 RRF_K             = 60
 NGRAM_SIZE        = 3
@@ -169,7 +169,20 @@ KHMER_END_PUNCT = {"។", "៕"}
 # Arabic + Khmer numeral runs -- used by faithfulness proxy
 NUMBER_PATTERN = re.compile(r"[0-9]+|[០១២៣៤៥៦៧៨៩]+")
 
-KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
+KHMER_SCRIPT_PATTERN = re.compile(r"[ក-៿]")
+
+# Provision-reference handling -- mirror app.py EXACTLY (see app.py for the full
+# rationale). Maximal digit runs are pulled out of Khmer tokens; explicit
+# មាត្រា/ប្រការ references become a boosted compound BM25 token; Arabic digits
+# are normalized to the corpus's Khmer form.
+DIGIT_RUN_PATTERN   = re.compile(r"[០១២៣៤៥៦៧៨៩0-9]+")
+ARTICLE_REF_PATTERN = re.compile(r"(មាត្រា|ប្រការ)\s*([០១២៣៤៥៦៧៨៩0-9]+)")
+ARTICLE_REF_BOOST   = 20
+_ARABIC_TO_KHMER    = str.maketrans("0123456789", "០១២៣៤៥៦៧៨៩")
+
+
+def to_khmer_digits(s):
+    return s.translate(_ARABIC_TO_KHMER)
 
 # ----------------------------------------------------------------------------
 # Scope / domain gates -- duplicated from app.py.
@@ -291,8 +304,14 @@ LLM_MODELS = {
 
 def khmer_aware_tokenize(text):
     tokens = []
+    # Compound provision-reference tokens first (boosted), then per-word digit
+    # runs + n-grams. Mirrors app.py exactly.
+    for keyword, ref_num in ARTICLE_REF_PATTERN.findall(text):
+        tokens.extend([keyword + to_khmer_digits(ref_num)] * ARTICLE_REF_BOOST)
     for word in text.split():
         if KHMER_SCRIPT_PATTERN.search(word):
+            for digit_run in DIGIT_RUN_PATTERN.findall(word):
+                tokens.append(digit_run)
             chars = list(word)
             if len(chars) < NGRAM_SIZE:
                 tokens.append(word)
@@ -328,6 +347,56 @@ def select_context_chunks(results):
         if len(selected) >= CONTEXT_K:
             break
     return selected
+
+
+def resolve_provision_lookup(question, context_results):
+    """Deterministic verbatim answer for explicit provision lookups
+    (មាត្រា N / ប្រការ N). Mirrors app.py EXACTLY: bypasses the LLM and returns
+    the named provision's text from the document the question names, or a
+    "no such provision" message when the named document lacks it, or None when
+    no provision was named (fall back to the model)."""
+    refs = []
+    seen = set()
+    for keyword, num in ARTICLE_REF_PATTERN.findall(question):
+        num = to_khmer_digits(num)
+        if (keyword, num) not in seen:
+            seen.add((keyword, num))
+            refs.append((keyword, num))
+    if not refs:
+        return None
+
+    qn = re.sub(r"\s+", "", question)
+    named_docs = {
+        chunk.get("metadata", {}).get("document_name", "")
+        for _score, chunk in context_results
+        if re.sub(r"\s+", "", chunk.get("metadata", {}).get("document_name", ""))
+        and re.sub(r"\s+", "", chunk.get("metadata", {}).get("document_name", "")) in qn
+    }
+
+    texts = []
+    for keyword, num in refs:
+        heading = re.compile(
+            r"^\s*" + re.escape(keyword) + r"\s*" + re.escape(num)
+            + r"(?![០១២៣៤៥៦៧៨៩0-9])"
+        )
+        match = None
+        for _score, chunk in context_results:
+            text = (chunk.get("text") or "").strip()
+            if not heading.match(text):
+                continue
+            doc = chunk.get("metadata", {}).get("document_name", "")
+            if named_docs and doc not in named_docs:
+                continue
+            match = text
+            break
+        if match is not None:
+            texts.append(match)
+        elif named_docs:
+            doc_title = next(iter(named_docs))
+            return [
+                f"រកមិនឃើញ{keyword} {num} នៅក្នុង{doc_title}ឡើយ។ {REDIRECT_TEXT}"
+            ]
+    return texts or None
 
 
 def build_context(results):
@@ -385,6 +454,7 @@ Rules:
 - Do not invent facts.
 - Preserve dates, fees, deadlines and requirements exactly.
 - Provide a complete and detailed answer. If the context lists multiple conditions, sub-points, exceptions, or requirements, enumerate ALL of them.
+- CRITICAL: If the question names a specific provision (មាត្រា N for a law or sub-decree, ប្រការ N for a prakas), you MUST reproduce that provision's ENTIRE text from the context word-for-word -- its heading line AND every following sentence, clause, condition, and sub-point. This rule applies EVEN IF the question is phrased as "និយាយអំពីអ្វី" / "មានន័យដូចម្តេច" / "about what" -- such phrasing does NOT permit a one-line topic summary. A reply that gives only the provision's subject or title is WRONG and forbidden. Quote the full provision.
 - Only combine information from multiple sources if EACH of them directly addresses the question asked. Do not stitch together unrelated facts from different sources just because they were retrieved -- if most of the retrieved sources don't actually answer the question, say so instead of forcing a combined answer out of all of them.
 - Do not reinterpret a number, rate, or statistic for a purpose other than what it was stated for in the source (for example, a mortality or incidence rate expressed "per 1,000 people" is NOT the same as a total population count -- never restate a rate's denominator as if it were the literal answer to a "how many" question).
 - Do not recommend, endorse, or compare any specific insurance product, company, or policy, even if the context mentions one and the question asks for a recommendation.
@@ -862,33 +932,46 @@ def evaluate_model(
                 context           = build_context(context_chunks)
                 context_chunk_ids = [c["chunk_id"] for _, c in context_chunks]
 
-                # --- Generation ---
-                # low_confidence mirrors app.py exactly: best_score < MIN_SCORE
-                # (but >= OUT_OF_DOMAIN_THRESHOLD, since lower already gated out)
-                prompt = build_prompt(
-                    question, context, low_confidence=best_score < MIN_SCORE
-                )
-                try:
-                    answer_text, first_token_time, generation_time, tokens_out = generate_answer(
-                        client, model_name, prompt
+                # --- Deterministic provision fast-path (mirrors app.py) ---
+                # When the question explicitly names a provision and we have its
+                # exact chunk, answer verbatim and SKIP the LLM entirely -- the
+                # same bypass the live app uses, so the evaluation reflects what
+                # users actually get for these questions.
+                provision_texts = resolve_provision_lookup(question, context_chunks)
+                if provision_texts:
+                    answer_text      = "\n\n".join(provision_texts)
+                    first_token_time = 0.0
+                    generation_time  = 0.0
+                    tokens_out       = len(answer_text)
+                    prompt           = None
+                else:
+                    # --- Generation ---
+                    # low_confidence mirrors app.py exactly: best_score < MIN_SCORE
+                    # (but >= OUT_OF_DOMAIN_THRESHOLD, since lower already gated out)
+                    prompt = build_prompt(
+                        question, context, low_confidence=best_score < MIN_SCORE
                     )
-                except Exception as e:
-                    print(f"    Generation failed: {e}")
-                    entry_out = {
-                        "question":         question,
-                        "category":         category,
-                        "expected_chunks":  expected_chunks,
-                        "expected_answer":  expected_answer,
-                        "generated_answer": "",
-                        "error":            str(e),
-                        "scores":           {},
-                        "combined":         0.0,
-                        "detail":           {},
-                        "timing":           {},
-                    }
-                    append_result(label, entry_out)
-                    results.append(entry_out)
-                    continue
+                    try:
+                        answer_text, first_token_time, generation_time, tokens_out = generate_answer(
+                            client, model_name, prompt
+                        )
+                    except Exception as e:
+                        print(f"    Generation failed: {e}")
+                        entry_out = {
+                            "question":         question,
+                            "category":         category,
+                            "expected_chunks":  expected_chunks,
+                            "expected_answer":  expected_answer,
+                            "generated_answer": "",
+                            "error":            str(e),
+                            "scores":           {},
+                            "combined":         0.0,
+                            "detail":           {},
+                            "timing":           {},
+                        }
+                        append_result(label, entry_out)
+                        results.append(entry_out)
+                        continue
 
         if gate_reason is not None:
             print(f"    GATED ({gate_reason}) -- canned answer, no LLM call.")

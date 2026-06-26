@@ -77,6 +77,14 @@ DIGIT_RUN_PATTERN = re.compile(r"[០១២៣៤៥៦៧៨៩0-9]+")
 # rank-based RRF fusion draws from. No effect on questions that don't name a
 # provision number (no match -> no tokens emitted -> normal behaviour).
 ARTICLE_REF_PATTERN = re.compile(r"(មាត្រា|ប្រការ)\s*([០១២៣៤៥៦៧៨៩0-9]+)")
+# The corpus writes every provision number in Khmer digits ("មាត្រា ៦៧"), but
+# users may type Arabic ("មាត្រា 67"). Normalize Arabic -> Khmer so the typed
+# number matches the heading and the BM25 compound token regardless of script.
+_ARABIC_TO_KHMER = str.maketrans("0123456789", "០១២៣៤៥៦៧៨៩")
+
+
+def to_khmer_digits(s):
+    return s.translate(_ARABIC_TO_KHMER)
 ARTICLE_REF_BOOST = 20
 DIAG_DISPLAY_K = 10  # how many fused chunks the diagnostics page SHOWS --
                       # presentation-only. The fused candidate pool itself
@@ -168,7 +176,7 @@ def khmer_aware_tokenize(text):
     # ("មាត្រា ១០"). Keeping the keyword in the compound prevents a "មាត្រា ៥"
     # query from matching a "ប្រការ ៥" heading in another document.
     for keyword, ref_num in ARTICLE_REF_PATTERN.findall(text):
-        tokens.extend([keyword + ref_num] * ARTICLE_REF_BOOST)
+        tokens.extend([keyword + to_khmer_digits(ref_num)] * ARTICLE_REF_BOOST)
     for word in text.split():
         if KHMER_SCRIPT_PATTERN.search(word):
             # Khmer is unspaced, so an entire question collapses into one
@@ -1452,6 +1460,9 @@ def resolve_provision_lookup(question, context_results):
     refs = []
     seen = set()
     for keyword, num in ARTICLE_REF_PATTERN.findall(question):
+        # Corpus headings use Khmer digits; normalize so a typed Arabic number
+        # ("មាត្រា 67") matches "មាត្រា ៦៧".
+        num = to_khmer_digits(num)
         if (keyword, num) not in seen:
             seen.add((keyword, num))
             refs.append((keyword, num))
