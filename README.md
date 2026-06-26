@@ -157,7 +157,7 @@ Khmer-Rag-Chatbot/
 │   ├── generator_model_comparison/
 │   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M/   # per-model JSONL + summaries
 │   │   ├── Qwen3.5-9B-Q4_K_M/
-│   │   ├── gemma-4-E4B-it-Q4_K_M/
+│   │   ├── Sailor2-8B-Chat-Q4_K_M/
 │   │   ├── Llama-3.1-8B-Instruct-Q4_K_M/
 │   │   ├── generator_model_comparison.{json,md}
 │   │   └── generator_score_diagnostics.{json,md}
@@ -175,7 +175,7 @@ Khmer-Rag-Chatbot/
 │   │   ├── .cache/
 │   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M.gguf
 │   │   ├── Qwen3.5-9B-Q4_K_M.gguf
-│   │   ├── gemma-4-E4B-it-Q4_K_M.gguf
+│   │   ├── Sailor2-8B-Chat-Q4_K_M.gguf
 │   │   └── Llama-3.1-8B-Instruct-Q4_K_M.gguf
 │   └── retriever/
 │       ├── .cache/                  # Hugging Face cache

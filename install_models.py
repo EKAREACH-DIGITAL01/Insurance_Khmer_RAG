@@ -96,10 +96,10 @@ LLM_MODELS = {
         "label": "Qwen-3.5-9B-Q4_K_M (5.68 GB)",
     },
     "3": {
-        "repo_id": "unsloth/gemma-4-E4B-it-GGUF",
-        "hf_filename": "gemma-4-E4B-it-Q4_K_M.gguf",
-        "local_filename": "gemma-4-E4B-it-Q4_K_M.gguf",
-        "label": "Gemma-4-E4B-Q4_K_M (4.98 GB)",
+        "repo_id": "mradermacher/Sailor2-8B-Chat-GGUF",
+        "hf_filename": "Sailor2-8B-Chat.Q4_K_M.gguf",
+        "local_filename": "Sailor2-8B-Chat-Q4_K_M.gguf",
+        "label": "Sailor2-8B-Chat-Q4_K_M (4.93 GB)",
     },
     "4": {
         "repo_id": "unsloth/Llama-3.1-8B-Instruct-GGUF",

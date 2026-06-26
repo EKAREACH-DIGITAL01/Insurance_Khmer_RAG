@@ -286,8 +286,8 @@ LLM_MODELS = {
         "extra_args": ["--jinja", "--reasoning", "off"],
     },
     "3": {
-        "local_filename": "gemma-4-E4B-it-Q4_K_M.gguf",
-        "label": "Gemma 4 E4B",
+        "local_filename": "Sailor2-8B-Chat-Q4_K_M.gguf",
+        "label": "Sailor2 8B",
         "extra_args": ["--jinja"],
     },
     "4": {

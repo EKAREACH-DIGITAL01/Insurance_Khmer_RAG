@@ -60,18 +60,13 @@ MODELS = {
         "extra_args": ["--jinja", "--reasoning", "off"],
     },
     "3": {
-        "file": "gemma-4-E4B-it-Q4_K_M.gguf",
-        "name": "Gemma",
-        # Gemma 4 E4B's thinking mode is opt-in (triggered only by a
-        # <|think|> token at the start of the system prompt) and
-        # build_prompt() in app.py sends no system prompt at all, so
-        # thinking shouldn't trigger here regardless. --jinja is still
-        # required: some llama.cpp builds have a known issue where Gemma
-        # 4's reasoning-channel tokens (<|channel|>thought...) leak into
-        # the visible output specifically when the GGUF's chat template
-        # isn't parsed via --jinja. If literal "<|channel|>" text is ever
-        # seen in a Gemma answer in the UI, that's this issue resurfacing
-        # and is the first thing to investigate.
+        "file": "Sailor2-8B-Chat-Q4_K_M.gguf",
+        "name": "Sailor2",
+        # Sailor2 8B is Qwen2.5-based (ChatML template) and SEA-tuned
+        # (incl. Khmer), so it's a fair-spec peer to SeaLLM/Qwen/Llama --
+        # unlike Gemma 4 E4B, which was an effective-~4B on-device variant
+        # with thin Khmer coverage and underperformed badly. --jinja parses
+        # the GGUF chat template; no reasoning-channel mechanism here.
         "extra_args": ["--jinja"],
     },
     "4": {
@@ -93,7 +88,7 @@ Choose model:
 
 1. SeaLLMs-v3-7B-Chat-Q4_K_M.gguf
 2. Qwen3.5-9B-Q4_K_M.gguf
-3. gemma-4-E4B-it-Q4_K_M.gguf
+3. Sailor2-8B-Chat-Q4_K_M.gguf
 4. Llama-3.1-8B-Instruct-Q4_K_M.gguf
 """)
 
