@@ -346,6 +346,12 @@ LLM_MODELS = {
         "local_filename": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
         "label": "SeaLLM v3 7B",
         "extra_args": ["--jinja"],
+        # Evaluate SeaLLM over the FULL gold set (manual + AI questions, 400),
+        # writing to the "..._full.jsonl" files. The 100 manual answers already
+        # generated into that file are skipped on resume, so only the ~300 AI
+        # questions are processed. The other three models stay on the manual-only
+        # 100-question set (default scope). See main().
+        "gold_scope": "full",
     },
     "2": {
         "local_filename": "Qwen3.5-9B-Q4_K_M.gguf",
@@ -990,6 +996,15 @@ def score_answer(
 # ----------------------------------------------------------------------------
 # Real-time result file helpers
 # ----------------------------------------------------------------------------
+# Filename suffix for the per-model output files. Set per-model in main() right
+# before that model is evaluated. A model run over the FULL gold set (manual +
+# AI questions) writes to "..._full.jsonl"/"..._full_summary.*" so it never
+# collides with the manual-only 100-question files. Empty string = the normal
+# manual-only files. Because models are evaluated strictly one at a time, a
+# single module-level value is unambiguous for the whole of that model's run.
+RESULTS_SUFFIX = ""
+
+
 def model_dir(label):
     for info in LLM_MODELS.values():
         if info["label"] == label:
@@ -1000,19 +1015,19 @@ def model_dir(label):
 def result_path(label):
     path = model_dir(label)
     path.mkdir(parents=True, exist_ok=True)
-    return path / "generated_answer_results.jsonl"
+    return path / f"generated_answer_results{RESULTS_SUFFIX}.jsonl"
 
 
 def summary_path(label):
     path = model_dir(label)
     path.mkdir(parents=True, exist_ok=True)
-    return path / "generated_answer_results_summary.json"
+    return path / f"generated_answer_results{RESULTS_SUFFIX}_summary.json"
 
 
 def summary_md_path(label):
     path = model_dir(label)
     path.mkdir(parents=True, exist_ok=True)
-    return path / "generated_answer_results_summary.md"
+    return path / f"generated_answer_results{RESULTS_SUFFIX}_summary.md"
 
 
 def load_existing_results(label):
@@ -1987,20 +2002,42 @@ def main():
         match = _QID_NUM_PATTERN.search(str(q.get("question_id", "")))
         return bool(match) and int(match.group(1)) <= HUMAN_AUTHORED_LIMIT
 
-    gold_entries = []
+    # Two scopes:
+    #   gold_entries_manual -- the 100 purely human-authored questions (first 25
+    #     per category). The default set used by Qwen / Sailor / Llama.
+    #   gold_entries_full   -- ALL questions (manual + AI, 400). Used only by
+    #     models flagged "gold_scope": "full" (currently SeaLLM), written to the
+    #     separate "..._full.jsonl" files.
+    gold_entries_manual = []
+    gold_entries_full = []
     for gf in gold_files:
         category = gf.parent.name
         with open(gf, "r", encoding="utf-8") as f:
             questions = json.load(f)
         for q in questions:
-            if not is_human_authored(q):
-                continue
-            gold_entries.append({**q, "category": category})
+            entry = {**q, "category": category}
+            gold_entries_full.append(entry)
+            if is_human_authored(q):
+                gold_entries_manual.append(entry)
+
+    def scope_for(info):
+        """Returns (results_suffix, gold_entries) for a model based on its
+        configured gold_scope. Full-scope models write to the separate
+        "..._full" files over the complete question set; everyone else uses the
+        manual-only set and the default filenames."""
+        if info.get("gold_scope") == "full":
+            return "_full", gold_entries_full
+        return "", gold_entries_manual
+
+    # Default gold_entries (manual) drives the run-wide mode label; per-model
+    # scope is resolved inside the loop.
+    gold_entries = gold_entries_manual
 
     mode_label = (
         "DRY RUN (1 question per model)"
         if DRY_RUN
-        else f"FULL RUN ({len(gold_entries)} questions per model)"
+        else f"FULL RUN ({len(gold_entries_manual)} manual / "
+             f"{len(gold_entries_full)} full questions)"
     )
 
     installed = {k: v for k, v in LLM_MODELS.items() if is_installed(v)}
@@ -2018,9 +2055,12 @@ def main():
     if not installed:
         raise SystemExit("No generator models installed. Run: python scripts/13_install_models.py")
 
+    global RESULTS_SUFFIX
+
     all_summaries = []
     if not DRY_RUN:
         for info in installed.values():
+            RESULTS_SUFFIX, _ = scope_for(info)
             sp = summary_path(info["label"])
             if sp.exists():
                 try:
@@ -2030,11 +2070,13 @@ def main():
                     print(f"  Loaded existing summary for: {info['label']}")
                 except (json.JSONDecodeError, OSError):
                     pass
+        RESULTS_SUFFIX = ""
 
     already_done_labels = {s["label"] for s in all_summaries}
 
     for key, info in installed.items():
         label = info["label"]
+        RESULTS_SUFFIX, gold_entries = scope_for(info)
 
         if not DRY_RUN and label in already_done_labels:
             existing = load_existing_results(label)
