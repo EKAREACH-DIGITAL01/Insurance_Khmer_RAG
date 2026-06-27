@@ -23,7 +23,7 @@ data/08_merged_chunked_documents/*
 !data/08_merged_chunked_documents/.gitkeep
 
 # Ignore build gold question script
-data/09_evaluation/build_golden_questions.py
+data/09_evaluation/build_gold_questions.py
 
 # Local models (large binaries — not committed)
 models/generator/*

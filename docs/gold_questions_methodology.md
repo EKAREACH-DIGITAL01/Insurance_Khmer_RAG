@@ -31,7 +31,7 @@ question↔answer shape for everything that follows.
   every entry was hand-verified before being committed.
 
 The deterministic slicing and validation that produced the AI-assisted half
-live in `data/09_evaluation/build_golden_questions.py`; the `SPECS` table in that
+live in `data/09_evaluation/build_gold_questions.py`; the `SPECS` table in that
 script is the per-question record of which chunk and which slice each answer
 came from.
 
@@ -125,7 +125,7 @@ before saving. You do not need to re-explain the pattern — it is all here.
 
 ## Tooling
 
-`data/09_evaluation/build_golden_questions.py` performs deterministic, verbatim
+`data/09_evaluation/build_gold_questions.py` performs deterministic, verbatim
 slicing. Add tuples to `SPECS["<category>"]`: `(chunk_id, question, slice_mode)`.
 
 - `clean()` joins PDF-wrapped lines (no space, since Khmer is continuous),

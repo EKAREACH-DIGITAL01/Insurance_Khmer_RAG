@@ -6,7 +6,21 @@ import subprocess
 import time
 from pathlib import Path
 
+# macOS OpenMP guard -- MUST be set before importing faiss or torch (pulled in
+# by sentence_transformers below). FAISS and PyTorch each load their own
+# OpenMP runtime; on macOS the duplicate runtimes collide and SEGFAULT the
+# instant the first real FAISS search + BGE-M3 encode run concurrently.
+# KMP_DUPLICATE_LIB_OK lets the duplicate load proceed, and pinning OpenMP to a
+# single thread removes the cross-runtime thread contention that triggers the
+# crash. app.py sets exactly these at its top for the same reason -- keep them
+# in sync.
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 import faiss
+
+faiss.omp_set_num_threads(1)
+
 import numpy as np
 import requests
 from openai import OpenAI
@@ -144,7 +158,60 @@ MAX_CHUNKS_PER_DOC = 2
 BM25_TOP_K        = TOP_K
 RRF_K             = 60
 NGRAM_SIZE        = 3
-MAX_TOKENS        = 1024  # same as live app -- evaluate under production conditions
+# Output-token cap. NOTE: unlike app.py (which uses a FIXED 1024 in production
+# because it has no expected_answer to size against), this eval sizes the cap
+# PER QUESTION to the expected answer's real token length, then clamps it
+# between a floor and a ceiling. Rationale:
+#   - Khmer tokenizes very inefficiently in these GGUF models (byte-fallback
+#     splits each cluster into multiple tokens), so a long expected answer can
+#     need well over 1024 output tokens -- a flat 1024 silently TRUNCATES them.
+#   - On this hardware a larger cap measurably raises TTFT (the server reserves
+#     KV/compute buffers up front), so a flat 2048 needlessly taxes the short
+#     majority. Sizing to each answer gives every question the SMALLEST cap that
+#     still fits its content -> minimum TTFT per question.
+#   - The cap is identical for a given question only if tokenizers match; it is
+#     computed with the CURRENTLY LOADED model's own tokenizer (via the live
+#     server's /tokenize), so each model gets exactly the room its tokenizer
+#     needs for the same content -- the fair basis for a model-vs-model compare.
+# This is DELIBERATELY a divergence from app.py's fixed 1024: it trades
+# production-truncation fidelity for not truncating the gold answers mid-eval.
+MAX_TOKENS_FLOOR   = 1024  # never go below this, even for one-line answers
+GEN_TOKEN_HEADROOM = 1.5   # the generated answer often runs longer than the
+                           # reference; give it 50% slack plus room for EOS
+MAX_TOKENS         = MAX_TOKENS_FLOOR  # fallback when token count is unavailable
+
+# The ceiling is NOT a fixed guess. It only needs to cover the longest answer
+# the eval actually generates against -- the longest expected_answer in the GOLD
+# SET (not the longest corpus chunk; most chunks are never an expected answer).
+# compute_gold_ceiling() tokenizes the longest gold answers with the currently
+# loaded model's own tokenizer and sets the ceiling to (max gold-answer tokens
+# x headroom) -- recomputed per model, since tokenizers differ. It is then
+# bounded by SERVER_OUTPUT_HARD_CAP so prompt + output can never exceed the
+# server's context window (which would trigger slow context-shifting /
+# truncation).
+SERVER_CTX_SIZE        = 16384  # must match start_chatbot.py / start_llama_server
+PROMPT_TOKEN_MARGIN    = 256    # safety gap so prompt + max_tokens < ctx size
+# Absolute upper bound on output tokens, independent of any single prompt:
+# leaves room for a large (~9k) retrieval prompt within the context window.
+# Per question we tighten this further using that question's real prompt length.
+SERVER_OUTPUT_HARD_CAP = SERVER_CTX_SIZE - 9000  # ~7384 tokens of headroom
+MAX_TOKENS_CEILING_FALLBACK = 2048  # used only if corpus tokenization fails
+
+# Repetition penalty -- MUST stay identical to app.py's GEN_FREQUENCY_PENALTY
+# (see that file for the full rationale). Small quantized models can fall into a
+# degenerate repetition loop (the same sentence emitted until max_tokens);
+# frequency_penalty breaks the loop while sparing normal legal-term reuse. Kept
+# in sync so eval generation matches production generation exactly.
+GEN_FREQUENCY_PENALTY = 0.3
+
+# Transient generation failures: with --jinja, llama-server parses the model's
+# streamed output through the chat-template PEG parser. When the model samples a
+# token sequence the parser can't reconcile, the request aborts with errors like
+# "does not match the expected peg-native format". It's stochastic (a re-request
+# usually succeeds), so we re-roll a few times before recording a hard failure
+# -- the automated equivalent of "delete the row and rerun".
+GEN_MAX_RETRIES   = 3    # total attempts per question before giving up
+GEN_RETRY_BACKOFF = 2.0  # seconds between attempts
 
 # Safety / scope gates -- mirror app.py EXACTLY so a gold question that the
 # live app would reject (canned message, no LLM call) is rejected here the
@@ -485,6 +552,7 @@ Rules:
 - Do not invent facts.
 - Preserve dates, fees, deadlines and requirements exactly.
 - Provide a complete and detailed answer. If the context lists multiple conditions, sub-points, exceptions, or requirements, enumerate ALL of them.
+- Always finish your answer with a complete sentence that ends in the Khmer sentence-final sign ។ (or ៕). Even when the answer is a list, the final item must end with ។. Never stop on a word, bracket, or list item without it.
 - CRITICAL: If the question names a specific provision (មាត្រា N for a law or sub-decree, ប្រការ N for a prakas), you MUST reproduce that provision's ENTIRE text from the context word-for-word -- its heading line AND every following sentence, clause, condition, and sub-point. This rule applies EVEN IF the question is phrased as "និយាយអំពីអ្វី" / "មានន័យដូចម្តេច" / "about what" -- such phrasing does NOT permit a one-line topic summary. A reply that gives only the provision's subject or title is WRONG and forbidden. Quote the full provision.
 - Only combine information from multiple sources if EACH of them directly addresses the question asked. Do not stitch together unrelated facts from different sources just because they were retrieved -- if most of the retrieved sources don't actually answer the question, say so instead of forcing a combined answer out of all of them.
 - Do not reinterpret a number, rate, or statistic for a purpose other than what it was stated for in the source (for example, a mortality or incidence rate expressed "per 1,000 people" is NOT the same as a total population count -- never restate a rate's denominator as if it were the literal answer to a "how many" question).
@@ -683,35 +751,138 @@ def stop_llama_server(process):
 # Per-question generation + scoring
 # ----------------------------------------------------------------------------
 
-def generate_answer(client, model_name, prompt):
-    """Streams the answer from llama-server. Returns (answer_text,
-    first_token_time, generation_time, tokens_out)."""
-    gen_start        = time.time()
-    first_token_time = None
-    answer_text      = ""
-    tokens_out       = 0
-
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
-        max_tokens=MAX_TOKENS,
-        stream=True,
-    )
-    for chunk in response:
-        delta = chunk.choices[0].delta.content
-        if delta:
-            answer_text += delta
-            tokens_out  += 1
-            if first_token_time is None:
-                first_token_time = time.time() - gen_start
+def count_server_tokens(text):
+    """Real token count via the running llama-server's /tokenize endpoint --
+    tokenized with the CURRENTLY LOADED model's own tokenizer, so it's exact
+    for whichever generator is being evaluated (character heuristics are wildly
+    wrong for Khmer's byte-fallback tokenization). Returns None if the server
+    is unreachable / doesn't support it, so callers can fall back to the floor."""
+    if not text or not text.strip():
+        return 0
     try:
-        response.close()
+        resp = requests.post(
+            f"{LLAMA_SERVER_ROOT}/tokenize", json={"content": text}, timeout=10
+        )
+        resp.raise_for_status()
+        return len(resp.json().get("tokens", []))
     except Exception:
-        pass
+        return None
 
-    generation_time = time.time() - gen_start
-    return answer_text, first_token_time or 0.0, generation_time, tokens_out
+
+def compute_gold_ceiling(gold_entries):
+    """Derive the output-token ceiling from the GOLD ANSWERS the eval actually
+    generates against, for the model currently loaded on the server.
+
+    The ceiling only needs to cover the longest answer we'll ever score -- which
+    is the longest expected_answer in the gold set, NOT the longest chunk in the
+    corpus (most chunks are never an expected answer). To stay robust to future
+    gold edits, this tokenizes EVERY gold answer with the live model's own
+    tokenizer (cheap -- a few hundred local /tokenize calls) and takes the true
+    maximum, rather than assuming character length predicts token length. The
+    max is scaled by GEN_TOKEN_HEADROOM and bounded by SERVER_OUTPUT_HARD_CAP so
+    a big answer can never collide with the context window. Falls back to
+    MAX_TOKENS_CEILING_FALLBACK if the server can't tokenize.
+
+    Because the ceiling is read from the data every run, adding a longer gold
+    answer later automatically raises it -- the script self-adjusts and never
+    silently truncates a newly-lengthened answer."""
+    answers = [
+        e.get("expected_answer", "") or ""
+        for e in gold_entries
+        if (e.get("expected_answer") or "").strip()
+    ]
+
+    max_tok = 0
+    for a in answers:
+        t = count_server_tokens(a)
+        if t:
+            max_tok = max(max_tok, t)
+
+    if not max_tok:
+        return MAX_TOKENS_CEILING_FALLBACK, 0
+
+    ceiling = int(max_tok * GEN_TOKEN_HEADROOM)
+    ceiling = max(MAX_TOKENS_FLOOR, min(ceiling, SERVER_OUTPUT_HARD_CAP))
+    return ceiling, max_tok
+
+
+def choose_max_tokens(expected_answer, ceiling, prompt=None):
+    """Per-question output cap sized to the expected answer's real token length.
+
+    Tokenizes the expected answer with the live model's own tokenizer, scales by
+    GEN_TOKEN_HEADROOM, and clamps to [MAX_TOKENS_FLOOR, ceiling] (the
+    gold-derived ceiling from compute_gold_ceiling). When the prompt is
+    given, the cap is additionally tightened so prompt_tokens + max_tokens stays
+    within the server context window -- a hard guard against context-shifting,
+    independent of the corpus ceiling. Returns (max_tokens, expected_tokens,
+    hit_ceiling)."""
+    expected_tokens = count_server_tokens(expected_answer)
+    if not expected_tokens:  # None (server error) or 0 (no expected answer)
+        return MAX_TOKENS_FLOOR, expected_tokens or 0, False
+    needed      = int(expected_tokens * GEN_TOKEN_HEADROOM)
+    hit_ceiling = needed > ceiling
+    max_tokens  = max(MAX_TOKENS_FLOOR, min(needed, ceiling))
+
+    # Hard context-window guard: never let prompt + output exceed ctx size.
+    if prompt is not None:
+        prompt_tokens = count_server_tokens(prompt)
+        if prompt_tokens:
+            room = SERVER_CTX_SIZE - prompt_tokens - PROMPT_TOKEN_MARGIN
+            if room < max_tokens:
+                max_tokens = max(MAX_TOKENS_FLOOR, room)
+
+    return max_tokens, expected_tokens, hit_ceiling
+
+
+def generate_answer(client, model_name, prompt, max_tokens=MAX_TOKENS):
+    """Streams the answer from llama-server. Returns (answer_text,
+    first_token_time, generation_time, tokens_out).
+
+    Retries on transient generation failures (see GEN_MAX_RETRIES) -- chiefly
+    the intermittent llama.cpp chat-template PEG parser error that aborts a
+    request when the model samples an output the --jinja parser can't reconcile.
+    Each attempt re-rolls from scratch (temperature 0.2 makes the retry sample a
+    different, usually-valid trajectory). The partial output of a failed attempt
+    is discarded. Raises the last error only if every attempt fails."""
+    last_err = None
+    for attempt in range(1, GEN_MAX_RETRIES + 1):
+        gen_start        = time.time()
+        first_token_time = None
+        answer_text      = ""
+        tokens_out       = 0
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=max_tokens,
+                frequency_penalty=GEN_FREQUENCY_PENALTY,
+                stream=True,
+            )
+            for chunk in response:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    answer_text += delta
+                    tokens_out  += 1
+                    if first_token_time is None:
+                        first_token_time = time.time() - gen_start
+            try:
+                response.close()
+            except Exception:
+                pass
+
+            generation_time = time.time() - gen_start
+            return answer_text, first_token_time or 0.0, generation_time, tokens_out
+        except Exception as e:
+            last_err = e
+            if attempt < GEN_MAX_RETRIES:
+                print(
+                    f"    Generation attempt {attempt}/{GEN_MAX_RETRIES} failed "
+                    f"({e}); retrying in {GEN_RETRY_BACKOFF}s..."
+                )
+                time.sleep(GEN_RETRY_BACKOFF)
+
+    raise last_err
 
 
 def score_answer(
@@ -860,9 +1031,16 @@ def load_existing_results(label):
                 continue
             try:
                 entry = json.loads(line)
-                done[entry.get("question_id") or entry["question"]] = entry
             except json.JSONDecodeError:
-                pass
+                continue
+            # A row that recorded a hard generation error (e.g. the transient
+            # llama.cpp PEG-parser failure) is NOT "done" -- leaving it out of
+            # the resume set means the next run regenerates it instead of
+            # skipping it forever. The stale error row is harmlessly overwritten
+            # by the fresh result (reorder_results_file dedupes last-write-wins).
+            if entry.get("error"):
+                continue
+            done[entry.get("question_id") or entry["question"]] = entry
     return done
 
 
@@ -963,6 +1141,16 @@ def evaluate_model(
 
     results = list(existing.values())
 
+    # Output-token ceiling derived from this model's tokenization of the
+    # longest GOLD ANSWER (the real upper bound on what the eval generates),
+    # bounded by the server context window. Computed once per model.
+    model_ceiling, gold_max_tok = compute_gold_ceiling(gold_entries)
+    print(
+        f"  Output ceiling: {model_ceiling} tokens "
+        f"(longest gold answer ~{gold_max_tok} tok x{GEN_TOKEN_HEADROOM} headroom, "
+        f"bounded by ctx window)."
+    )
+
     for i, entry in enumerate(entries, start=1):
         question        = entry["question"]
         question_id     = entry.get("question_id")
@@ -971,10 +1159,10 @@ def evaluate_model(
         category        = entry["category"]
 
         if not dry_run and (question_id or question) in existing:
-            print(f"  [{i}/{total}] Skipping (already done): {question[:60]}...")
+            print(f"  [{i:>3}/{total}] {str(question_id):<18} | Skipping (already done): {question[:60]}...")
             continue
 
-        print(f"  [{i}/{total}] {category} | {question[:70]}...")
+        print(f"  [{i:>3}/{total}] {str(question_id):<18} | {question[:70]}...")
 
         # --- Pre-retrieval gates (mirror app.py: Khmer-script, length, scope).
         # A gated question never reaches the LLM in the live app -- it returns
@@ -982,6 +1170,10 @@ def evaluate_model(
         # "generated_answer" so the evaluation reflects what the UI would
         # actually answer for this gold question. ---
         gate_reason = None
+        # Whether this answer actually went through the LLM. Provision fast-path
+        # and gated canned answers bypass the model entirely, so they have no
+        # meaningful latency/throughput and must be excluded from timing stats.
+        llm_generated = True
         gated = gate_question(question)
         if gated is not None:
             answer_text, gate_reason = gated
@@ -990,6 +1182,7 @@ def evaluate_model(
             first_token_time  = 0.0
             generation_time   = 0.0
             tokens_out        = 0
+            llm_generated     = False
         else:
             # --- Retrieval (hybrid, mirrors app.py) ---
             query_emb = np.asarray(
@@ -1013,6 +1206,7 @@ def evaluate_model(
                 first_token_time  = 0.0
                 generation_time   = 0.0
                 tokens_out        = 0
+                llm_generated     = False
             else:
                 best_score = float(dense_results[0][0]) if dense_results else 0.0
 
@@ -1038,6 +1232,7 @@ def evaluate_model(
                     generation_time  = 0.0
                     tokens_out       = len(answer_text)
                     prompt           = None
+                    llm_generated    = False
                 else:
                     # --- Generation ---
                     # low_confidence mirrors app.py exactly: best_score < MIN_SCORE
@@ -1045,9 +1240,21 @@ def evaluate_model(
                     prompt = build_prompt(
                         question, context, low_confidence=best_score < MIN_SCORE
                     )
+                    # Size the output cap to THIS answer's expected length
+                    # (see choose_max_tokens). Sized with the live model's own
+                    # tokenizer, clamped to [floor, ceiling].
+                    gen_max_tokens, exp_tok, hit_ceiling = choose_max_tokens(
+                        expected_answer, model_ceiling, prompt=prompt
+                    )
+                    if hit_ceiling:
+                        print(
+                            f"    NOTE: expected answer ~{exp_tok} tok needs "
+                            f">{model_ceiling} (corpus ceiling); capped. Raise "
+                            f"SERVER_CTX_SIZE/ctx-size if these truncate."
+                        )
                     try:
                         answer_text, first_token_time, generation_time, tokens_out = generate_answer(
-                            client, model_name, prompt
+                            client, model_name, prompt, max_tokens=gen_max_tokens
                         )
                     except Exception as e:
                         print(f"    Generation failed: {e}")
@@ -1099,8 +1306,28 @@ def evaluate_model(
             embedding_model,
         )
 
-        decode_time  = max(generation_time - first_token_time, 0.001)
-        tokens_per_s = tokens_out / decode_time if tokens_out > 0 else 0.0
+        if llm_generated:
+            decode_time  = max(generation_time - first_token_time, 0.001)
+            tokens_per_s = tokens_out / decode_time if tokens_out > 0 else 0.0
+            timing = {
+                "first_token_time": round(first_token_time, 4),
+                "generation_time":  round(generation_time,  4),
+                "tokens_out":       tokens_out,
+                "tokens_per_sec":   round(tokens_per_s,     4),
+            }
+        else:
+            # Provision fast-path / gated canned answers never called the LLM,
+            # so they have no real latency or throughput. Record None (not
+            # fabricated zeros) so summarise() excludes them from the timing
+            # averages -- otherwise a bypassed answer reports e.g. 259000 tok/s
+            # and pollutes the cross-model latency comparison.
+            tokens_per_s = 0.0
+            timing = {
+                "first_token_time": None,
+                "generation_time":  None,
+                "tokens_out":       None,
+                "tokens_per_sec":   None,
+            }
 
         entry_out = {
             "question_id":       question_id,
@@ -1111,21 +1338,24 @@ def evaluate_model(
             "generated_answer":  answer_text,
             "context_chunk_ids": context_chunk_ids,
             "gate_reason":       gate_reason,
+            "llm_generated":     llm_generated,
             "scores":            scored["scores"],
             "combined":          scored["combined"],
             "detail":            scored["detail"],
-            "timing": {
-                "first_token_time": round(first_token_time, 4),
-                "generation_time":  round(generation_time,  4),
-                "tokens_out":       tokens_out,
-                "tokens_per_sec":   round(tokens_per_s,     4),
-            },
+            "timing":            timing,
         }
 
         append_result(label, entry_out, gold_entries)
         results.append(entry_out)
 
         blank_flag = " [BLANK]" if scored["detail"].get("blank_answer") else ""
+        # Fast-path / gated answers have no LLM timing -- show a marker instead
+        # of a misleading 0.0s / huge tok/s.
+        timing_str = (
+            f"ttft={first_token_time:.1f}s tok/s={tokens_per_s:.1f}"
+            if llm_generated
+            else "no-LLM (fast-path/gated, excluded from timing)"
+        )
         print(
             f"    combined={scored['combined']:.3f} | "
             f"ctx={scored['scores'].get('context_relevance')} "
@@ -1133,7 +1363,7 @@ def evaluate_model(
             f"corr={scored['scores'].get('answer_correctness')} "
             f"rel={scored['scores'].get('answer_relevance')} "
             f"comp={scored['scores'].get('completeness')} | "
-            f"ttft={first_token_time:.1f}s tok/s={tokens_per_s:.1f}"
+            f"{timing_str}"
             f"{blank_flag}"
         )
 

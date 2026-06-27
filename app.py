@@ -319,6 +319,46 @@ def is_scope_violation(text):
 
 MAX_USED_SOURCES = 3
 
+# Repetition penalty for generation. Small quantized 7B-9B models can fall into
+# a degenerate REPETITION LOOP -- emitting the same sentence over and over until
+# they hit max_tokens (a stochastic failure at temperature 0.2; the same
+# question can answer cleanly on another run). frequency_penalty scales with how
+# many times a token has already been produced, so it breaks a runaway loop fast
+# while leaving normal legal-term reuse (which only repeats a handful of times)
+# largely untouched -- unlike presence_penalty, which flatly penalizes ANY
+# reused token and would distort Khmer legal vocabulary. MUST stay identical to
+# scripts/11_compare_generator_models.py so eval and production generate the
+# same way. 0.3 is conservative; raise toward 0.6-0.8 if loops still appear.
+GEN_FREQUENCY_PENALTY = 0.3
+
+# --- Dynamic output-token cap (production) ----------------------------------
+# The eval (scripts/11) sizes the output cap to each gold answer's token length.
+# Production has NO expected answer -- the client can ask anything -- so we use
+# the runtime signal that IS available: the retrieved context. The answer is
+# grounded in (and faithfully bounded by) the chunks we retrieved, so we size
+# the cap to the LARGEST retrieved chunk x headroom. A query that pulls a big
+# provision gets a big cap (won't truncate); one that pulls small chunks gets a
+# small cap (faster first token, since the server reserves buffers to the cap).
+# Clamped to [floor, hard cap] and further bounded so prompt + output can never
+# exceed the context window.
+MAX_TOKENS_FLOOR    = 1024   # never below this, even for tiny chunks
+GEN_TOKEN_HEADROOM  = 1.5    # answers can run longer than their source chunk
+SERVER_CTX_SIZE     = 16384  # must match start_chatbot.py's --ctx-size
+PROMPT_TOKEN_MARGIN = 256    # safety gap so prompt + max_tokens < ctx size
+# Absolute output ceiling independent of any one prompt: leaves room for a large
+# (~9k) retrieval prompt inside the context window. Per query we tighten this
+# further using that query's real prompt length.
+SERVER_OUTPUT_HARD_CAP = SERVER_CTX_SIZE - 9000  # ~7384 tokens
+
+# Transient generation failures: with --jinja, llama-server parses streamed
+# output through the chat-template PEG parser and intermittently aborts with
+# "does not match the expected peg-native format" when the model samples an
+# output it can't reconcile. It's stochastic, so we re-roll -- but only while
+# NOTHING has been streamed to the UI yet (once tokens are on screen we can't
+# cleanly restart). Kept in sync with scripts/11_compare_generator_models.py.
+GEN_MAX_RETRIES   = 3
+GEN_RETRY_BACKOFF = 2.0
+
 # Which precomputed vector_db/<subfolder>/ the live app loads. Change this
 # one line to switch embedding models -- scripts/07_generate_embeddings.py
 # builds all installed models into their own subfolders (vector_db/BAAI-BGE-M3/,
@@ -1137,6 +1177,38 @@ def count_tokens(text):
         return None
 
 
+def choose_max_tokens_live(context_results, prompt_tokens=None):
+    """Per-query output cap for production (no expected answer available).
+
+    Sizes the cap to the LARGEST retrieved chunk's token length x headroom --
+    the answer is grounded in the retrieved context, so its faithful length is
+    bounded by its biggest source chunk. Clamped to [MAX_TOKENS_FLOOR,
+    SERVER_OUTPUT_HARD_CAP] and, when prompt_tokens is known, further tightened
+    so prompt + output stays within the server context window (a hard guard
+    against slow context-shifting). Falls back to the floor if tokenization is
+    unavailable. Mirrors scripts/11's choose_max_tokens, but keyed off the
+    retrieved chunks instead of a gold answer."""
+    chunk_tokens = []
+    for _score, chunk in context_results:
+        t = count_tokens(chunk.get("text") or "")
+        if t:
+            chunk_tokens.append(t)
+
+    base = max(chunk_tokens) if chunk_tokens else 0
+    if not base:
+        max_tokens = MAX_TOKENS_FLOOR
+    else:
+        want = int(base * GEN_TOKEN_HEADROOM)
+        max_tokens = max(MAX_TOKENS_FLOOR, min(want, SERVER_OUTPUT_HARD_CAP))
+
+    if prompt_tokens:
+        room = SERVER_CTX_SIZE - prompt_tokens - PROMPT_TOKEN_MARGIN
+        if room < max_tokens:
+            max_tokens = max(MAX_TOKENS_FLOOR, room)
+
+    return max_tokens
+
+
 def get_loaded_model():
     try:
         response = requests.get(f"{LLAMA_SERVER_URL}/models", timeout=5)
@@ -1421,6 +1493,7 @@ Rules:
 - Do not invent facts.
 - Preserve dates, fees, deadlines and requirements exactly.
 - Provide a complete and detailed answer. If the context lists multiple conditions, sub-points, exceptions, or requirements, enumerate ALL of them.
+- Always finish your answer with a complete sentence that ends in the Khmer sentence-final sign ។ (or ៕). Even when the answer is a list, the final item must end with ។. Never stop on a word, bracket, or list item without it.
 - CRITICAL: If the question names a specific provision (មាត្រា N for a law or sub-decree, ប្រការ N for a prakas), you MUST reproduce that provision's ENTIRE text from the context word-for-word -- its heading line AND every following sentence, clause, condition, and sub-point. This rule applies EVEN IF the question is phrased as "និយាយអំពីអ្វី" / "មានន័យដូចម្តេច" / "about what" -- such phrasing does NOT permit a one-line topic summary. A reply that gives only the provision's subject or title is WRONG and forbidden. Quote the full provision.
 - Only combine information from multiple sources if EACH of them directly addresses the question asked. Do not stitch together unrelated facts from different sources just because they were retrieved -- if most of the retrieved sources don't actually answer the question, say so instead of forcing a combined answer out of all of them.
 - Do not reinterpret a number, rate, or statistic for a purpose other than what it was stated for in the source (for example, a mortality or incidence rate expressed "per 1,000 people" is NOT the same as a total population count -- never restate a rate's denominator as if it were the literal answer to a "how many" question).
@@ -1768,33 +1841,55 @@ def run_pipeline_in_thread(
             total_chars = len(answer_text)
             total_tokens_out = len(answer_text)
         else:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-                max_tokens=1024,
-                stream=True,
-            )
-            for chunk in response:
-                if stop_event.is_set():
-                    was_stopped = True
-                    break
-                delta = chunk.choices[0].delta.content
-                if delta:
-                    answer_text += delta
-                    total_chars += len(delta)
-                    # llama-server streams one token per content delta, so this
-                    # count is a direct token count, not a character estimate.
-                    total_tokens_out += 1
-                    if first_token_time is None:
-                        first_token_time = time.time() - gen_start
-                        out_q.put(("phase", "generating_response"))
-                    out_q.put(("token", delta))
+            # Output cap sized to the largest retrieved chunk (see
+            # choose_max_tokens_live), bounded by the context window.
+            max_tokens = choose_max_tokens_live(context_results, prompt_tokens)
 
-            try:
-                response.close()
-            except Exception:
-                pass
+            # Retry transient generation failures (chiefly the intermittent
+            # --jinja PEG-parser error) -- but ONLY while nothing has streamed to
+            # the UI yet. Once a token is on screen we can't restart cleanly, so
+            # a later failure propagates as before.
+            for attempt in range(1, GEN_MAX_RETRIES + 1):
+                try:
+                    response = client.chat.completions.create(
+                        model=model_name,
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.2,
+                        max_tokens=max_tokens,
+                        frequency_penalty=GEN_FREQUENCY_PENALTY,
+                        stream=True,
+                    )
+                    for chunk in response:
+                        if stop_event.is_set():
+                            was_stopped = True
+                            break
+                        delta = chunk.choices[0].delta.content
+                        if delta:
+                            answer_text += delta
+                            total_chars += len(delta)
+                            # llama-server streams one token per content delta,
+                            # so this count is a direct token count.
+                            total_tokens_out += 1
+                            if first_token_time is None:
+                                first_token_time = time.time() - gen_start
+                                out_q.put(("phase", "generating_response"))
+                            out_q.put(("token", delta))
+
+                    try:
+                        response.close()
+                    except Exception:
+                        pass
+                    break  # generation succeeded
+                except Exception:
+                    # Safe to re-roll only if we haven't shown anything yet.
+                    if (
+                        first_token_time is None
+                        and not answer_text
+                        and attempt < GEN_MAX_RETRIES
+                    ):
+                        time.sleep(GEN_RETRY_BACKOFF)
+                        continue
+                    raise
 
         generation_time = time.time() - gen_start
 
