@@ -122,8 +122,11 @@ Khmer-Rag-Chatbot/
 │   └── logo.png
 │
 ├── docs/
-│   ├── SCORING_CALIBRATION.md
-│   └── adversarial_test_set.md
+│   ├── adversarial_test_set.md
+│   ├── generation_robustness_and_parity.md  # eval/app.py parity + generation fixes
+│   ├── gold_questions_methodology.md
+│   ├── project_proposal.md
+│   └── scoring_calibration.md
 │
 ├── data/
 │   ├── 01_source_documents/         # Raw PDFs, by category
