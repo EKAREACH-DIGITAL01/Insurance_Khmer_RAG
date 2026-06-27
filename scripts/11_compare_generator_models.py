@@ -846,7 +846,9 @@ def summary_md_path(label):
 
 def load_existing_results(label):
     """Loads already-completed answers for this model so the run can
-    resume from where it left off if interrupted."""
+    resume from where it left off if interrupted. Keyed by question_id so
+    resume is robust to gold question-text edits (falls back to the question
+    text for any legacy line that predates the question_id field)."""
     path = result_path(label)
     if not path.exists():
         return {}
@@ -858,18 +860,78 @@ def load_existing_results(label):
                 continue
             try:
                 entry = json.loads(line)
-                done[entry["question"]] = entry
+                done[entry.get("question_id") or entry["question"]] = entry
             except json.JSONDecodeError:
                 pass
     return done
 
 
-def append_result(label, entry):
-    """Appends one completed answer to the per-model JSONL file immediately."""
+def append_result(label, entry, gold_entries=None):
+    """Writes one completed answer to the per-model JSONL file immediately.
+
+    When gold_entries is provided, the file is re-sorted into gold order right
+    after the write (see reorder_results_file), so a question regenerated on a
+    resumed run lands back in its original slot -- between its gold neighbours --
+    the instant it's processed, not at the end of the whole run. The rewrite is
+    a few hundred small rows, so the per-write cost is negligible next to a
+    multi-second LLM generation, and the file is left fully ordered and
+    crash-safe after every single question."""
     path = result_path(label)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    if gold_entries is not None:
+        reorder_results_file(label, gold_entries)
+
+
+def reorder_results_file(label, gold_entries):
+    """Rewrites the per-model JSONL so its rows follow the gold question order,
+    keyed by question_id (falling back to question text for legacy lines).
+
+    Answers are written by append_result() the instant they're generated, for
+    crash safety -- which means a question regenerated on a later resumed run
+    (e.g. after manually deleting its line) lands at the BOTTOM of the file
+    instead of back in its original slot. This realigns the file to the gold
+    order once a model is finished, so the on-disk row order always matches the
+    gold set regardless of how many resume cycles produced it. Rows whose key
+    isn't in the gold set (stray/legacy lines) are kept, appended after the
+    ordered ones, so nothing is ever silently dropped."""
+    path = result_path(label)
+    if not path.exists():
+        return
+
+    rows = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+
+    # Last write wins per key, mirroring load_existing_results()'s dedupe.
+    by_key = {}
+    for row in rows:
+        by_key[row.get("question_id") or row.get("question")] = row
+
+    ordered = []
+    written = set()
+    for entry in gold_entries:
+        key = entry.get("question_id") or entry["question"]
+        if key in by_key and key not in written:
+            ordered.append(by_key[key])
+            written.add(key)
+
+    # Preserve any rows not in the gold set rather than dropping them.
+    for key, row in by_key.items():
+        if key not in written:
+            ordered.append(row)
+
+    with open(path, "w", encoding="utf-8") as f:
+        for row in ordered:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 # ----------------------------------------------------------------------------
@@ -903,11 +965,12 @@ def evaluate_model(
 
     for i, entry in enumerate(entries, start=1):
         question        = entry["question"]
+        question_id     = entry.get("question_id")
         expected_chunks = entry.get("expected_chunks", [])
         expected_answer = entry.get("expected_answer", "")
         category        = entry["category"]
 
-        if not dry_run and question in existing:
+        if not dry_run and (question_id or question) in existing:
             print(f"  [{i}/{total}] Skipping (already done): {question[:60]}...")
             continue
 
@@ -989,6 +1052,7 @@ def evaluate_model(
                     except Exception as e:
                         print(f"    Generation failed: {e}")
                         entry_out = {
+                            "question_id":      question_id,
                             "question":         question,
                             "category":         category,
                             "expected_chunks":  expected_chunks,
@@ -1000,7 +1064,7 @@ def evaluate_model(
                             "detail":           {},
                             "timing":           {},
                         }
-                        append_result(label, entry_out)
+                        append_result(label, entry_out, gold_entries)
                         results.append(entry_out)
                         continue
 
@@ -1039,6 +1103,7 @@ def evaluate_model(
         tokens_per_s = tokens_out / decode_time if tokens_out > 0 else 0.0
 
         entry_out = {
+            "question_id":       question_id,
             "question":          question,
             "category":          category,
             "expected_chunks":   expected_chunks,
@@ -1057,7 +1122,7 @@ def evaluate_model(
             },
         }
 
-        append_result(label, entry_out)
+        append_result(label, entry_out, gold_entries)
         results.append(entry_out)
 
         blank_flag = " [BLANK]" if scored["detail"].get("blank_answer") else ""
@@ -1654,7 +1719,12 @@ def main():
         )
 
     print("Loading embedding model (BGE-M3)...")
-    embedding_model = SentenceTransformer(EMBEDDING_HF_ID)
+    # Force CPU to match app.py EXACTLY (app.py loads with device="cpu").
+    # On Apple Silicon, an unspecified device auto-selects MPS, whose float
+    # math differs subtly from CPU -- enough to flip FAISS top-K ordering on
+    # near-tie chunks, which changes the selected context and therefore the
+    # generated answer. Pinning CPU keeps retrieval bit-for-bit comparable.
+    embedding_model = SentenceTransformer(EMBEDDING_HF_ID, device="cpu")
 
     print("Loading FAISS index...")
     faiss_index = faiss.read_index(INDEX_PATH)
