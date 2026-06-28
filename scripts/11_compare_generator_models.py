@@ -2255,10 +2255,18 @@ def main():
 
     global RESULTS_SUFFIX
 
+    # The cross-model comparison ALWAYS uses each model's manual-only
+    # `generated_answer_results.jsonl` (suffix ""), so every model is ranked on
+    # the same 100 human-authored questions. SeaLLM still RUNS over the full set
+    # and writes its `..._full.jsonl` (for separate analysis), but that file is
+    # never fed into the comparison. See scope_for() (run scope) vs this (compare
+    # scope) -- they are deliberately decoupled.
+    COMPARE_SUFFIX = ""
+
     all_summaries = []
     if not DRY_RUN:
         for info in installed.values():
-            RESULTS_SUFFIX, _ = scope_for(info)
+            RESULTS_SUFFIX = COMPARE_SUFFIX
             sp = summary_path(info["label"])
             if sp.exists():
                 try:
@@ -2283,7 +2291,8 @@ def main():
                 # Still (re)write summaries for every result file this model has,
                 # so both generated_answer_results(.jsonl) and its _full variant
                 # always have an up-to-date *_summary.json/.md even on a no-op run.
-                primary_suffix, _ = scope_for(info)
+                # The comparison always uses the manual-only "" summary.
+                primary_suffix = COMPARE_SUFFIX
                 summaries = generate_all_summaries(label)
                 if primary_suffix in summaries:
                     all_summaries = [s for s in all_summaries if s["label"] != label]
@@ -2317,9 +2326,11 @@ def main():
             if not DRY_RUN:
                 # Summarise EVERY result file this model has (manual "" and, for
                 # SeaLLM, full "_full"), each into its own *_summary.json/.md.
-                primary_suffix, _ = scope_for(info)
+                primary_suffix = COMPARE_SUFFIX
                 summaries = generate_all_summaries(label)
-                # The cross-model comparison uses this model's PRIMARY scope.
+                # The cross-model comparison ALWAYS uses the manual-only "" scope
+                # (the 100 human-authored questions), even for full-scope models
+                # like SeaLLM -- so every model is ranked on the same questions.
                 summary = summaries.get(primary_suffix) or summarise(results, label)
                 all_summaries = [s for s in all_summaries if s["label"] != label]
                 all_summaries.append(summary)

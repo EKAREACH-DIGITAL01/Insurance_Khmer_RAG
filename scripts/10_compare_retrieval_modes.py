@@ -26,6 +26,26 @@ METADATA_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
 EVALUATION_ROOT = Path("data/09_evaluation")
 REPORTS_DIR = Path("reports/retrieval_mode_comparison")
 
+# ----------------------------------------------------------------------------
+# Gold-question scope: human-authored only (first 25 per category = 100 total)
+# ----------------------------------------------------------------------------
+# The AI-assisted gold questions (question_id ...026+) were authored by reusing
+# the target chunk's EXACT opening words verbatim and swapping only the final
+# predicate for a question word (see docs/gold_questions_methodology.md), so each
+# AI query is near-lexically-identical to its own gold chunk. That inflates
+# retrieval metrics (especially BM25/lexical) and collapses the gap between the
+# retrieval modes this script compares, defeating its purpose. So retrieval
+# evaluation is restricted to the independently-phrased 100 human questions.
+# Keep this identical to scripts 09 and 11.
+HUMAN_AUTHORED_LIMIT = 25
+_QID_NUM_PATTERN = re.compile(r"(\d+)\s*$")
+
+
+def is_human_authored(q):
+    match = _QID_NUM_PATTERN.search(str(q.get("question_id", "")))
+    return bool(match) and int(match.group(1)) <= HUMAN_AUTHORED_LIMIT
+
+
 EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
 
@@ -163,6 +183,14 @@ def evaluate_retrieval(retrieve_fn):
 
         if not gold_questions:
             raise ValueError(f"{gold_file} is empty.")
+
+        # Restrict to the 100 human-authored questions (see is_human_authored).
+        gold_questions = [q for q in gold_questions if is_human_authored(q)]
+        if not gold_questions:
+            raise ValueError(
+                f"No human-authored questions (qid <= {HUMAN_AUTHORED_LIMIT}) "
+                f"found in {gold_file}."
+            )
 
         missing_chunk_ids = set()
         for item in gold_questions:

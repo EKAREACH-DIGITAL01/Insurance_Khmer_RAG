@@ -165,3 +165,46 @@ Read each pair by eye, and check programmatically:
 Weight toward the most relevant law for the chatbot (insurance = `law_04`), but
 cover every document in the category. The human first-25 already span all
 documents, so do not duplicate their chunks.
+
+## Which evaluation uses which gold scope
+
+Not every evaluation script uses all 400 questions. The choice of scope is
+deliberate and depends on what the script measures.
+
+**Human-authored only (the 100 questions, qid 1–25 per category):**
+
+- **`scripts/09_compare_embedding_models.py`** — embedding-model comparison.
+- **`scripts/10_compare_retrieval_modes.py`** — retrieval-mode comparison.
+- **`scripts/11_compare_generator_models.py`** — generator-model comparison
+  (the cross-model ranking).
+
+  *Why:* the 300 AI-assisted questions were authored by reusing the target
+  chunk's **exact opening words verbatim** and swapping only the final predicate
+  for a question word (see [The seven rules](#the-seven-rules)). That makes each
+  AI query near-lexically-identical to its own gold chunk. For **retrieval**
+  evaluation (scripts 09 and 10) this leaks the answer into the query: it
+  inflates hit/recall/MRR — especially for the BM25/lexical mode — and collapses
+  the gap between the models/modes being compared, which is the entire point of
+  those scripts. For the **generator comparison** (script 11) it keeps every
+  model ranked on the same independently-phrased 100 questions so the comparison
+  is apples-to-apples. These scripts enforce the cut with a shared
+  `is_human_authored()` helper keyed on `question_id <= 25`.
+
+  Note: script 11 still *runs* SeaLLM over the full 400 (writing its own
+  `..._full.jsonl`), but that file is **not** fed into the cross-model
+  comparison — only `generated_answer_results.jsonl` (the 100) is.
+
+**All 400 questions (full gold set):**
+
+- **`scripts/14_human_answer_evaluation*.py`** — the human/RAGAS answer
+  evaluation of the **winning** generator.
+
+  *Why:* script 11's
+  `reports/generator_model_comparison/generator_model_comparison.md` selects
+  **SeaLLM** as the winning generator. Once the single production model is
+  chosen, the goal shifts from *comparing models fairly* to *measuring that one
+  model as broadly as possible*. The lexical-overlap concern that biases a
+  *between-model* comparison does not invalidate a *single-model* quality
+  measurement, and the extra 300 questions give far wider coverage of provisions
+  and document types. So the human answer evaluation runs over all 400 gold
+  questions, scored against the answers SeaLLM generated for the full set.

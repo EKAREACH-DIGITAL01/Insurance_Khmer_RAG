@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 import faiss
 import numpy as np
@@ -80,6 +81,26 @@ from sentence_transformers import SentenceTransformer
 EVALUATION_ROOT = Path("data/09_evaluation")
 VECTOR_DB_ROOT = Path("vector_db")
 REPORTS_DIR = Path("reports/embedding_model_comparison")
+
+# ----------------------------------------------------------------------------
+# Gold-question scope: human-authored only (first 25 per category = 100 total)
+# ----------------------------------------------------------------------------
+# The gold set is 100 human-authored questions (question_id ...001-025 per
+# category) plus 300 AI-assisted ones (...026+). The AI questions were authored
+# by taking the target chunk's EXACT opening words verbatim and swapping only
+# the final predicate for a question word (see docs/gold_questions_methodology.md).
+# That makes each AI query near-lexically-identical to its own gold chunk --
+# which artificially inflates retrieval metrics (hit/recall/MRR) and collapses
+# the gap between embedding models, defeating the purpose of THIS comparison.
+# So retrieval evaluation here is restricted to the independently-phrased human
+# questions only. Keep this identical to scripts 10 and 11.
+HUMAN_AUTHORED_LIMIT = 25
+_QID_NUM_PATTERN = re.compile(r"(\d+)\s*$")
+
+
+def is_human_authored(q):
+    match = _QID_NUM_PATTERN.search(str(q.get("question_id", "")))
+    return bool(match) and int(match.group(1)) <= HUMAN_AUTHORED_LIMIT
 
 EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
@@ -246,6 +267,14 @@ def evaluate_retrieval(retrieve_fn, chunk_lookup, metadata_chunk_ids):
 
         if not gold_questions:
             raise ValueError(f"{gold_file} is empty.")
+
+        # Restrict to the 100 human-authored questions (see is_human_authored).
+        gold_questions = [q for q in gold_questions if is_human_authored(q)]
+        if not gold_questions:
+            raise ValueError(
+                f"No human-authored questions (qid <= {HUMAN_AUTHORED_LIMIT}) "
+                f"found in {gold_file}."
+            )
 
         missing_chunk_ids = set()
         for item in gold_questions:
