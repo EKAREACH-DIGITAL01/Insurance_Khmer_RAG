@@ -232,8 +232,25 @@ def init_db():
     conn.close()
 
 
-def create_new_session(name, eval_mode):
+def get_or_create_evaluator(name, eval_mode):
+    """
+    Resume support: an evaluator is identified by NAME ALONE (case-insensitive).
+    Ratings are keyed by (evaluator_id, question_id), and question_ids are global
+    across modes, so a single name owns one shared set of ratings — whatever mode
+    they pick is just a view filter. Switching modes never loses or duplicates
+    work. Returns (evaluator_id, session_id, resumed).
+    """
     conn = get_db()
+    row = conn.execute(
+        "SELECT id, session_id FROM evaluators "
+        "WHERE LOWER(name) = LOWER(?) "
+        "ORDER BY created_at ASC LIMIT 1",
+        (name,),
+    ).fetchone()
+    if row:
+        eid, sid = row["id"], row["session_id"]
+        conn.close()
+        return eid, sid, True
     session_id = f"{int(time.time())}_{random.randint(1000, 9999)}"
     cur = conn.execute(
         "INSERT INTO evaluators (name, session_id, eval_mode, created_at) VALUES (?, ?, ?, ?)",
@@ -242,7 +259,7 @@ def create_new_session(name, eval_mode):
     eid = cur.lastrowid
     conn.commit()
     conn.close()
-    return eid, session_id
+    return eid, session_id, False
 
 
 def get_or_create_assignment(evaluator_id, mode_questions):
@@ -395,7 +412,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 
 [data-testid="stAppViewContainer"] .block-container {
-    padding-top: 1.5rem !important;
+    padding-top: 0.6rem !important;
     padding-left: 3.5rem !important;
     padding-right: 3.5rem !important;
     max-width: 1600px !important;
@@ -599,25 +616,53 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     font-size: 12px !important;
 }
 
-/* ── Back / Next navigation buttons (flank the slider) ───────────────── */
-.st-key-slider_nav_row [data-testid="stButton"] button {
+/* ── Top header: mode badge + submitted/remaining stat chips ─────────── */
+.ev-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 2px; }
+.ev-top-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ev-top-right { display: flex; align-items: center; gap: 8px; }
+.stat-chip { position: relative; cursor: help; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; padding: 4px 11px; border-radius: 99px; }
+.stat-chip.submitted { background: var(--signal-soft); color: var(--signal); border: 1px solid rgba(46,125,82,0.25); }
+.stat-chip.remaining { background: var(--lacquer-mist); color: var(--lacquer); border: 1px solid rgba(156,43,31,0.25); }
+
+/* Hover tooltip listing the actual question numbers for each chip. */
+.chip-tip {
+    position: absolute; top: calc(100% + 8px); right: 0; left: auto;
+    width: 280px; max-height: 220px; overflow-y: auto;
+    background: var(--ink); color: var(--parchment-soft);
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 11.5px; font-weight: 400;
+    line-height: 1.7; letter-spacing: 0; text-transform: none;
+    border-radius: 7px; padding: 9px 11px;
+    opacity: 0; visibility: hidden; transition: opacity 0.15s ease;
+    z-index: 999; box-shadow: 0 4px 16px rgba(0,0,0,0.25); white-space: normal;
+}
+.stat-chip:hover .chip-tip { opacity: 1; visibility: visible; }
+.chip-tip .tip-head { display: block; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.65; margin-bottom: 5px; }
+.ev-name-ic { width: 13px; height: 13px; flex-shrink: 0; }
+.ev-eval-name { display: inline-flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: var(--brass); background: var(--brass-mist); border: 1px solid var(--brass-soft); border-radius: 99px; padding: 4px 11px; }
+.ev-qpos-row { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; margin-top: 0; margin-bottom: 12px; }
+.ev-qpos { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 700; color: var(--stone); }
+.ev-qpos strong { color: var(--lacquer); font-weight: 700; }
+
+/* ── Back / Next icon buttons flanking the slider ────────────────────── */
+.st-key-question_slider_row [data-testid="stButton"] button {
     background: transparent !important;
     color: var(--lacquer) !important;
     border: 1px solid var(--brass-soft) !important;
     border-radius: 8px !important;
-    font-weight: 600 !important;
-    font-size: 12px !important;
-    padding: 6px 14px !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    padding: 4px 0 !important;
+    min-height: 30px !important;
 }
-.st-key-slider_nav_row [data-testid="stButton"] button:hover:not(:disabled) {
+.st-key-question_slider_row [data-testid="stButton"] button:hover:not(:disabled) {
     background: var(--brass-mist) !important;
     border-color: var(--brass) !important;
 }
-.st-key-slider_nav_row [data-testid="stButton"] button:disabled {
+.st-key-question_slider_row [data-testid="stButton"] button:disabled {
     background: transparent !important;
     color: var(--stone-light) !important;
     border-color: var(--brass-soft) !important;
-    opacity: 0.5 !important;
+    opacity: 0.45 !important;
 }
 
 /* ── Inline progress label: "Question X of Y" on the left, done-count/name
@@ -887,7 +932,7 @@ def page_login():
     st.markdown(
         '<div style="text-align:center; padding-top:10vh; padding-bottom:18px;">'
         '<div style="font-size:28px;font-weight:700;color:var(--stone);margin-bottom:8px;letter-spacing:-0.5px;">Khmer Rag Insurance Chatbot Evaluation</div>'
-        '<div style="font-size:15px;color:var(--stone-light);">Enter your name, choose a mode, then begin.</div>'
+        '<div style="font-size:15px;color:var(--stone-light);">Enter your name and choose a mode to begin — or to continue an evaluation you started earlier.</div>'
         "</div>",
         unsafe_allow_html=True,
     )
@@ -974,7 +1019,15 @@ def page_login():
         )
         st.markdown(
             f'<div class="login-explain">'
-            f"<h4>What do the 3 modes mean?</h4>"
+            f'<h4>Your progress is always saved</h4>'
+            f'<p class="login-metric-line">Don\'t worry about losing your work — every rating is '
+            f"saved the moment you submit it. You can close the browser at any time and come back "
+            f"later to continue right where you left off.</p>"
+            f'<p class="login-metric-line">To resume, just <strong>enter the same name</strong> — '
+            f"that's all. Your ratings are shared across all three modes, so a question you've already "
+            f"rated stays rated no matter which mode you open. Pick whichever mode you'd like to work in; "
+            f"you can switch freely without ever repeating a question.</p>"
+            f'<h4 class="second">What do the 3 modes mean?</h4>'
             f"{mode_lines}"
             f'<h4 class="second">What do the rating metrics mean?</h4>'
             f"{metric_lines}"
@@ -988,10 +1041,14 @@ def page_login():
 def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id):
     st.markdown(CSS, unsafe_allow_html=True)
 
-    assignment = get_or_create_assignment(evaluator_id, mode_questions)
+    # The current mode is just a view: the ordered question_ids come straight
+    # from the mode's filtered set (deterministic file order). responses holds
+    # this evaluator's ratings across ALL questions, so done_count must be
+    # restricted to the questions visible in this mode.
+    assignment = [q["question_id"] for q in mode_questions]
     responses = get_responses(evaluator_id)
     total_qs = len(assignment)
-    done_count = len(responses)
+    done_count = sum(1 for qid in assignment if qid in responses)
     mode_meta = MODE_BY_KEY[eval_mode]
 
     if total_qs == 0:
@@ -1008,14 +1065,21 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         )
         st.session_state["slider_pos"] = first_unanswered + 1  # slider is 1-indexed
 
+    # Apply a pending jump requested by the Submit button on the previous run.
+    # Must happen BEFORE the slider widget is instantiated, otherwise Streamlit
+    # forbids modifying its session-state key.
+    if "_pending_slider_pos" in st.session_state:
+        st.session_state["slider_pos"] = st.session_state.pop("_pending_slider_pos")
+
     # ── Completion screen ────────────────────────────────────────────
     if done_count >= total_qs:
+        mode_responses = [responses[qid] for qid in assignment if qid in responses]
         avg = (
-            sum(r["total_score"] for r in responses.values()) / len(responses)
-            if responses
+            sum(r["total_score"] for r in mode_responses) / len(mode_responses)
+            if mode_responses
             else 0
         )
-        halluc_count = sum(1 for r in responses.values() if r.get("hallucination") == 1)
+        halluc_count = sum(1 for r in mode_responses if r.get("hallucination") == 1)
         st.markdown(
             f'<div class="done-wrap"><div class="done-icon">✓</div>'
             f'<div class="done-title">Evaluation Complete</div>'
@@ -1028,31 +1092,14 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         )
         return
 
-    st.markdown(
-        f'<div class="mode-badge-row">'
-        f'<div class="mode-badge {eval_mode}">{mode_meta["label"]} mode</div>'
-        f"</div>"
-        f'<div class="prog-label-inline">'
-        f'<span>Question {st.session_state["slider_pos"]} of {total_qs}</span>'
-        f'<span class="prog-label-right">{done_count} done · {evaluator_name}</span>'
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ── Progress slider: drag to any question, replaces the old dot row
-    #    AND the old prog-track bar — this is now the single progress element ──
-    with st.container(key="question_slider_row"):
-        slider_pos = st.slider(
-            "Question navigator",
-            min_value=1,
-            max_value=total_qs,
-            value=st.session_state["slider_pos"],
-            key="slider_pos",
-            label_visibility="collapsed",
-        )
-    # Drives the custom gradient fill bar from the live thumb position.
-    st_html(SLIDER_FILL_JS, height=0)
-    q_pos = slider_pos - 1
+    # ── Top header: mode badge on the left; submitted / remaining counters
+    #    plus the evaluator name on the right. ──────────────────────────────
+    # The slider's value equals its session-state key on every run, so we can
+    # resolve the current question (and its submitted state) BEFORE drawing the
+    # slider — that lets the status note live up in the header next to the
+    # "Question X of Y" label.
+    cur_pos = st.session_state["slider_pos"]
+    q_pos = cur_pos - 1
     q_idx = assignment[q_pos]
     question = by_id[q_idx]
     existing = responses.get(q_idx, {})
@@ -1061,10 +1108,44 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
     status_note = (
         '<span class="slider-status submitted">✓ Already submitted — view only</span>'
         if is_submitted
-        else '<span class="slider-status open">● Not yet submitted — rate below</span>'
+        else '<span class="slider-status open">Awaiting your rating — score it below</span>'
     )
+
+    # Question numbers (1-indexed, in assignment order) for the hover tooltips.
+    submitted_nums = [i + 1 for i, qid in enumerate(assignment) if qid in responses]
+    remaining_nums = [i + 1 for i, qid in enumerate(assignment) if qid not in responses]
+    submitted_list = ", ".join(map(str, submitted_nums)) or "None yet"
+    remaining_list = ", ".join(map(str, remaining_nums)) or "None — all done!"
+
+    # Professional inline user glyph (no emoji).
+    name_icon = (
+        '<svg class="ev-name-ic" viewBox="0 0 24 24" fill="currentColor">'
+        '<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2'
+        'c-2.67 0-8 1.34-8 4v1.5c0 .28.22.5.5.5h15c.28 0 .5-.22.5-.5V18'
+        'c0-2.66-5.33-4-8-4z"/></svg>'
+    )
+
+    submitted_n = done_count
+    remaining_n = total_qs - done_count
     st.markdown(
-        f'<div class="slider-status-row">{status_note}</div>', unsafe_allow_html=True
+        f'<div class="ev-top">'
+        f'<div class="ev-top-left"></div>'
+        f'<div class="ev-top-right">'
+        f'<span class="mode-badge {eval_mode}">{mode_meta["label"]} mode</span>'
+        f'<span class="stat-chip submitted">✓ {submitted_n} submitted'
+        f'<span class="chip-tip"><span class="tip-head">Submitted questions</span>{submitted_list}</span>'
+        f"</span>"
+        f'<span class="stat-chip remaining">{remaining_n} remaining'
+        f'<span class="chip-tip"><span class="tip-head">Remaining questions</span>{remaining_list}</span>'
+        f"</span>"
+        f'<span class="ev-eval-name">{name_icon}{evaluator_name}</span>'
+        f"</div>"
+        f"</div>"
+        f'<div class="ev-qpos-row">'
+        f'<span class="ev-qpos">Question <strong>{cur_pos}</strong> of {total_qs}</span>'
+        f"{status_note}"
+        f"</div>",
+        unsafe_allow_html=True,
     )
 
     # ── Back / Next: step one question at a time. Callbacks run before the
@@ -1078,24 +1159,39 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
             total_qs, st.session_state["slider_pos"] + 1
         )
 
-    with st.container(key="slider_nav_row"):
-        nav_prev, _, nav_next = st.columns([1, 6, 1])
-        with nav_prev:
+    # ── Slider flanked by Back / Next icon buttons — the single progress
+    #    element (replaces the old dot row + prog-track bar). ───────────────
+    with st.container(key="question_slider_row"):
+        c_back, c_slider, c_next = st.columns(
+            [1, 14, 1], gap="small", vertical_alignment="center"
+        )
+        with c_back:
             st.button(
-                "← Back",
+                "←",
                 key="nav_back",
                 on_click=_go_prev,
-                disabled=slider_pos <= 1,
+                disabled=cur_pos <= 1,
                 use_container_width=True,
             )
-        with nav_next:
+        with c_slider:
+            slider_pos = st.slider(
+                "Question navigator",
+                min_value=1,
+                max_value=total_qs,
+                value=st.session_state["slider_pos"],
+                key="slider_pos",
+                label_visibility="collapsed",
+            )
+        with c_next:
             st.button(
-                "Next →",
+                "→",
                 key="nav_next",
                 on_click=_go_next,
-                disabled=slider_pos >= total_qs,
+                disabled=cur_pos >= total_qs,
                 use_container_width=True,
             )
+    # Drives the custom gradient fill bar from the live thumb position.
+    st_html(SLIDER_FILL_JS, height=0)
 
     # ── Question + answers ───────────────────────────────────────────
     category = question.get("category", "").replace("_", " ").title()
@@ -1212,6 +1308,24 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
     border-color: {_c}aa !important;
     color: var(--stone) !important;
 }}
+/* View-only (submitted) state: disabled buttons. These selectors carry more
+   specificity than the global `button:disabled` rule, so the chosen option
+   keeps its full card colour and the rest stay clean faint outlines —
+   instead of everything turning washed-out yellow. */
+.st-key-metric_cards_row .st-key-card_{_k} [data-testid="stBaseButton-primary"]:disabled {{
+    background: {_c} !important;
+    border: 1px solid {_c} !important;
+    color: var(--parchment-soft) !important;
+    opacity: 1 !important;
+    cursor: default !important;
+}}
+.st-key-metric_cards_row .st-key-card_{_k} [data-testid="stBaseButton-secondary"]:disabled {{
+    background: transparent !important;
+    border: 1px solid {_c}33 !important;
+    color: var(--stone-light) !important;
+    opacity: 0.7 !important;
+    cursor: default !important;
+}}
 """
     _card_css += "</style>"
     st.markdown(_card_css, unsafe_allow_html=True)
@@ -1326,7 +1440,7 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
                         ),
                         total_qs - 1,
                     )
-                st.session_state["slider_pos"] = next_pos + 1
+                st.session_state["_pending_slider_pos"] = next_pos + 1
                 st.rerun()
 
         if not all_scored:
@@ -1360,9 +1474,11 @@ def main():
     mode_questions = get_mode_questions(mode_filter, by_id, order)
 
     if "evaluator_id" not in st.session_state:
-        eid, sid = create_new_session(name, eval_mode)
+        eid, sid, resumed = get_or_create_evaluator(name, eval_mode)
         st.session_state["evaluator_id"] = eid
         st.session_state["session_id"] = sid
+        if resumed:
+            st.toast(f"Welcome back, {name} — resuming your saved session.", icon="👋")
     evaluator_id = st.session_state["evaluator_id"]
     page_evaluate(evaluator_id, name, eval_mode, mode_questions, by_id)
 
