@@ -50,6 +50,7 @@ if os.environ.get(_LAUNCHED_KEY) != "1":
     sys.exit(0)
 
 import streamlit as st
+from streamlit.components.v1 import html as st_html
 
 # ----------------------------------------------------------------------------
 # Config
@@ -534,18 +535,116 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     border-color: var(--lacquer-deep) !important;
 }
 
-/* ── Progress ──────────────────────────────────────────────────────── */
-.prog-wrap   { margin-bottom: 14px; }
-.prog-label  { display: flex; justify-content: space-between; font-size: 12px; color: var(--stone-light); margin-bottom: 5px; font-family: 'IBM Plex Mono', monospace; }
-.prog-track  { height: 4px; background: var(--brass-soft); border-radius: 99px; overflow: hidden; }
-.prog-fill   { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--lacquer), var(--brass)); transition: width 0.4s; }
-.nav-dots    { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px 0; }
-.nav-dot     { width: 9px; height: 9px; border-radius: 50%; background: var(--brass-soft); }
-.nav-dot.done    { background: var(--signal); }
-.nav-dot.current { background: var(--lacquer); }
+/* Native st.slider, used as the sole question-navigator / progress element.
+   Filled portion uses the same lacquer->brass gradient as the old progress
+   bar fill. Unfilled portion is a faint hairline, not a solid block. No
+   numeric labels anywhere on the slider — min/max endpoints and the live
+   thumb-value bubble are all hidden; only the thumb itself is visible. */
+.st-key-question_slider_row [data-testid="stSlider"] { padding-top: 0 !important; margin-bottom: 4px !important; }
 
-/* ── Mode badge (shown during evaluation, top-right of progress area) ── */
-.mode-badge-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+/* Wipe BaseWeb's own backgrounds — the gray rectangle wrappers AND the native
+   inner track/fill — so ONLY our two custom overlay bars are visible. */
+.st-key-question_slider_row [data-testid="stSlider"],
+.st-key-question_slider_row [data-testid="stSlider"] > div,
+.st-key-question_slider_row [data-baseweb="slider"],
+.st-key-question_slider_row [data-baseweb="slider"] div:not([role="slider"]):not(.cust-track-under):not(.cust-track-fill) {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Root wrapper hosts the two absolutely-positioned overlay bars (added by JS). */
+.st-key-question_slider_row [data-baseweb="slider"] > div { position: relative !important; }
+
+/* Under layer: fixed faint hairline spanning the whole track. */
+.cust-track-under {
+    position: absolute; left: 0; right: 0; top: 50%;
+    transform: translateY(-50%);
+    height: 4px; border-radius: 99px;
+    background: var(--brass-soft);
+    z-index: 0; pointer-events: none;
+}
+/* Filled layer: lacquer->brass gradient; width is set by JS from the thumb
+   position, so it grows as you slide. Sits on top of the under layer. */
+.cust-track-fill {
+    position: absolute; left: 0; top: 50%;
+    transform: translateY(-50%);
+    height: 4px; width: 0; border-radius: 99px;
+    background: linear-gradient(90deg, var(--danger), var(--brass) 50%, var(--signal));
+    z-index: 1; pointer-events: none;
+}
+
+/* Thumb — above both overlay bars. */
+.st-key-question_slider_row [data-baseweb="slider"] [role="slider"] {
+    position: relative !important;
+    z-index: 3 !important;
+    background: var(--lacquer) !important;
+    border: 2px solid var(--parchment-soft) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25) !important;
+    height: 16px !important;
+    width: 16px !important;
+}
+
+/* Hide ONLY the min/max endpoint labels at the two ends of the slider.
+   The value bubble on the thumb (stSliderThumbValue) is intentionally kept.
+   Streamlit 1.58 renames the test-id; keep the old name too for safety. */
+.st-key-question_slider_row [data-testid="stSliderTickBar"],
+.st-key-question_slider_row [data-testid="stTickBar"] { display: none !important; }
+
+/* Re-theme the value bubble on the thumb — default is Streamlit orange. */
+.st-key-question_slider_row [data-testid="stSliderThumbValue"] {
+    color: var(--lacquer) !important;
+    background: transparent !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+}
+
+/* ── Back / Next navigation buttons (flank the slider) ───────────────── */
+.st-key-slider_nav_row [data-testid="stButton"] button {
+    background: transparent !important;
+    color: var(--lacquer) !important;
+    border: 1px solid var(--brass-soft) !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    padding: 6px 14px !important;
+}
+.st-key-slider_nav_row [data-testid="stButton"] button:hover:not(:disabled) {
+    background: var(--brass-mist) !important;
+    border-color: var(--brass) !important;
+}
+.st-key-slider_nav_row [data-testid="stButton"] button:disabled {
+    background: transparent !important;
+    color: var(--stone-light) !important;
+    border-color: var(--brass-soft) !important;
+    opacity: 0.5 !important;
+}
+
+/* ── Inline progress label: "Question X of Y" on the left, done-count/name
+   on the right — same split as the original layout, sits above the slider ── */
+.prog-label-inline {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--stone-light);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-bottom: 8px;
+}
+
+.slider-status-row { margin: 2px 0 4px 0; }
+.slider-status {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 2px 0;
+}
+.slider-status.submitted { color: var(--signal); }
+.slider-status.open      { color: var(--lacquer); }
+
+/* ── Mode badge (own row; progress label sits below it on the left) ── */
+.mode-badge-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .mode-badge {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10.5px;
@@ -729,6 +828,56 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 """
 
 # ----------------------------------------------------------------------------
+# Slider fill JS
+# ----------------------------------------------------------------------------
+# BaseWeb bakes the slider's fill percentage into an inline gradient that CSS
+# can't read, so a pure-CSS gradient-that-grows-to-the-thumb is impossible.
+# This runs in a 0-height component iframe (same-origin → can reach the parent
+# document), reads the thumb position on every move, and sets the width of the
+# custom .cust-track-fill bar accordingly. Result: a fixed faint under-track
+# plus a lacquer->brass gradient that grows as you drag, with the round thumb
+# kept on top.
+SLIDER_FILL_JS = """
+<script>
+(function () {
+    const pdoc = window.parent.document;
+    if (window.parent.__custSliderTimer) {
+        clearInterval(window.parent.__custSliderTimer);
+    }
+    function tick() {
+        const slider = pdoc.querySelector(
+            '.st-key-question_slider_row [data-baseweb="slider"]'
+        );
+        if (!slider) return;
+        const root  = slider.querySelector(':scope > div');
+        const thumb = slider.querySelector('[role="slider"]');
+        if (!root || !thumb) return;
+        let under = root.querySelector('.cust-track-under');
+        let fill  = root.querySelector('.cust-track-fill');
+        if (!under) {
+            under = pdoc.createElement('div');
+            under.className = 'cust-track-under';
+            root.appendChild(under);
+        }
+        if (!fill) {
+            fill = pdoc.createElement('div');
+            fill.className = 'cust-track-fill';
+            root.appendChild(fill);
+        }
+        const rr = root.getBoundingClientRect();
+        const tr = thumb.getBoundingClientRect();
+        if (rr.width === 0) return;
+        let pct = ((tr.left + tr.width / 2) - rr.left) / rr.width * 100;
+        pct = Math.max(0, Math.min(100, pct));
+        fill.style.width = pct + '%';
+    }
+    window.parent.__custSliderTimer = setInterval(tick, 80);
+    tick();
+})();
+</script>
+"""
+
+# ----------------------------------------------------------------------------
 # Pages
 # ----------------------------------------------------------------------------
 
@@ -852,16 +1001,15 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         )
         return
 
-    if "q_pos" not in st.session_state:
-        st.session_state["q_pos"] = next(
+    if "slider_pos" not in st.session_state:
+        first_unanswered = next(
             (i for i, qid in enumerate(assignment) if qid not in responses),
-            total_qs,
+            0,
         )
-
-    q_pos = st.session_state["q_pos"]
+        st.session_state["slider_pos"] = first_unanswered + 1  # slider is 1-indexed
 
     # ── Completion screen ────────────────────────────────────────────
-    if q_pos >= total_qs:
+    if done_count >= total_qs:
         avg = (
             sum(r["total_score"] for r in responses.values()) / len(responses)
             if responses
@@ -880,30 +1028,74 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         )
         return
 
-    q_idx = assignment[q_pos]
-    question = by_id[q_idx]
-    existing = responses.get(q_idx, {})
-
-    # ── Progress ─────────────────────────────────────────────────────
-    pct = int(done_count / total_qs * 100)
-    dots_html = "".join(
-        f'<div class="nav-dot {"done" if assignment[i] in responses else ("current" if i == q_pos else "")}"></div>'
-        for i in range(total_qs)
-    )
     st.markdown(
         f'<div class="mode-badge-row">'
         f'<div class="mode-badge {eval_mode}">{mode_meta["label"]} mode</div>'
         f"</div>"
-        f'<div class="prog-wrap">'
-        f'<div class="prog-label">'
-        f"<span>Question {q_pos + 1} of {total_qs}</span>"
-        f"<span>{done_count} done · {evaluator_name}</span>"
-        f"</div>"
-        f'<div class="prog-track"><div class="prog-fill" style="width:{pct}%"></div></div>'
-        f"</div>"
-        f'<div class="nav-dots">{dots_html}</div>',
+        f'<div class="prog-label-inline">'
+        f'<span>Question {st.session_state["slider_pos"]} of {total_qs}</span>'
+        f'<span class="prog-label-right">{done_count} done · {evaluator_name}</span>'
+        f"</div>",
         unsafe_allow_html=True,
     )
+
+    # ── Progress slider: drag to any question, replaces the old dot row
+    #    AND the old prog-track bar — this is now the single progress element ──
+    with st.container(key="question_slider_row"):
+        slider_pos = st.slider(
+            "Question navigator",
+            min_value=1,
+            max_value=total_qs,
+            value=st.session_state["slider_pos"],
+            key="slider_pos",
+            label_visibility="collapsed",
+        )
+    # Drives the custom gradient fill bar from the live thumb position.
+    st_html(SLIDER_FILL_JS, height=0)
+    q_pos = slider_pos - 1
+    q_idx = assignment[q_pos]
+    question = by_id[q_idx]
+    existing = responses.get(q_idx, {})
+    is_submitted = q_idx in responses
+
+    status_note = (
+        '<span class="slider-status submitted">✓ Already submitted — view only</span>'
+        if is_submitted
+        else '<span class="slider-status open">● Not yet submitted — rate below</span>'
+    )
+    st.markdown(
+        f'<div class="slider-status-row">{status_note}</div>', unsafe_allow_html=True
+    )
+
+    # ── Back / Next: step one question at a time. Callbacks run before the
+    #    next script run, so updating the slider's session-state key here is
+    #    the safe way to move it without "modified after instantiation" errors.
+    def _go_prev():
+        st.session_state["slider_pos"] = max(1, st.session_state["slider_pos"] - 1)
+
+    def _go_next():
+        st.session_state["slider_pos"] = min(
+            total_qs, st.session_state["slider_pos"] + 1
+        )
+
+    with st.container(key="slider_nav_row"):
+        nav_prev, _, nav_next = st.columns([1, 6, 1])
+        with nav_prev:
+            st.button(
+                "← Back",
+                key="nav_back",
+                on_click=_go_prev,
+                disabled=slider_pos <= 1,
+                use_container_width=True,
+            )
+        with nav_next:
+            st.button(
+                "Next →",
+                key="nav_next",
+                on_click=_go_next,
+                disabled=slider_pos >= total_qs,
+                use_container_width=True,
+            )
 
     # ── Question + answers ───────────────────────────────────────────
     category = question.get("category", "").replace("_", " ").title()
@@ -949,13 +1141,16 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
     current_scores: dict = {}
     all_scored = True
 
-    # Seed session state from DB data only on first visit to this question
+    # Seed session state from DB data only on first visit to this question.
+    # Keyed by q_idx (question_id) rather than q_pos, since the slider lets
+    # the same question be revisited at different times — q_pos alone would
+    # not reliably identify "have we already seeded this question's state".
     for metric in METRICS:
-        sk = f"eval_{metric['key']}_{q_pos}"
+        sk = f"eval_{metric['key']}_{q_idx}"
         if sk not in st.session_state:
             st.session_state[sk] = existing.get(metric["key"])
 
-    halluc_sk = f"eval_hallucination_{q_pos}"
+    halluc_sk = f"eval_hallucination_{q_idx}"
     if halluc_sk not in st.session_state:
         st.session_state[halluc_sk] = existing.get(HALLUCINATION_KEY)
 
@@ -1035,23 +1230,35 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
                     sk = (
                         halluc_sk
                         if card["is_halluc"]
-                        else f"eval_{card['key']}_{q_pos}"
+                        else f"eval_{card['key']}_{q_idx}"
                     )
                     for i, opt in enumerate(card["options"]):
                         val = HALLUC_MAP[opt] if card["is_halluc"] else (i + 1)
                         is_sel = st.session_state.get(sk) == val
-                        if st.button(
-                            opt,
-                            key=f"eval_btn_{card['key']}_{i}_{q_pos}",
-                            type="primary" if is_sel else "secondary",
-                            use_container_width=True,
-                        ):
-                            st.session_state[sk] = val
-                            st.rerun()
+                        if is_submitted:
+                            # Locked view: render as a disabled button so the
+                            # selected value is still visually obvious (primary
+                            # styling), but nothing is clickable.
+                            st.button(
+                                opt,
+                                key=f"eval_locked_{card['key']}_{i}_{q_idx}",
+                                type="primary" if is_sel else "secondary",
+                                use_container_width=True,
+                                disabled=True,
+                            )
+                        else:
+                            if st.button(
+                                opt,
+                                key=f"eval_btn_{card['key']}_{i}_{q_idx}",
+                                type="primary" if is_sel else "secondary",
+                                use_container_width=True,
+                            ):
+                                st.session_state[sk] = val
+                                st.rerun()
 
     # Collect scores from session state
     for metric in METRICS:
-        val = st.session_state.get(f"eval_{metric['key']}_{q_pos}")
+        val = st.session_state.get(f"eval_{metric['key']}_{q_idx}")
         current_scores[metric["key"]] = val
         if val is None:
             all_scored = False
@@ -1060,36 +1267,73 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
     if hallucination_flag is None:
         all_scored = False
 
-    # ── Footer: score bar + submit ────────────────────────────────────
+    # ── Footer: score bar + submit (or locked notice) ──────────────────
     metric_sum = sum(v for v in current_scores.values() if v is not None)
     bar_pct = int(metric_sum / MAX_TOTAL * 100)
-    btn_label = "Submit & Next →" if q_pos < total_qs - 1 else "Submit & Finish"
 
     st.markdown(
         '<hr style="border:none;border-top:1px dashed var(--brass-soft);margin:16px 0;">',
         unsafe_allow_html=True,
     )
-    bar_col, btn_col = st.columns([5, 1], gap="large")
-    with bar_col:
+
+    if is_submitted:
         st.markdown(
             f'<div class="score-row">'
             f'<div class="score-label">Score <strong>{metric_sum}</strong> / {MAX_TOTAL}</div>'
             f'<div class="score-track"><div class="score-fill" style="width:{bar_pct}%"></div></div>'
-            f"</div>",
+            f"</div>"
+            f'<p class="ev-incomplete-note">This question was already submitted — drag the slider to '
+            f"an unanswered question to continue rating.</p>",
             unsafe_allow_html=True,
         )
-    with btn_col:
-        if st.button(btn_label, disabled=not all_scored):
-            final_scores = {k: v for k, v in current_scores.items() if v is not None}
-            save_response(evaluator_id, q_idx, final_scores, hallucination_flag)
-            st.session_state["q_pos"] = q_pos + 1
-            st.rerun()
+    else:
+        bar_col, btn_col = st.columns([5, 1], gap="large")
+        with bar_col:
+            st.markdown(
+                f'<div class="score-row">'
+                f'<div class="score-label">Score <strong>{metric_sum}</strong> / {MAX_TOTAL}</div>'
+                f'<div class="score-track"><div class="score-fill" style="width:{bar_pct}%"></div></div>'
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        with btn_col:
+            is_last_remaining = (done_count + 1) >= total_qs
+            btn_label = "Submit & Finish" if is_last_remaining else "Submit & Next →"
+            if st.button(btn_label, disabled=not all_scored):
+                final_scores = {
+                    k: v for k, v in current_scores.items() if v is not None
+                }
+                save_response(evaluator_id, q_idx, final_scores, hallucination_flag)
+                # Advance to the next unanswered question after this one in
+                # assignment order; wrap to the first unanswered overall if
+                # none remain after the current position (out-of-order rating
+                # via the slider means "the next one" isn't always q_pos + 1).
+                updated_responses = get_responses(evaluator_id)
+                next_pos = next(
+                    (
+                        i
+                        for i in range(q_pos + 1, total_qs)
+                        if assignment[i] not in updated_responses
+                    ),
+                    None,
+                )
+                if next_pos is None:
+                    next_pos = next(
+                        (
+                            i
+                            for i in range(total_qs)
+                            if assignment[i] not in updated_responses
+                        ),
+                        total_qs - 1,
+                    )
+                st.session_state["slider_pos"] = next_pos + 1
+                st.rerun()
 
-    if not all_scored:
-        st.markdown(
-            '<p class="ev-incomplete-note">Complete all ratings before submitting.</p>',
-            unsafe_allow_html=True,
-        )
+        if not all_scored:
+            st.markdown(
+                '<p class="ev-incomplete-note">Complete all ratings before submitting.</p>',
+                unsafe_allow_html=True,
+            )
 
 
 def main():
