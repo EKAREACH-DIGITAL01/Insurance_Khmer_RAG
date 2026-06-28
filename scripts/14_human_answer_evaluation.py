@@ -800,49 +800,100 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 [data-testid="stButton"] button:disabled { background: var(--brass-soft) !important; color: var(--stone-light) !important; opacity: 0.75 !important; }
 
 /* ── Text input ───────────────────────────────────────────────────── */
-[data-testid="stTextInput"] input { background: var(--parchment-soft) !important; border: 1px solid var(--brass-soft) !important; border-radius: 8px !important; color: var(--stone) !important; font-family: 'IBM Plex Sans', sans-serif !important; font-size: 14px !important; padding: 8px 12px !important; box-shadow: none !important; text-align: center !important; }
+/* NOTE: height is fixed (42px) and the outer BaseWeb wrapper is forced to
+   the same height with visible overflow, otherwise Streamlit's wrapper clips
+   the input's bottom edge — which was eating the golden focus border. */
+[data-testid="stTextInput"] input {
+    background: var(--parchment-soft) !important;
+    border: 1px solid var(--brass-soft) !important;
+    border-radius: 8px !important;
+    color: var(--stone) !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    font-size: 14px !important;
+    height: 42px !important;
+    padding: 0 12px !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+    text-align: center !important;
+}
+/* Keep BaseWeb's input shells transparent / unclipped so the focus ring shows. */
+[data-testid="stTextInput"] div[data-baseweb="input"],
+[data-testid="stTextInput"] div[data-baseweb="base-input"] {
+    background: transparent !important;
+    border: none !important;
+    overflow: visible !important;
+}
 [data-testid="stTextInput"] input:focus { border-color: var(--brass) !important; box-shadow: 0 0 0 2px var(--brass-mist) !important; }
 [data-testid="stTextInput"] div[data-baseweb="input"] input::placeholder { text-align: center !important; }
 [data-testid="InputInstructions"] { display: none !important; }
 
-/* ── Mode toggle buttons (login page) — same scale as original button ── */
-.st-key-mode_picker_row [data-testid="stHorizontalBlock"] { gap: 10px !important; }
-.st-key-mode_picker_row [data-testid="stBaseButton-secondary"],
-.st-key-mode_picker_row [data-testid="stBaseButton-primary"] {
-    width: 100% !important;
-    border-radius: 8px !important;
-    font-family: 'IBM Plex Sans', sans-serif !important;
-    font-weight: 600 !important;
-    font-size: 13px !important;
-    padding: 9px 14px !important;
-    white-space: nowrap !important;
-    box-shadow: none !important;
-    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease !important;
+/* ── Mode radio (login page) ──────────────────────────────────────── */
+/* "Choose mode:" label sits to the left of the radio row. Its top padding is
+   tuned to vertically centre it against the radio options, which carry their
+   own internal padding. */
+.login-mode-label {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--stone);
+    white-space: nowrap;
+    height: 42px;
+    display: flex;
+    align-items: center;
 }
-.st-key-mode_picker_row [data-testid="stBaseButton-secondary"] {
-    background: var(--parchment-soft) !important;
-    border: 1.5px solid var(--brass-soft) !important;
+/* Vertically centre the whole radio group within the 42px row so it lines up
+   with the "Choose mode:" label cell next to it. */
+.st-key-login_mode_radio { display: flex !important; align-items: center !important; min-height: 42px !important; }
+/* The radio widget and Streamlit's default block gaps leave a wide blank band
+   before the name row; pull the radio container's own margins in tight. */
+.st-key-login_mode_radio [data-testid="stRadio"] { margin: 0 !important; }
+.st-key-login_mode_radio { margin-bottom: -18px !important; }
+/* margin-left adds breathing room between "Choose mode:" and the first option. */
+[data-testid="stRadio"] > div[role="radiogroup"] { align-items: center !important; gap: 18px !important; margin-left: 22px !important; }
+/* align-items:center lines each radio circle up with its label text; the small
+   margin-top nudges the circle down so it isn't sitting slightly high. */
+[data-testid="stRadio"] label { font-family: 'IBM Plex Sans', sans-serif !important; align-items: center !important; white-space: nowrap !important; }
+[data-testid="stRadio"] [role="radiogroup"] label > div:first-child { margin-top: 2px !important; }
+[data-testid="stRadio"] label [data-testid="stMarkdownContainer"] p {
+    font-size: 14px !important;
     color: var(--stone) !important;
+    margin: 0 !important;
 }
-.st-key-mode_picker_row [data-testid="stBaseButton-secondary"]:hover {
-    border-color: var(--brass) !important;
-    background: var(--brass-mist) !important;
+/* Theme the radio control to the lacquer red instead of Streamlit's default.
+   accent-color covers the native input; the :has() rules below override
+   BaseWeb's own styled circle (ring + filled dot) for full coverage. */
+[data-testid="stRadio"] input[type="radio"] { accent-color: var(--lacquer) !important; }
+/* Unselected ring (covers every nested div + box-shadow ring BaseWeb may use). */
+[data-testid="stRadio"] [role="radiogroup"] label > div:first-child,
+[data-testid="stRadio"] [role="radiogroup"] label > div:first-child div {
+    border-color: var(--brass-soft) !important;
+    box-shadow: none !important;
 }
-.st-key-mode_picker_row [data-testid="stBaseButton-primary"] {
-    background: var(--lacquer) !important;
-    border: 1.5px solid var(--lacquer) !important;
-    color: var(--parchment-soft) !important;
+/* Selected control — three layers, all kept on-theme (was: lacquer border,
+   ORANGE middle, lacquer dot):
+     • OUTER ring  → lacquer border + box-shadow
+     • MIDDLE fill → soft lacquer mist (the orange band) so it reads as a halo
+     • INNER dot   → solid lacquer */
+[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) > div:first-child {
+    border-color: var(--lacquer) !important;
+    background-color: rgba(156,43,31,0.32) !important;
+    box-shadow: 0 0 0 1px var(--lacquer) !important;
 }
-.st-key-mode_picker_row [data-testid="stBaseButton-primary"]:hover {
-    background: var(--lacquer-deep) !important;
-    border-color: var(--lacquer-deep) !important;
+/* Selected INNER dot: solid lacquer fill. */
+[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) > div:first-child div {
+    background-color: var(--lacquer) !important;
+    border-color: var(--lacquer) !important;
 }
 
-/* ── Begin Evaluation button (full width, same family as footer submit) ── */
+/* ── Begin Evaluation button (login page) — matched to the name input ──── */
+/* Forced to the same 42px height as the text input so the two sit flush on the
+   shared row; box-sizing keeps the height honest regardless of padding. */
 .st-key-begin_eval_row [data-testid="stButton"] button {
     width: 100% !important;
-    padding: 11px 0 !important;
+    height: 42px !important;
+    padding: 0 !important;
     font-size: 14px !important;
+    box-sizing: border-box !important;
 }
 
 /* ── Explanation panel (login page) ──────────────────────────────── */
@@ -963,48 +1014,47 @@ def page_login():
     st.markdown(
         '<div style="text-align:center; padding-top:10vh; padding-bottom:18px;">'
         '<div style="font-size:28px;font-weight:700;color:var(--stone);margin-bottom:8px;letter-spacing:-0.5px;">Khmer Rag Insurance Chatbot Evaluation</div>'
-        '<div style="font-size:15px;color:var(--stone-light);">Enter your name and choose a mode to begin — or to continue an evaluation you started earlier.</div>'
+        '<div style="font-size:15px;color:var(--stone-light);">Choose a mode and enter your name to begin — or to continue an evaluation you started earlier.</div>'
         "</div>",
         unsafe_allow_html=True,
     )
-    _, c_input, _ = st.columns([1, 2, 1])
-    with c_input:
+    # ── Mode radio row: "Choose mode:" label + the options all on one line ──
+    # A single native radio (mutually-exclusive by construction) replaces the
+    # old three-button toggle: it holds its own selection state, so no manual
+    # session_state bookkeeping or st.rerun() is needed on each pick.
+    radio_options = [m["key"] for m in EVAL_MODES]
+    radio_labels = ["Human-Created (100)", "AI-Created (300)", "All Questions (400)"]
+
+    _, c_label, c_radio, _ = st.columns([1, 0.28, 1.72, 1])
+    with c_label:
+        st.markdown(
+            '<div class="login-mode-label">Choose mode:</div>',
+            unsafe_allow_html=True,
+        )
+    with c_radio:
+        chosen_label = st.radio(
+            "Choose mode:",
+            options=radio_labels,
+            index=None,
+            horizontal=True,
+            key="login_mode_radio",
+            label_visibility="collapsed",
+        )
+    chosen_mode = (
+        radio_options[radio_labels.index(chosen_label)] if chosen_label else None
+    )
+
+    st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
+
+    # ── Name input + Begin button on the same row, forced to equal height ────
+    _, c_name, c_btn, _ = st.columns([1, 1.4, 0.6, 1])
+    with c_name:
         name = st.text_input(
             "name", placeholder="Enter your name", label_visibility="collapsed"
         )
-
     name_clean = name.strip()
-
-    st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
-
-    # ── Mode toggle row: selection only, stored in session_state, no navigation ──
-    if "login_mode_choice" not in st.session_state:
-        st.session_state["login_mode_choice"] = None
-
-    _, c_modes, _ = st.columns([1, 2, 1])
-    with c_modes:
-        with st.container(key="mode_picker_row"):
-            cols = st.columns(3, gap="small")
-            for col, mode in zip(cols, EVAL_MODES):
-                with col:
-                    is_sel = st.session_state["login_mode_choice"] == mode["key"]
-                    if st.button(
-                        f'{mode["label"]} ({mode["sub"].split()[0]})',
-                        key=f"mode_toggle_{mode['key']}",
-                        type="primary" if is_sel else "secondary",
-                        use_container_width=True,
-                    ):
-                        st.session_state["login_mode_choice"] = mode["key"]
-                        st.rerun()
-
-    st.markdown('<div style="height:14px;"></div>', unsafe_allow_html=True)
-
-    # ── Begin Evaluation: single action button, gated on name + mode ──────────
-    chosen_mode = st.session_state["login_mode_choice"]
     can_begin = bool(name_clean) and chosen_mode is not None
-
-    _, c_begin, _ = st.columns([1, 2, 1])
-    with c_begin:
+    with c_btn:
         with st.container(key="begin_eval_row"):
             if st.button(
                 "Begin Evaluation", disabled=not can_begin, use_container_width=True
@@ -1014,11 +1064,11 @@ def page_login():
                 st.session_state.pop("q_pos", None)
                 st.session_state["evaluator_name"] = name_clean
                 st.session_state["eval_mode"] = chosen_mode
-                st.session_state.pop("login_mode_choice", None)
                 st.rerun()
 
+    # ── Contextual hint: tell the user exactly what's still missing ──────────
     if not name_clean and chosen_mode is None:
-        hint = "Enter your name and choose a mode above to continue."
+        hint = "Choose a mode and enter your name above to continue."
     elif not name_clean:
         hint = "Enter your name above to continue."
     elif chosen_mode is None:
@@ -1033,7 +1083,9 @@ def page_login():
         )
 
     # ── Explanation panel ───────────────────────────────────────────────────
-    _, c_exp, _ = st.columns([1, 2, 1])
+    # Wider than the input rows above (which stay at [1,2,1]) so the info card
+    # reads fuller while remaining centred — extended out to both sides.
+    _, c_exp, _ = st.columns([0.5, 3, 0.5])
     with c_exp:
         mode_lines = "".join(
             f'<p class="login-mode-line"><span class="tag {m["key"]}">{m["label"]}</span>'
@@ -1050,7 +1102,7 @@ def page_login():
         )
         st.markdown(
             f'<div class="login-explain">'
-            f'<h4>Your progress is always saved</h4>'
+            f"<h4>Your progress is always saved</h4>"
             f'<p class="login-metric-line">Don\'t worry about losing your work — every rating is '
             f"saved the moment you submit it. You can close the browser at any time and come back "
             f"later to continue right where you left off.</p>"
@@ -1152,7 +1204,7 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
     name_icon = (
         '<svg class="ev-name-ic" viewBox="0 0 24 24" fill="currentColor">'
         '<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2'
-        'c-2.67 0-8 1.34-8 4v1.5c0 .28.22.5.5.5h15c.28 0 .5-.22.5-.5V18'
+        "c-2.67 0-8 1.34-8 4v1.5c0 .28.22.5.5.5h15c.28 0 .5-.22.5-.5V18"
         'c0-2.66-5.33-4-8-4z"/></svg>'
     )
 
