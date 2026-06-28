@@ -831,25 +831,47 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 /* "Choose mode:" label sits to the left of the radio row. Its top padding is
    tuned to vertically centre it against the radio options, which carry their
    own internal padding. */
-.login-mode-label {
+/* Centre the whole mode line. The row is an inline-flex element that shrinks to
+   its content, and text-align:center on the ancestors centres that inline block
+   on screen — robust regardless of the widget's own width.
+   .st-key-login_mode_radio is the one class we know Streamlit 1.58 emits. */
+/* Force EVERY wrapper from the key class down to the options row to be a
+   centring flex container, so whichever level was holding the line to the left
+   is overridden. */
+.st-key-login_mode_radio,
+.st-key-login_mode_radio > div,
+.st-key-login_mode_radio [data-testid="stRadio"],
+.st-key-login_mode_radio [data-testid="stRadio"] > div {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+}
+.st-key-login_mode_radio { margin-bottom: -18px !important; }
+/* The options row itself: one non-wrapping line, shrunk to content and centred.
+   The "Choose Gold Question Mode:" caption is the first flex item via ::before. */
+.st-key-login_mode_radio div[role="radiogroup"] {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 16px !important;
+    width: fit-content !important;
+    margin: 0 auto !important;
+    /* small manual nudge to the right of dead-centre */
+    padding-left: 20px !important;
+}
+.st-key-login_mode_radio div[role="radiogroup"]::before {
+    content: "Choose Gold Question Mode:";
     font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--stone);
     white-space: nowrap;
-    height: 42px;
-    display: flex;
-    align-items: center;
+    margin-right: 6px;
 }
-/* Vertically centre the whole radio group within the 42px row so it lines up
-   with the "Choose mode:" label cell next to it. */
-.st-key-login_mode_radio { display: flex !important; align-items: center !important; min-height: 42px !important; }
-/* The radio widget and Streamlit's default block gaps leave a wide blank band
-   before the name row; pull the radio container's own margins in tight. */
-.st-key-login_mode_radio [data-testid="stRadio"] { margin: 0 !important; }
-.st-key-login_mode_radio { margin-bottom: -18px !important; }
-/* margin-left adds breathing room between "Choose mode:" and the first option. */
-[data-testid="stRadio"] > div[role="radiogroup"] { align-items: center !important; gap: 18px !important; margin-left: 22px !important; }
 /* align-items:center lines each radio circle up with its label text; the small
    margin-top nudges the circle down so it isn't sitting slightly high. */
 [data-testid="stRadio"] label { font-family: 'IBM Plex Sans', sans-serif !important; align-items: center !important; white-space: nowrap !important; }
@@ -1025,29 +1047,30 @@ def page_login():
     radio_options = [m["key"] for m in EVAL_MODES]
     radio_labels = ["Human-Created (100)", "AI-Created (300)", "All Questions (400)"]
 
-    _, c_label, c_radio, _ = st.columns([1, 0.28, 1.72, 1])
-    with c_label:
-        st.markdown(
-            '<div class="login-mode-label">Choose mode:</div>',
-            unsafe_allow_html=True,
-        )
-    with c_radio:
-        chosen_label = st.radio(
-            "Choose mode:",
-            options=radio_labels,
-            index=None,
-            horizontal=True,
-            key="login_mode_radio",
-            label_visibility="collapsed",
-        )
+    # The "Choose Gold Question Mode:" caption is injected via CSS ::before on the
+    # radio's options row (see .st-key-login_mode_radio), so label + options are a
+    # single inline element that can be centred reliably (no separate markdown
+    # column to fight with). The radio widget's own key class is the one selector
+    # we know Streamlit 1.58 emits, so all styling hangs off it.
+    chosen_label = st.radio(
+        "Choose Gold Question Mode:",
+        options=radio_labels,
+        index=None,
+        horizontal=True,
+        key="login_mode_radio",
+        label_visibility="collapsed",
+    )
     chosen_mode = (
         radio_options[radio_labels.index(chosen_label)] if chosen_label else None
     )
 
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
 
-    # ── Name input + Begin button on the same row, forced to equal height ────
-    _, c_name, c_btn, _ = st.columns([1, 1.4, 0.6, 1])
+    # ── Name input + Begin button: nested inside a single centred middle column
+    #    so the pair is centred as one unit (not packed against either side). ──
+    _, c_pair, _ = st.columns([1, 2, 1])
+    with c_pair:
+        c_name, c_btn = st.columns([1.4, 0.6])
     with c_name:
         name = st.text_input(
             "name", placeholder="Enter your name", label_visibility="collapsed"
