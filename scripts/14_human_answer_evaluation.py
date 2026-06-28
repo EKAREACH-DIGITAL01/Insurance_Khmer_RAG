@@ -1,10 +1,11 @@
 """
 Khmer Insurance RAG — Human Answer Evaluation UI
 -------------------------------------------------
-Launch:  python scripts/13_human_answer_evaluation.py
+Launch:  python scripts/14_human_answer_evaluation.py
          (runs Streamlit on port 8502, separate from the chatbot on 8501)
 """
 
+import html
 import json
 import os
 import random
@@ -164,8 +165,15 @@ def parse_question_id(qid: str):
 
 def get_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
+    # timeout: wait (don't immediately raise) if another evaluator holds a write
+    # lock. WAL mode lets readers and writers proceed concurrently instead of
+    # blocking each other, and busy_timeout backs the wait with a 5s budget --
+    # together these keep concurrent submits from multiple evaluators from ever
+    # surfacing a "database is locked" error at human typing pace.
+    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=5.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
 
@@ -490,6 +498,10 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Keep every metric title on a single line so all six cards stay the same
+       height and align perfectly -- without this, the longest label
+       ("Answer Correctness") can wrap to two lines on some widths/zoom levels. */
+    white-space: nowrap;
 }
 .metric-tooltip {
     position: absolute;
@@ -1131,8 +1143,10 @@ def page_login():
             f"later to continue right where you left off.</p>"
             f'<p class="login-metric-line">To resume, just <strong>enter the same name</strong> — '
             f"that's all. Your ratings are shared across all three modes, so a question you've already "
-            f"rated stays rated no matter which mode you open. Pick whichever mode you'd like to work in; "
-            f"you can switch freely without ever repeating a question.</p>"
+            f"rated stays rated no matter which mode you open. "
+            f"To change mode later, simply <strong>refresh the page</strong>: that brings you back to "
+            f"this screen to choose the mode you want, and since your ratings are shared across modes, "
+            f"nothing is ever repeated or lost.</p>"
             f'<h4 class="second">What do the 3 modes mean?</h4>'
             f"{mode_lines}"
             f'<h4 class="second">What do the rating metrics mean?</h4>'
@@ -1176,6 +1190,14 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
     # forbids modifying its session-state key.
     if "_pending_slider_pos" in st.session_state:
         st.session_state["slider_pos"] = st.session_state.pop("_pending_slider_pos")
+
+    # Defensive clamp: slider_pos is 1-indexed into the CURRENT mode's question
+    # list but persists in session state. Should it ever fall outside this mode's
+    # range, assignment[q_pos] below would IndexError and the slider widget would
+    # reject the out-of-range value. Snapping it back keeps the page from
+    # crashing regardless of how the mode/length changed.
+    if not 1 <= st.session_state.get("slider_pos", 1) <= total_qs:
+        st.session_state["slider_pos"] = 1
 
     # ── Completion screen ────────────────────────────────────────────
     if done_count >= total_qs:
@@ -1280,7 +1302,9 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
                 use_container_width=True,
             )
         with c_slider:
-            slider_pos = st.slider(
+            # The slider writes its value to st.session_state["slider_pos"] via
+            # its key; the return value is unused (read back from session state).
+            st.slider(
                 "Question navigator",
                 min_value=1,
                 max_value=total_qs,
@@ -1307,12 +1331,17 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         if source == "human"
         else ("AI-Created" if source == "ai" else "Unknown")
     )
-    expected = question.get("expected_answer") or ""
+    # Escape every model/data-driven string before it goes into an
+    # unsafe_allow_html block: a stray "<", ">" or "&" in an answer would
+    # otherwise be parsed as markup (broken layout at best, injection at worst).
+    # html.escape leaves newlines intact, so the answer blocks' white-space:
+    # pre-wrap still renders multi-line lists correctly.
+    expected = html.escape(question.get("expected_answer") or "")
     generated = question.get("generated_answer") or ""
     gen_body = (
         '<span class="ev-answer-blank">[ No answer was generated ]</span>'
         if not generated.strip()
-        else generated
+        else html.escape(generated)
     )
     st.markdown(
         f'<div class="ev-pill-row">'
@@ -1322,7 +1351,7 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         unsafe_allow_html=True,
     )
     st.markdown(
-        f'<div class="ev-question-text">{question["question"]}</div>',
+        f'<div class="ev-question-text">{html.escape(question["question"])}</div>',
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -1498,8 +1527,9 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
     )
     if is_submitted:
         saved_comment = existing.get("comment") or ""
+        comment_html = html.escape(saved_comment) if saved_comment else "— no comment left —"
         st.markdown(
-            f'<div class="ev-comment-view">{saved_comment if saved_comment else "— no comment left —"}</div>',
+            f'<div class="ev-comment-view">{comment_html}</div>',
             unsafe_allow_html=True,
         )
     else:
@@ -1598,7 +1628,7 @@ def main():
     by_id, order = load_questions()
     if not by_id:
         st.markdown(CSS, unsafe_allow_html=True)
-        st.error(f"No questions found at `{JSONL_PATH}`. Run scripts/10 first.")
+        st.error(f"No questions found at `{JSONL_PATH}`. Run scripts/11 first.")
         return
 
     if "evaluator_name" not in st.session_state or "eval_mode" not in st.session_state:
