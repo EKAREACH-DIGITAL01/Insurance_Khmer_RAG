@@ -1,0 +1,84 @@
+{
+  "label": "Sailor2-L 8B",
+  "total_questions": 100,
+  "valid_questions": 100,
+  "failed_questions": 0,
+  "truncated_answers": 4,
+  "blank_answers": 0,
+  "scores_avg": {
+    "context_relevance": 4.92,
+    "faithfulness": 4.88,
+    "answer_correctness": 4.67,
+    "completeness": 4.79
+  },
+  "combined_avg": 4.7905,
+  "per_category": {
+    "guidance": {
+      "scores": {
+        "context_relevance": 5.0,
+        "faithfulness": 4.84,
+        "answer_correctness": 4.92,
+        "completeness": 4.72
+      },
+      "timing": {
+        "first_token_time_avg": 43.116,
+        "generation_time_avg": 84.3121,
+        "tokens_out_avg": 425.4
+      }
+    },
+    "laws": {
+      "scores": {
+        "context_relevance": 5.0,
+        "faithfulness": 4.88,
+        "answer_correctness": 4.52,
+        "completeness": 4.88
+      },
+      "timing": {
+        "first_token_time_avg": 26.1807,
+        "generation_time_avg": 57.317,
+        "tokens_out_avg": 368.9
+      }
+    },
+    "prakas": {
+      "scores": {
+        "context_relevance": 4.84,
+        "faithfulness": 4.92,
+        "answer_correctness": 4.68,
+        "completeness": 4.84
+      },
+      "timing": {
+        "first_token_time_avg": 31.7612,
+        "generation_time_avg": 69.421,
+        "tokens_out_avg": 412.3
+      }
+    },
+    "sub_decrees": {
+      "scores": {
+        "context_relevance": 4.84,
+        "faithfulness": 4.88,
+        "answer_correctness": 4.56,
+        "completeness": 4.72
+      },
+      "timing": {
+        "first_token_time_avg": 42.2594,
+        "generation_time_avg": 81.2867,
+        "tokens_out_avg": 421.0
+      }
+    }
+  },
+  "timing_avg": {
+    "first_token_time": 35.8964,
+    "generation_time": 73.2418,
+    "tokens_per_sec": 11.011
+  },
+  "timing_detail": {
+    "first_token_time_avg": 35.8964,
+    "first_token_time_p50": 32.6598,
+    "first_token_time_p95": 62.2,
+    "generation_time_avg": 73.2418,
+    "tokens_per_sec_avg": 11.011,
+    "tokens_out_avg": 407.4,
+    "tokens_out_min": 122,
+    "tokens_out_max": 899
+  }
+}

@@ -134,8 +134,22 @@ parser.add_argument(
         "Use this to verify all models behave correctly before the full run."
     ),
 )
+parser.add_argument(
+    "--rescore",
+    action="store_true",
+    help=(
+        "Do NOT generate anything. Reload every model's existing "
+        "generated_answer_results(.jsonl) / _full.jsonl, recompute all metrics "
+        "with the current scoring functions (rebuilding each answer's context "
+        "from its saved context_chunk_ids), rewrite the JSONL in place, and "
+        "regenerate every summary + the final comparison report. Use this to "
+        "re-judge the already-generated answers for free after a scoring change "
+        "-- it never starts llama-server."
+    ),
+)
 args = parser.parse_args()
 DRY_RUN = args.dry_run
+RESCORE = args.rescore
 
 # ----------------------------------------------------------------------------
 # Config -- mirrors app.py exactly so evaluation matches production behaviour
@@ -222,20 +236,83 @@ MIN_SCORE              = 0.50  # below this (but >= OUT_OF_DOMAIN_THRESHOLD) => 
 OUT_OF_DOMAIN_THRESHOLD = 0.49  # raw FAISS best_score below this => out-of-domain, no generation
 MIN_QUESTION_LENGTH    = 8      # shorter questions are treated as degenerate input
 
-# Metric weights -- must sum to 1.0
+# Metric weights -- must sum to 1.0.
+#
+# answer_relevance (answer-vs-question cosine) was REMOVED from the weighted
+# score. It is structurally capped (~0.87 ceiling, ~0.77 median on this corpus)
+# because a question and its answer are different grammatical forms, so it
+# penalised even byte-identical-to-gold answers and could never reach 5. Its
+# job -- "does this actually answer the question" -- is done far better by
+# answer_correctness (semantic match to the verbatim gold answer) here, and by
+# the real RAGAS/human relevance judgement in the Stage-2 human eval
+# (scripts/14). We STILL compute answer_relevance_similarity into `detail` for
+# traceability; it just carries no weight. Its 0.15 was folded into
+# answer_correctness (the gold answer is the strongest Stage-1 signal we have).
 WEIGHTS = {
     "context_relevance":  0.20,
     "faithfulness":       0.25,
-    "answer_correctness": 0.25,
-    "answer_relevance":   0.15,
+    "answer_correctness": 0.40,
     "completeness":       0.15,
 }
 
 # Khmer sentence-final punctuation -- used by completeness check
 KHMER_END_PUNCT = {"។", "៕"}
 
+# Trailing decoration that can legitimately follow a real sentence-final mark
+# WITHOUT making the answer incomplete. The smaller models routinely close a
+# fully-finished answer with markdown emphasis ("**"), a quote/list char, or a
+# bracketed "closing tag" -- e.g. "(ចប់)", "(បញ្ចប់ ៕)", "(។)", a literal "(ចប់។)",
+# or a bare trailing ")". A naive last-character check then misreads these as
+# truncated. The completeness check strips this decoration before testing for a
+# sentence-final mark, so decoration is judged by answer_correctness (where the
+# embellishment lowers similarity), not mislabelled as truncation.
+# NOTE: closing brackets are deliberately NOT in _TRAILING_DECOR. If they were,
+# a trailing ")**" would have its ")" stripped first, destroying the closing
+# bracket before _TRAILING_BRACKET could remove the whole "(...)" group -- which
+# left an orphan "(" and mislabelled a complete answer as truncated. Brackets
+# are handled only by _TRAILING_BRACKET (whole balanced group); _TRAILING_DECOR
+# handles only markdown emphasis / quote chars / whitespace.
+_TRAILING_DECOR   = re.compile(r"[\s*_`#>~]+$")
+_TRAILING_BRACKET = re.compile(
+    r"[(\[{（【「『][^()\[\]{}（）【】「」『』]*[)\]\}）】」』]\s*$"
+)
+
+
+def ends_with_sentence_final(text):
+    """True if, after stripping trailing markdown/whitespace and any trailing
+    bracketed closing-tag groups, the answer ends on a Khmer sentence-final mark
+    (។ or ៕). Genuinely truncated answers (cut off mid-word with no final mark)
+    have no such mark to expose, so they correctly remain False."""
+    s = text.strip()
+    prev = None
+    while s and s != prev:
+        prev = s
+        s = _TRAILING_BRACKET.sub("", s).rstrip()
+        s = _TRAILING_DECOR.sub("", s)
+    return bool(s) and s[-1] in KHMER_END_PUNCT
+
 # Arabic + Khmer numeral runs -- used by faithfulness proxy
 NUMBER_PATTERN = re.compile(r"[0-9]+|[០១២៣៤៥៦៧៨៩]+")
+
+# Khmer spelled-out cardinals -> Khmer digit. Used so the faithfulness proxy
+# does NOT flag a digit in the answer as "fabricated" when the source merely
+# spells the same number out in words (e.g. the answer writes "៣ ប្រភេទ" while
+# the context says "បីប្រភេទ"). Longer words are listed before their prefixes
+# so e.g. "ប្រាំបី" matches before "ប្រាំ". Covers 0-10 plus the common round
+# numbers that appear in this legal corpus.
+KHMER_WORD_TO_DIGIT = {
+    "សូន្យ": "០", "មួយ": "១", "ពីរ": "២", "បី": "៣", "បួន": "៤",
+    "ប្រាំបួន": "៩", "ប្រាំបី": "៨", "ប្រាំពីរ": "៧", "ប្រាំមួយ": "៦", "ប្រាំ": "៥",
+    "ដប់": "១០", "ម្ភៃ": "២០", "សាមសិប": "៣០", "សែសិប": "៤០", "ហាសិប": "៥០",
+    "មួយរយ": "១០០", "មួយពាន់": "១០០០",
+}
+
+# A list-ordinal marker at the start of a line (e.g. "៣.", "3)", "៤៖", or with a
+# leading bullet like "- ៣." / "* ៤)"). The number in such a marker is the
+# model's own list numbering, NOT a fact pulled from the source, so it must not
+# count toward (or against) faithfulness. The optional leading bullet matters:
+# the smaller models routinely emit dashed-AND-numbered list items ("- ៣. ...").
+LIST_ORDINAL_PATTERN = re.compile(r"^\s*[-•*]?\s*[០១២៣៤៥៦៧៨៩0-9]+\s*[.)៖]")
 
 KHMER_SCRIPT_PATTERN = re.compile(r"[ក-៿]")
 
@@ -630,20 +707,61 @@ def score_context_relevance(context_chunk_ids, expected_chunks):
     return round(1 + recall * 4)
 
 
-def score_faithfulness(generated_answer, context):
-    """Number-overlap proxy: what fraction of numbers in the generated answer
-    also appear in the retrieved context? Returns (score_1_to_5, grounded,
-    total, ungrounded_list).
+def _context_number_forms(context):
+    """All numeric forms present in the context, expressed as Khmer digits:
+    the digit runs themselves (Arabic normalised to Khmer) PLUS the digit form
+    of any spelled-out Khmer cardinal that appears. This is the grounding set
+    the answer's numbers are checked against."""
+    forms = {to_khmer_digits(n) for n in NUMBER_PATTERN.findall(context)}
+    for word, digit in KHMER_WORD_TO_DIGIT.items():
+        if word in context:
+            forms.add(digit)
+    return forms
 
-    A blank answer has no numbers to check -- returns neutral 4, consistent
-    with the original design (no numbers = nothing to verify, not a
-    fabrication). The blank-answer penalty is applied separately via
-    answer_correctness and answer_relevance (both forced to score 1).
+
+def _answer_fact_numbers(generated_answer):
+    """The numbers in the answer that represent FACTS to be grounded, expressed
+    as Khmer digits. Excludes list-ordinal markers (the model's own numbering of
+    a list, e.g. a line beginning "៣." or "3)"), which are formatting, not facts
+    drawn from the source. Arabic digits are normalised to Khmer so digit form
+    never causes a false mismatch."""
+    facts = set()
+    for line in generated_answer.split("\n"):
+        marker = LIST_ORDINAL_PATTERN.match(line)
+        body = line[marker.end():] if marker else line
+        for n in NUMBER_PATTERN.findall(body):
+            facts.add(to_khmer_digits(n))
+    return facts
+
+
+def score_faithfulness(generated_answer, context):
+    """Number-overlap proxy: what fraction of the FACT numbers in the generated
+    answer also appear (in any equivalent form) in the retrieved context?
+    Returns (score_1_to_5, grounded, total, ungrounded_list).
+
+    Equivalence handling (added after false-flag evidence -- see
+    docs/SCORING_CALIBRATION.md): Arabic and Khmer digits are normalised to a
+    single form, a spelled-out Khmer cardinal in the context grounds its digit
+    form in the answer (so an answer writing "៣" is grounded by a context that
+    says "បី"), and list-ordinal markers in the answer are not counted as facts.
+    This removes the bulk of false "fabricated number" hits on answers that are
+    otherwise near-verbatim to the source.
+
+    An answer with no fact-numbers to check scores 5, NOT a neutral 4. No
+    numbers means there is no number to fabricate -- the answer is maximally
+    faithful on the only axis this proxy measures. The old neutral-4 rule
+    systematically PENALISED the safest, most concise answers (e.g. clean Khmer
+    prose with no figures) while rewarding models that padded in many grounded
+    list/citation numbers -- it ranked the cleanest model BELOW a wordier one
+    purely on this artefact. Number FABRICATION (an answer number absent from
+    context) is still what drives the score down; absence of numbers is not a
+    fabrication. A blank answer likewise has no numbers (-> 5 here) but is
+    penalised hard elsewhere via answer_correctness=1 and completeness=1.
     """
-    answer_numbers = set(NUMBER_PATTERN.findall(generated_answer))
+    answer_numbers = _answer_fact_numbers(generated_answer)
     if not answer_numbers:
-        return 4, 0, 0, []
-    context_numbers = set(NUMBER_PATTERN.findall(context))
+        return 5, 0, 0, []
+    context_numbers = _context_number_forms(context)
     grounded   = answer_numbers & context_numbers
     ungrounded = sorted(answer_numbers - context_numbers)
     fraction   = len(grounded) / len(answer_numbers)
@@ -661,18 +779,27 @@ def score_faithfulness(generated_answer, context):
 
 
 def score_completeness(generated_answer, expected_answer):
-    """Checks two things:
+    """Measures whether the answer is a COMPLETE thought, not whether it is
+    concise. Two signals:
     1. Does the answer end with Khmer sentence-final punctuation (។ or ៕)?
        Answers that end mid-word/mid-sentence hit max_tokens and are incomplete.
-    2. Length ratio: len(generated) / len(expected). Both TOO SHORT and
-       TOO LONG relative to the expected answer are penalised.
+    2. Length ratio: len(generated) / len(expected) -- used ONLY as a
+       truncation floor (too short relative to the gold passage).
+
+    There is deliberately NO over-length ceiling anymore. The old ceiling
+    penalised correct, complete answers purely for being phrased more verbosely
+    than the gold passage (the gold answers are terse verbatim extracts), which
+    double-counted against answer_correctness -- the metric that actually judges
+    whether the extra words are right. Verbosity is not incompleteness, so a
+    long-but-clean answer now scores 5. Genuine padding/repetition shows up as
+    LOWER answer_correctness, where it belongs.
 
     A blank answer fails the punctuation check AND has length_ratio = 0.0,
     which falls into the truncated branch at score = 1 (length_ratio < 0.40).
     No special-casing needed -- the existing logic handles it correctly.
     """
     stripped     = generated_answer.strip()
-    ends_cleanly = bool(stripped) and stripped[-1] in KHMER_END_PUNCT
+    ends_cleanly = ends_with_sentence_final(stripped)
 
     if not expected_answer or len(expected_answer) == 0:
         return (5 if ends_cleanly else 2), ends_cleanly, None
@@ -680,13 +807,18 @@ def score_completeness(generated_answer, expected_answer):
     length_ratio = len(stripped) / len(expected_answer)
 
     if ends_cleanly:
-        if 0.80 <= length_ratio <= 2.00:
+        # Complete sentence: full credit unless it is suspiciously SHORT
+        # relative to the gold passage (likely missing list items / clauses).
+        if length_ratio >= 0.80:
             score = 5
-        elif (0.60 <= length_ratio < 0.80) or (2.00 < length_ratio <= 3.00):
+        elif length_ratio >= 0.60:
             score = 4
-        else:
+        elif length_ratio >= 0.40:
             score = 3
+        else:
+            score = 2
     else:
+        # No sentence-final punctuation -> almost certainly truncated.
         if length_ratio >= 0.80:
             score = 3
         elif length_ratio >= 0.40:
@@ -1710,8 +1842,9 @@ def write_model_summary_md(summary, label):
     score_rows.append(["**Combined (weighted)**", f"**{summary['combined_avg']:.4f}**"])
     lines.append("## Proxy Metric Averages (1–5 scale)\n\n")
     lines.append(
-        "> Blank answers score 1 on Answer Correctness and Answer Relevance "
-        "(not excluded from the average).\n\n"
+        "> Answer Relevance is computed for traceability but NOT weighted. "
+        "Blank answers score 1 on Answer Correctness (not excluded from the "
+        "average).\n\n"
     )
     lines.append(tabulate(score_rows, headers=["Metric", "Avg Score"], tablefmt="github"))
     lines.append("\n\n")
@@ -2012,7 +2145,7 @@ def print_final_comparison(summaries):
             )
 
     print(f"\n  {BOLD}RECOMMENDATION: {ranked[0]['label']}{RESET}")
-    print(f"  → Use this model for human-scored evaluation in scripts/13_human_answer_evaluation.py")
+    print(f"  → Use this model for human-scored evaluation in scripts/14_human_answer_evaluation.py")
 
 
 def write_final_report(summaries):
@@ -2030,18 +2163,22 @@ def write_final_report(summaries):
         "note": (
             "Fully automated proxy metrics -- no human scoring. "
             "Context Relevance is exact (deterministic chunk-ID overlap). "
-            "Faithfulness uses number-overlap against retrieved context. "
-            "Answer Correctness and Answer Relevance use BGE-M3 cosine "
-            "similarity, each with its OWN threshold set calibrated against "
-            "this corpus's real distribution (see docs/SCORING_CALIBRATION.md). "
-            "Completeness checks sentence-final punctuation and BOTH a floor "
-            "and a ceiling on length ratio vs expected answer. "
-            "BLANK ANSWERS score 1 on Answer Correctness and Answer Relevance "
-            "(not excluded from averages). "
-            "weighted_combined is normalised by the sum of weights that had "
-            "values -- None is reserved for genuinely uncomputable metrics "
-            "(missing expected_answer), not for blank generated answers. "
-            "Run scripts/13_human_answer_evaluation.py on the winning model "
+            "Faithfulness uses number-overlap against retrieved context, with "
+            "Arabic/Khmer digit + Khmer number-word normalisation and "
+            "list-ordinal exclusion to avoid false fabrication flags. "
+            "Answer Correctness uses BGE-M3 cosine similarity vs the gold "
+            "expected_answer (see docs/SCORING_CALIBRATION.md). Answer "
+            "Relevance (answer-vs-question cosine) is computed for traceability "
+            "but is NOT weighted -- it is structurally capped and penalised even "
+            "gold-identical answers; the real relevance judgement is the Stage-2 "
+            "human eval. Completeness checks sentence-final punctuation and a "
+            "length-ratio FLOOR only (no over-length ceiling -- verbosity is not "
+            "incompleteness). "
+            "BLANK ANSWERS score 1 on Answer Correctness (not excluded from "
+            "averages). weighted_combined is normalised by the sum of weights "
+            "that had values -- None is reserved for genuinely uncomputable "
+            "metrics (missing expected_answer), not for blank generated answers. "
+            "Run scripts/14_human_answer_evaluation.py on the winning model "
             "for human-verified RAGAS scores."
         ),
     }
@@ -2100,8 +2237,10 @@ def write_final_report(summaries):
     md_lines = []
     md_lines.append("# Generator Model Comparison Report\n\n")
     md_lines.append(
-        "> Blank answers score **1** on Answer Correctness and Answer Relevance "
-        "(not excluded from averages). See `docs/SCORING_CALIBRATION.md`.\n\n"
+        "> Weighted metrics: Context Relevance, Faithfulness, Answer Correctness, "
+        "Completeness. Answer Relevance is shown for reference but NOT weighted. "
+        "Blank answers score **1** on Answer Correctness (not excluded from "
+        "averages). See `docs/SCORING_CALIBRATION.md`.\n\n"
     )
 
     md_lines.append("## Quality Scores (macro-avg, 1–5 scale)\n\n")
@@ -2123,7 +2262,7 @@ def write_final_report(summaries):
     md_lines.append(f"\n**Recommendation: {ranked[0]['label']}**\n\n")
     md_lines.append(
         f"Use this model for human-scored evaluation in "
-        f"`scripts/13_human_answer_evaluation.py`.\n"
+        f"`scripts/14_human_answer_evaluation.py`.\n"
     )
 
     md_path = REPORTS_DIR / "generator_model_comparison.md"
@@ -2144,6 +2283,94 @@ def write_final_report(summaries):
         f"Per-model summaries (MD)   : "
         f"{REPORTS_DIR}/<model>/generated_answer_results_summary.md"
     )
+
+
+# ----------------------------------------------------------------------------
+# Rescore mode -- re-judge already-generated answers, no generation
+# ----------------------------------------------------------------------------
+
+def rescore_all(chunks, embedding_model):
+    """Recompute every metric for the answers ALREADY on disk, then rewrite the
+    per-model JSONL, every summary, and the final comparison report. Never
+    starts llama-server.
+
+    The only thing the original scoring needed that the JSONL doesn't store
+    verbatim is the retrieval `context` string -- but each row keeps its
+    `context_chunk_ids`, so we rebuild the exact same context via build_context()
+    from the chunk metadata (headers, dates and all), making the rescore
+    bit-for-bit consistent with how the answer was scored at generation time.
+    Rows that recorded a generation error (no answer) are left untouched."""
+    global RESULTS_SUFFIX
+
+    chunk_lookup = {c["chunk_id"]: c for c in chunks}
+    COMPARE_SUFFIX = ""
+    all_summaries = []
+
+    banner = "=" * SEPARATOR_WIDTH
+    print(f"\n{banner}")
+    print(f"{BOLD}RESCORE MODE -- recomputing metrics from existing answers "
+          f"(no generation){RESET}")
+    print(banner)
+
+    for info in LLM_MODELS.values():
+        label = info["label"]
+        rescored_any = False
+
+        for suffix in ("", "_full"):
+            RESULTS_SUFFIX = suffix
+            rows = load_all_rows(label)
+            if rows is None:
+                continue  # this scope's file doesn't exist for this model
+
+            rescored = 0
+            for row in rows:
+                if row.get("error") or not row.get("generated_answer"):
+                    continue
+                context_ids = row.get("context_chunk_ids") or []
+                context_chunks = [
+                    (0.0, chunk_lookup[c]) for c in context_ids if c in chunk_lookup
+                ]
+                context = build_context(context_chunks)
+                scored = score_answer(
+                    row["generated_answer"],
+                    row["question"],
+                    row.get("expected_answer", ""),
+                    row.get("expected_chunks", []),
+                    context_ids,
+                    context,
+                    embedding_model,
+                )
+                row["scores"]   = scored["scores"]
+                row["combined"] = scored["combined"]
+                row["detail"]   = scored["detail"]
+                rescored += 1
+
+            path = result_path(label)
+            with open(path, "w", encoding="utf-8") as f:
+                for row in rows:
+                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            print(f"  {label} [{suffix or 'manual'}]: rescored {rescored} answers "
+                  f"-> {path}")
+            rescored_any = True
+
+        if rescored_any:
+            # Rewrites both ..._summary.json/.md for whichever files exist.
+            summaries = generate_all_summaries(label)
+            if COMPARE_SUFFIX in summaries:
+                all_summaries.append(summaries[COMPARE_SUFFIX])
+
+    RESULTS_SUFFIX = ""
+
+    if not all_summaries:
+        raise SystemExit(
+            "No existing result files found to rescore. Run the full generation "
+            "first (python scripts/11_compare_generator_models.py)."
+        )
+
+    print_final_comparison(all_summaries)
+    write_final_report(all_summaries)
+    print("\nRescore complete. Re-run scripts/12_diagnose_generator_scores.py "
+          "to refresh the diagnostics.")
 
 
 # ----------------------------------------------------------------------------
@@ -2175,6 +2402,13 @@ def main():
     print("Loading chunk metadata...")
     with open(METADATA_PATH, "r", encoding="utf-8") as f:
         chunks = json.load(f)
+
+    # Rescore mode short-circuits here: it only needs the embedding model (for
+    # answer_correctness/relevance) and the chunk metadata (to rebuild context
+    # for faithfulness). No FAISS search, no BM25, no llama-server.
+    if RESCORE:
+        rescore_all(chunks, embedding_model)
+        return
 
     print("Building BM25 index...")
     bm25_corpus = [

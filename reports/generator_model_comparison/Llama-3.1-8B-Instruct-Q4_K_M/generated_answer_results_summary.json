@@ -1,0 +1,84 @@
+{
+  "label": "Llama 3.1 8B",
+  "total_questions": 100,
+  "valid_questions": 100,
+  "failed_questions": 0,
+  "truncated_answers": 26,
+  "blank_answers": 0,
+  "scores_avg": {
+    "context_relevance": 4.92,
+    "faithfulness": 4.91,
+    "answer_correctness": 4.17,
+    "completeness": 3.99
+  },
+  "combined_avg": 4.478,
+  "per_category": {
+    "guidance": {
+      "scores": {
+        "context_relevance": 5.0,
+        "faithfulness": 4.84,
+        "answer_correctness": 4.28,
+        "completeness": 4.12
+      },
+      "timing": {
+        "first_token_time_avg": 76.0697,
+        "generation_time_avg": 148.1277,
+        "tokens_out_avg": 404.8
+      }
+    },
+    "laws": {
+      "scores": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_correctness": 4.32,
+        "completeness": 4.32
+      },
+      "timing": {
+        "first_token_time_avg": 35.7361,
+        "generation_time_avg": 72.2771,
+        "tokens_out_avg": 365.6
+      }
+    },
+    "prakas": {
+      "scores": {
+        "context_relevance": 4.84,
+        "faithfulness": 4.88,
+        "answer_correctness": 3.84,
+        "completeness": 3.6
+      },
+      "timing": {
+        "first_token_time_avg": 43.8137,
+        "generation_time_avg": 94.8324,
+        "tokens_out_avg": 476.8
+      }
+    },
+    "sub_decrees": {
+      "scores": {
+        "context_relevance": 4.84,
+        "faithfulness": 4.92,
+        "answer_correctness": 4.24,
+        "completeness": 3.92
+      },
+      "timing": {
+        "first_token_time_avg": 58.3276,
+        "generation_time_avg": 107.1237,
+        "tokens_out_avg": 431.3
+      }
+    }
+  },
+  "timing_avg": {
+    "first_token_time": 53.7557,
+    "generation_time": 106.2523,
+    "tokens_per_sec": 8.4432
+  },
+  "timing_detail": {
+    "first_token_time_avg": 53.7557,
+    "first_token_time_p50": 50.0144,
+    "first_token_time_p95": 104.3214,
+    "generation_time_avg": 106.2523,
+    "tokens_per_sec_avg": 8.4432,
+    "tokens_out_avg": 420.5,
+    "tokens_out_min": 27,
+    "tokens_out_max": 1260
+  }
+}

@@ -7,7 +7,7 @@ from pathlib import Path
 # Generator Evaluation Diagnostics
 # ============================================================================
 # Permanent home for the diagnostic checks used to calibrate
-# scripts/10_compare_generator_models.py's scoring thresholds (see
+# scripts/11_compare_generator_models.py's scoring thresholds (see
 # docs/SCORING_CALIBRATION.md for the full writeup of what each check
 # found and why it mattered). Re-run this any time the calibration needs
 # re-checking -- e.g. after adding new gold questions, swapping in a
@@ -22,8 +22,8 @@ from pathlib import Path
 #   reports/generator_model_comparison/generator_score_diagnostics.md
 #
 # USAGE:
-#   python scripts/11_diagnose_generator_scores.py              # all checks
-#   python scripts/11_diagnose_generator_scores.py --check NAME # one check
+#   python scripts/12_diagnose_generator_scores.py              # all checks
+#   python scripts/12_diagnose_generator_scores.py --check NAME # one check
 #
 # Available check names: faithfulness, completeness, context_relevance,
 #                        answer_correctness, answer_relevance, blank_answers,
@@ -37,7 +37,7 @@ OUTPUT_MD   = REPORTS_DIR / "generator_score_diagnostics.md"
 MODEL_DIRS = [
     "SeaLLMs-v3-7B-Chat-Q4_K_M",
     "Qwen3.5-9B-Q4_K_M",
-    "gemma-4-E4B-it-Q4_K_M",
+    "Sailor2-L-8B-Chat-Q4_K_M",
     "Llama-3.1-8B-Instruct-Q4_K_M",
 ]
 
@@ -45,18 +45,21 @@ MODEL_DIRS = [
 MODEL_LABELS = {
     "SeaLLMs-v3-7B-Chat-Q4_K_M":      "SeaLLM v3 7B",
     "Qwen3.5-9B-Q4_K_M":               "Qwen 3.5 9B",
-    "gemma-4-E4B-it-Q4_K_M":           "Gemma 4 E4B",
+    "Sailor2-L-8B-Chat-Q4_K_M":        "Sailor2-L 8B",
     "Llama-3.1-8B-Instruct-Q4_K_M":    "Llama 3.1 8B",
 }
 
 SEPARATOR_WIDTH = 100
 SEPARATOR = "=" * SEPARATOR_WIDTH
 
+# Must match scripts/11_compare_generator_models.py exactly. answer_relevance
+# is no longer weighted (see scripts/11 for the rationale) -- its similarity is
+# still reported below as an INFORMATIONAL diagnostic, but it is excluded from
+# the weighted score distributions / per-category averages here.
 WEIGHTS = {
     "context_relevance":  0.20,
     "faithfulness":       0.25,
-    "answer_correctness": 0.25,
-    "answer_relevance":   0.15,
+    "answer_correctness": 0.40,
     "completeness":       0.15,
 }
 
@@ -442,14 +445,20 @@ def write_reports(all_results):
     lines = []
     lines.append("# Generator Score Diagnostics\n\n")
     lines.append(
-        "Evidence file for the calibration of `scripts/10_compare_generator_models.py` "
+        "Evidence file for the calibration of `scripts/11_compare_generator_models.py` "
         "scoring thresholds. See `docs/SCORING_CALIBRATION.md` for the full interpretation.\n\n"
     )
     lines.append(
+        "> **Answer Relevance is informational only** — it is no longer part of the "
+        "weighted combined score (its answer-vs-question cosine is structurally capped "
+        "and penalised even gold-identical answers). Its distribution is still shown "
+        "below for reference. The weighted metrics are Context Relevance, Faithfulness, "
+        "Answer Correctness, and Completeness.\n\n"
+    )
+    lines.append(
         "> **Blank answer policy**: blank answers score **1** on Answer Correctness "
-        "and Answer Relevance (not excluded). `similarity = 0.0` is stored in "
-        "`detail.answer_correctness_similarity` and `detail.answer_relevance_similarity` "
-        "for traceability.\n\n"
+        "(not excluded). `similarity = 0.0` is stored in "
+        "`detail.answer_correctness_similarity` for traceability.\n\n"
     )
 
     # Blank answers
@@ -594,17 +603,25 @@ def write_reports(all_results):
     thresholds_ac = [(0.90,5),(0.80,4),(0.70,3),(0.60,2),(0.50,1),(0.00,1)]
     for t, s in thresholds_ac:
         lines.append(f"| ≥ {t:.2f} | {s} |\n")
-    lines.append("\n### Answer Relevance\n\n")
+    lines.append(
+        "\n### Answer Relevance (informational only — not weighted)\n\n"
+        "Kept for reference; does not contribute to the combined score.\n\n"
+    )
     lines.append("| Min Similarity | Score |\n|---------------|-------|\n")
     thresholds_ar = [(0.82,5),(0.75,4),(0.65,3),(0.55,2),(0.00,1)]
     for t, s in thresholds_ar:
         lines.append(f"| ≥ {t:.2f} | {s} |\n")
     lines.append("\n### Completeness (length_ratio = len(generated) / len(expected))\n\n")
     lines.append(
+        "No over-length ceiling: a complete answer is not penalised for being "
+        "more verbose than the terse gold passage (answer_correctness judges "
+        "whether the extra words are right). Only truncation / under-length is "
+        "penalised.\n\n"
         "| Condition | Score |\n|-----------|-------|\n"
-        "| Ends cleanly AND 0.80 ≤ ratio ≤ 2.00 | 5 |\n"
-        "| Ends cleanly AND (0.60 ≤ ratio < 0.80 OR 2.00 < ratio ≤ 3.00) | 4 |\n"
-        "| Ends cleanly AND (ratio < 0.60 OR ratio > 3.00) | 3 |\n"
+        "| Ends cleanly AND ratio ≥ 0.80 | 5 |\n"
+        "| Ends cleanly AND 0.60 ≤ ratio < 0.80 | 4 |\n"
+        "| Ends cleanly AND 0.40 ≤ ratio < 0.60 | 3 |\n"
+        "| Ends cleanly AND ratio < 0.40 | 2 |\n"
         "| Truncated AND ratio ≥ 0.80 | 3 |\n"
         "| Truncated AND ratio ≥ 0.40 | 2 |\n"
         "| Truncated AND ratio < 0.40 (incl. blank) | 1 |\n\n"

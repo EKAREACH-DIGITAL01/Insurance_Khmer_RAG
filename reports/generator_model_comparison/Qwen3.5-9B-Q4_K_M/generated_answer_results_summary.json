@@ -1,0 +1,84 @@
+{
+  "label": "Qwen 3.5 9B",
+  "total_questions": 100,
+  "valid_questions": 100,
+  "failed_questions": 0,
+  "truncated_answers": 32,
+  "blank_answers": 0,
+  "scores_avg": {
+    "context_relevance": 4.8,
+    "faithfulness": 5.0,
+    "answer_correctness": 4.78,
+    "completeness": 4.36
+  },
+  "combined_avg": 4.776,
+  "per_category": {
+    "guidance": {
+      "scores": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_correctness": 4.88,
+        "completeness": 4.28
+      },
+      "timing": {
+        "first_token_time_avg": 28.2625,
+        "generation_time_avg": 79.4638,
+        "tokens_out_avg": 649.0
+      }
+    },
+    "laws": {
+      "scores": {
+        "context_relevance": 5.0,
+        "faithfulness": 5.0,
+        "answer_correctness": 4.76,
+        "completeness": 4.52
+      },
+      "timing": {
+        "first_token_time_avg": 22.4535,
+        "generation_time_avg": 68.4014,
+        "tokens_out_avg": 574.7
+      }
+    },
+    "prakas": {
+      "scores": {
+        "context_relevance": 4.36,
+        "faithfulness": 5.0,
+        "answer_correctness": 4.76,
+        "completeness": 4.44
+      },
+      "timing": {
+        "first_token_time_avg": 25.454,
+        "generation_time_avg": 69.0609,
+        "tokens_out_avg": 545.1
+      }
+    },
+    "sub_decrees": {
+      "scores": {
+        "context_relevance": 4.84,
+        "faithfulness": 5.0,
+        "answer_correctness": 4.72,
+        "completeness": 4.2
+      },
+      "timing": {
+        "first_token_time_avg": 31.9502,
+        "generation_time_avg": 87.5161,
+        "tokens_out_avg": 690.2
+      }
+    }
+  },
+  "timing_avg": {
+    "first_token_time": 27.0229,
+    "generation_time": 76.0336,
+    "tokens_per_sec": 12.5454
+  },
+  "timing_detail": {
+    "first_token_time_avg": 27.0229,
+    "first_token_time_p50": 25.5114,
+    "first_token_time_p95": 42.9484,
+    "generation_time_avg": 76.0336,
+    "tokens_per_sec_avg": 12.5454,
+    "tokens_out_avg": 614.0,
+    "tokens_out_min": 103,
+    "tokens_out_max": 2156
+  }
+}
