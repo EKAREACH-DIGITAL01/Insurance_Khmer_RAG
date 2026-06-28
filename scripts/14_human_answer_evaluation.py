@@ -197,6 +197,7 @@ def init_db():
             completeness       INTEGER,
             hallucination      INTEGER,
             total_score        INTEGER,
+            comment            TEXT,
             submitted_at       INTEGER NOT NULL,
             UNIQUE (evaluator_id, question_id),
             FOREIGN KEY (evaluator_id) REFERENCES evaluators(id)
@@ -211,6 +212,8 @@ def init_db():
             conn.execute(f"ALTER TABLE responses ADD COLUMN {col} INTEGER")
     if "question_id" not in resp_cols:
         conn.execute("ALTER TABLE responses ADD COLUMN question_id TEXT")
+    if "comment" not in resp_cols:
+        conn.execute("ALTER TABLE responses ADD COLUMN comment TEXT")
 
     eval_cols = {
         row[1] for row in conn.execute("PRAGMA table_info(evaluators)").fetchall()
@@ -292,7 +295,7 @@ def get_responses(evaluator_id):
     conn = get_db()
     rows = conn.execute(
         "SELECT question_id, context_relevance, faithfulness, answer_relevance, "
-        "answer_correctness, completeness, hallucination, total_score "
+        "answer_correctness, completeness, hallucination, total_score, comment "
         "FROM responses WHERE evaluator_id = ?",
         (evaluator_id,),
     ).fetchall()
@@ -300,14 +303,14 @@ def get_responses(evaluator_id):
     return {r["question_id"]: dict(r) for r in rows}
 
 
-def save_response(evaluator_id, question_id, scores, hallucination_flag):
+def save_response(evaluator_id, question_id, scores, hallucination_flag, comment=""):
     total = sum(scores.values())
     conn = get_db()
     conn.execute(
         """INSERT INTO responses
            (evaluator_id, question_id, context_relevance, faithfulness, answer_relevance,
-            answer_correctness, completeness, hallucination, total_score, submitted_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            answer_correctness, completeness, hallucination, total_score, comment, submitted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(evaluator_id, question_id) DO UPDATE SET
                context_relevance=excluded.context_relevance,
                faithfulness=excluded.faithfulness,
@@ -316,6 +319,7 @@ def save_response(evaluator_id, question_id, scores, hallucination_flag):
                completeness=excluded.completeness,
                hallucination=excluded.hallucination,
                total_score=excluded.total_score,
+               comment=excluded.comment,
                submitted_at=excluded.submitted_at""",
         (
             evaluator_id,
@@ -327,6 +331,7 @@ def save_response(evaluator_id, question_id, scores, hallucination_flag):
             scores["completeness"],
             hallucination_flag,
             total,
+            comment.strip(),
             int(time.time()),
         ),
     )
@@ -663,6 +668,32 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     color: var(--stone-light) !important;
     border-color: var(--brass-soft) !important;
     opacity: 0.45 !important;
+}
+
+/* ── Comment / feedback box ──────────────────────────────────────────── */
+.ev-comment-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--stone-light); margin: 14px 0 6px 0; }
+[data-testid="stTextArea"] textarea {
+    background: var(--parchment-soft) !important;
+    border: 1px solid var(--brass-soft) !important;
+    border-radius: 8px !important;
+    color: var(--stone) !important;
+    font-family: 'Hanuman', 'IBM Plex Sans', sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.7 !important;
+    box-shadow: none !important;
+}
+[data-testid="stTextArea"] textarea:focus { border-color: var(--brass) !important; box-shadow: 0 0 0 2px var(--brass-mist) !important; }
+.ev-comment-view {
+    background: var(--parchment-soft);
+    border: 1px solid var(--brass-soft);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: 'Hanuman', sans-serif;
+    font-size: 14px;
+    color: var(--stone);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    min-height: 42px;
 }
 
 /* ── Inline progress label: "Question X of Y" on the left, done-count/name
@@ -1381,6 +1412,30 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
     if hallucination_flag is None:
         all_scored = False
 
+    # ── Free-text comment (optional) ──────────────────────────────────
+    comment_key = f"comment_{q_idx}"
+    if comment_key not in st.session_state:
+        st.session_state[comment_key] = existing.get("comment") or ""
+
+    st.markdown(
+        '<div class="ev-comment-label">Comment / feedback (optional)</div>',
+        unsafe_allow_html=True,
+    )
+    if is_submitted:
+        saved_comment = existing.get("comment") or ""
+        st.markdown(
+            f'<div class="ev-comment-view">{saved_comment if saved_comment else "— no comment left —"}</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.text_area(
+            "comment",
+            key=comment_key,
+            placeholder="Anything you'd like to note about this answer…",
+            label_visibility="collapsed",
+            height=80,
+        )
+
     # ── Footer: score bar + submit (or locked notice) ──────────────────
     metric_sum = sum(v for v in current_scores.values() if v is not None)
     bar_pct = int(metric_sum / MAX_TOTAL * 100)
@@ -1417,7 +1472,14 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
                 final_scores = {
                     k: v for k, v in current_scores.items() if v is not None
                 }
-                save_response(evaluator_id, q_idx, final_scores, hallucination_flag)
+                comment_text = st.session_state.get(comment_key, "")
+                save_response(
+                    evaluator_id,
+                    q_idx,
+                    final_scores,
+                    hallucination_flag,
+                    comment_text,
+                )
                 # Advance to the next unanswered question after this one in
                 # assignment order; wrap to the first unanswered overall if
                 # none remain after the current position (out-of-order rating
