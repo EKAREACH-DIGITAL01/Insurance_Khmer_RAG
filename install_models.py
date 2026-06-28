@@ -96,10 +96,15 @@ LLM_MODELS = {
         "label": "Qwen-3.5-9B-Q4_K_M (5.68 GB)",
     },
     "3": {
-        "repo_id": "mradermacher/Sailor2-8B-Chat-GGUF",
-        "hf_filename": "Sailor2-8B-Chat.Q4_K_M.gguf",
-        "local_filename": "Sailor2-8B-Chat-Q4_K_M.gguf",
-        "label": "Sailor2-8B-Chat-Q4_K_M (4.93 GB)",
+        # Sailor2-L ("L" = long): the 128K-context variant. The plain
+        # sail/Sailor2-8B-Chat GGUF has max_position_embeddings=4096 baked in
+        # (llama.cpp clamps --ctx-size to it), too small for our 5k-13k-token
+        # RAG prompts. sail/Sailor2-L-8B-Chat is natively 131072 ctx (no rope
+        # scaling needed), so it runs the pipeline like the other models.
+        "repo_id": "mradermacher/Sailor2-L-8B-Chat-GGUF",
+        "hf_filename": "Sailor2-L-8B-Chat.Q4_K_M.gguf",
+        "local_filename": "Sailor2-L-8B-Chat-Q4_K_M.gguf",
+        "label": "Sailor2-L-8B-Chat-Q4_K_M (5.24 GB, 128K ctx)",
     },
     "4": {
         "repo_id": "unsloth/Llama-3.1-8B-Instruct-GGUF",

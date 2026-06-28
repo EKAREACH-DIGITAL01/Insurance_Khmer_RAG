@@ -60,8 +60,11 @@ MODELS = {
         "extra_args": ["--jinja", "--reasoning", "off"],
     },
     "3": {
-        "file": "Sailor2-8B-Chat-Q4_K_M.gguf",
-        "name": "Sailor2",
+        # Sailor2-L = the 128K-context variant. The plain Sailor2-8B GGUF is
+        # capped at 4096 ctx -- too small for our 5k-13k-token RAG prompts, so
+        # it 400'd on nearly every question. Sailor2-L is natively 131072 ctx.
+        "file": "Sailor2-L-8B-Chat-Q4_K_M.gguf",
+        "name": "Sailor2-L",
         # Sailor2 8B is Qwen2.5-based (ChatML template) and SEA-tuned
         # (incl. Khmer), so it's a fair-spec peer to SeaLLM/Qwen/Llama --
         # unlike Gemma 4 E4B, which was an effective-~4B on-device variant
@@ -88,7 +91,7 @@ Choose model:
 
 1. SeaLLMs-v3-7B-Chat-Q4_K_M.gguf
 2. Qwen3.5-9B-Q4_K_M.gguf
-3. Sailor2-8B-Chat-Q4_K_M.gguf
+3. Sailor2-L-8B-Chat-Q4_K_M.gguf
 4. Llama-3.1-8B-Instruct-Q4_K_M.gguf
 """)
 
@@ -149,6 +152,106 @@ def print_embedding_model_status():
 
 print_embedding_model_status()
 
+
+SERVER_CTX_SIZE = 16384  # must match app.py's SERVER_CTX_SIZE
+
+
+def free_port_8080():
+    """Kill any llama-server already bound to port 8080 before we launch ours.
+
+    A stale server left over from a crashed run, or one started by
+    scripts/11_compare_generator_models.py (or a previous chatbot launch), keeps
+    the port. Our new process then fails to bind, dies, and the readiness poll
+    below silently attaches to the WRONG server -- commonly the bare llama.cpp
+    DEFAULT of n_ctx=4096, which then 400s every prompt over 4096 tokens
+    ('exceeds the available context size (4096)'). This is exactly what made
+    Sailor break. Freeing the port first guarantees we only talk to the server
+    we just started."""
+    pids = []
+    try:
+        if OS_NAME == "Windows":
+            out = subprocess.run(
+                ["netstat", "-ano", "-p", "TCP"],
+                capture_output=True, text=True, timeout=10,
+            ).stdout
+            for line in out.splitlines():
+                if ":8080" in line and "LISTENING" in line:
+                    parts = line.split()
+                    if parts and parts[-1].isdigit():
+                        pids.append(parts[-1])
+        else:
+            out = subprocess.run(
+                ["lsof", "-nP", "-iTCP:8080", "-sTCP:LISTEN", "-t"],
+                capture_output=True, text=True, timeout=10,
+            ).stdout
+            pids = [p for p in out.split() if p.isdigit()]
+    except Exception:
+        return
+
+    pids = list(dict.fromkeys(pids))  # de-dupe, preserve order
+    if not pids:
+        return
+
+    print(
+        f"WARNING: port 8080 already in use (pid {', '.join(pids)}); killing "
+        f"stale server(s) so we don't attach to the wrong context."
+    )
+    for pid in pids:
+        try:
+            if OS_NAME == "Windows":
+                subprocess.run(["taskkill", "/F", "/PID", pid], capture_output=True)
+            else:
+                os.kill(int(pid), 15)
+        except Exception:
+            pass
+    time.sleep(2)
+    # Force-kill anything still holding the port (POSIX only; taskkill above is
+    # already a force-kill on Windows).
+    if OS_NAME != "Windows":
+        try:
+            still = subprocess.run(
+                ["lsof", "-nP", "-iTCP:8080", "-sTCP:LISTEN", "-t"],
+                capture_output=True, text=True, timeout=10,
+            ).stdout.split()
+            for pid in still:
+                if pid.isdigit():
+                    os.kill(int(pid), 9)
+        except Exception:
+            pass
+        time.sleep(1)
+
+
+def verify_server_ctx(expected_ctx):
+    """Confirm the live server's context window is what we launched with.
+
+    Reads /props; llama.cpp exposes the real n_ctx under
+    default_generation_settings.n_ctx (and sometimes top-level). If it's smaller
+    than requested, we're talking to the wrong/misconfigured server -- fail
+    loudly instead of silently 400-ing every long prompt mid-chat."""
+    try:
+        props = requests.get("http://localhost:8080/props", timeout=10).json()
+    except Exception as e:
+        print(f"WARNING: could not read /props to verify n_ctx: {e}")
+        return
+    n_ctx = (
+        props.get("default_generation_settings", {}).get("n_ctx")
+        or props.get("n_ctx")
+    )
+    if n_ctx is None:
+        print("WARNING: server did not report n_ctx; could not verify context size.")
+        return
+    if int(n_ctx) < expected_ctx:
+        raise SystemExit(
+            f"\nllama-server came up with n_ctx={n_ctx}, but {expected_ctx} was "
+            f"requested. This is the wrong/stale server (long prompts will 400 "
+            f"with 'exceeds the available context size'). Aborting -- make sure "
+            f"no other llama-server is running on port 8080, then re-run."
+        )
+    print(f"Context size verified: n_ctx={n_ctx}.")
+
+
+free_port_8080()
+
 # --ctx-size: MUST exceed prompt_token + max_tokens or llama.cpp falls back
 # to context-shifting (re-evaluating large chunks of the prompt), which is
 # far slower than ordinary prefill -- this was previously unset, silently
@@ -172,7 +275,7 @@ llama_process = subprocess.Popen(
         "-ngl",
         "999",
         "--ctx-size",
-        "16384",
+        str(SERVER_CTX_SIZE),
         "--flash-attn",
         "on",
         "--cache-type-k",
@@ -197,6 +300,16 @@ while True:
         llama_process.kill()
         raise SystemExit("llama-server failed to start within 120 seconds.")
 
+    # If our own process died (e.g. couldn't bind the port, or OOM at this ctx
+    # size), stop -- otherwise the poll could latch onto a different server
+    # still listening on 8080.
+    if llama_process.poll() is not None:
+        raise SystemExit(
+            f"llama-server process exited during startup "
+            f"(code {llama_process.returncode}). Check the model loads at "
+            f"--ctx-size {SERVER_CTX_SIZE} and that port 8080 is free."
+        )
+
     try:
         response = requests.get(
             "http://localhost:8080/v1/models",
@@ -210,6 +323,8 @@ while True:
         pass
 
     time.sleep(1)
+
+verify_server_ctx(SERVER_CTX_SIZE)
 
 print("Model loaded.")
 

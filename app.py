@@ -1450,7 +1450,26 @@ def build_context(results):
     return context, context_length, context_time
 
 
-def build_prompt(question, context, low_confidence=False):
+# Per-model style correction. Sailor2 alone tends to dress answers up with an
+# invented bold heading, markdown emphasis, injected source citations/dates
+# pulled from chunk metadata (e.g. "(មាត្រា ១)", "(2023-10-17)"), and a literal
+# closing tag like "(ចប់) ៕" -- which reads as embellishment next to the plain
+# gold answer. This extra rule block is appended to the prompt ONLY for Sailor,
+# so the base prompt the other models see stays byte-for-byte unchanged. Keyed
+# on a case-insensitive "sailor" substring so it matches both the eval label
+# ("Sailor2-L 8B") and the app's model id ("Sailor2-L-8B-Chat-Q4_K_M.gguf"). Must
+# stay identical to scripts/11_compare_generator_models.py.
+SAILOR_STYLE_RULES = """
+- Do NOT add a title or heading, do NOT use bold or any markdown formatting, and do NOT cite the source document's name, article/provision number, or any date (for example, do NOT write "(មាត្រា ១)", "(2023-10-17)", or "(តាម គោលការណ៍ណែនាំ...)"). Answer in plain Khmer prose, or a plain numbered/dashed list, exactly as the source presents it.
+- Do NOT write any closing word or tag such as "(ចប់)", "(បញ្ចប់)", or a trailing "៕". End only with ។ on the final sentence.
+- Do NOT add framing, emphasis, or any information that is not in the context. Match the wording and scope of the source -- do not expand, summarize away, or restructure its meaning."""
+
+
+def _is_sailor(model_id):
+    return "sailor" in (model_id or "").lower()
+
+
+def build_prompt(question, context, low_confidence=False, model_id=""):
     relevance_check = ""
     if low_confidence:
         # Triggered when best_score sits below MIN_SCORE but above
@@ -1482,6 +1501,10 @@ related answer.
         f"រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។ {REDIRECT_TEXT}"
     )
 
+    # Sailor-only style correction (empty for every other model, so their
+    # prompt is unchanged). Appended at the end of the rules list below.
+    style_rules = SAILOR_STYLE_RULES if _is_sailor(model_id) else ""
+
     return f"""
 You are a Khmer legal assistant.
 
@@ -1499,7 +1522,7 @@ Rules:
 - Do not reinterpret a number, rate, or statistic for a purpose other than what it was stated for in the source (for example, a mortality or incidence rate expressed "per 1,000 people" is NOT the same as a total population count -- never restate a rate's denominator as if it were the literal answer to a "how many" question).
 - Do not recommend, endorse, or compare any specific insurance product, company, or policy, even if the context mentions one and the question asks for a recommendation.
 - Do not calculate, estimate, or infer a premium, payout, deductible, or any monetary amount that is not stated explicitly and directly in the context for that exact purpose.
-- Do not give personalized financial or legal advice (e.g. "should I buy X", "what should I do in my situation"). If the question asks for a personal recommendation, a calculation, or advice tailored to the user's situation, decline and reply with the message below instead of attempting an answer.
+- Do not give personalized financial or legal advice (e.g. "should I buy X", "what should I do in my situation"). If the question asks for a personal recommendation, a calculation, or advice tailored to the user's situation, decline and reply with the message below instead of attempting an answer.{style_rules}
 - If the answer is not found in the context, OR the question asks for a product recommendation, a premium/payout calculation, or personalized advice, reply EXACTLY with this message and nothing else:
 
 {not_found_message}
@@ -1813,7 +1836,11 @@ def run_pipeline_in_thread(
         context_results = select_context_chunks(fused_results)
         context, context_length, context_time = build_context(context_results)
         out_q.put(("phase", "constructing_prompt"))
-        prompt = build_prompt(question, context, low_confidence=best_score < MIN_SCORE)
+        prompt = build_prompt(
+            question, context,
+            low_confidence=best_score < MIN_SCORE,
+            model_id=model_name,
+        )
         context_tokens = count_tokens(context)
         prompt_tokens = count_tokens(prompt)
 

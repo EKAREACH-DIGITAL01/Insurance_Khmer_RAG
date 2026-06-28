@@ -226,9 +226,182 @@ narrow for the question — a gold-data fix, not a pipeline fix. See
 
 ---
 
-## 10. Summary of where each change lives
+## 10. Per-model gold scope — manual-only vs. full (script 11)
 
-| Change | `app.py` | `scripts/11_compare_generator_models.py` |
+The gold set has two tiers per category: the first 25 questions are purely
+**human-authored** (question, expected chunks, *and* expected answer), and
+question 26 onward are **AI-generated**. Across the four categories that's
+**100 manual** and **300 AI** questions (400 total).
+
+Most models are compared on the manual-only 100 — that's the clean,
+trusted set. But SeaLLM (the model shipped to the client) is additionally
+evaluated over the **full 400** so its behaviour is measured on the wider,
+messier question distribution real users resemble. To keep the two runs from
+colliding, the full run writes to a **separate set of files**.
+
+**Mechanism:**
+
+- A model opts into the full set with `"gold_scope": "full"` in `LLM_MODELS`
+  (currently only SeaLLM). Everyone else defaults to the manual set.
+- `main()` builds **both** lists once: `gold_entries_manual` (the 100) and
+  `gold_entries_full` (the 400). A `scope_for(info)` helper returns the
+  `(suffix, gold_entries)` pair for each model.
+- A module-level `RESULTS_SUFFIX` (set per-model right before that model runs,
+  since models run strictly one at a time) flows into the filename helpers:
+  - manual scope → `generated_answer_results.jsonl` / `..._summary.json` / `.md`
+  - full scope   → `generated_answer_results_full.jsonl` / `..._full_summary.*`
+- **Resume is automatic and free.** The 100 manual SeaLLM answers were copied
+  into `..._full.jsonl` first; `load_existing_results()` keys off
+  `question_id`, sees those 100 as done, and generates only the ~300 AI
+  questions. `reorder_results_file()` then slots everything into full gold
+  order.
+- The token ceiling self-sizes: `compute_gold_ceiling()` runs over whichever
+  list the model uses, so the full run's ceiling reflects the longest of all
+  400 answers.
+
+> AI questions may lack an `expected_answer`. That's handled: such entries are
+> excluded from the ceiling calc, and their `answer_correctness` scores as
+> `None` (genuinely uncomputable, §1's normalisation), so they neither crash
+> nor distort the summary.
+
+> Comparison caveat: the final comparison table then mixes a 400-question
+> SeaLLM summary with 100-question summaries for the others. The metrics are
+> per-question means so they stay comparable, but SeaLLM's combined score now
+> reflects the harder AI questions too — bear that in mind when reading the
+> ranking.
+
+### Both result files get their own summary
+
+A model that has *both* result files on disk (SeaLLM: the 100-question
+`generated_answer_results.jsonl` **and** the 400-question
+`generated_answer_results_full.jsonl`) gets a summary for **each**, written to
+its matching name:
+
+| Result file | Summary json | Summary md |
+|---|---|---|
+| `generated_answer_results.jsonl` | `generated_answer_results_summary.json` | `..._summary.md` |
+| `generated_answer_results_full.jsonl` | `generated_answer_results_full_summary.json` | `..._full_summary.md` |
+
+`generate_all_summaries(label)` loops the suffixes `("", "_full")`, loads
+whichever result file exists (via `load_all_rows()`, which keeps error rows so
+`summarise()` can count them), and writes that scope's summary. It runs after a
+model finishes **and** when a model is skipped as already-done, so both summary
+files stay current even on a no-op resume run. The cross-model comparison still
+uses each model's **primary-scope** summary (full for SeaLLM, manual for the
+rest), so the final table has exactly one row per model.
+
+---
+
+## 11. Server-launch guards: stale server, context cap, Ctrl+C (both files)
+
+This area saw several iterations; the **final** design is below.
+
+### Stale / wrong server on port 8080
+
+A leftover `llama-server` (a crashed run, a manually-started one, or script 11's
+server for a previous model) can still hold **port 8080**. The new process then
+fails to bind, dies, and a naive readiness poll — which only checks that
+*something* answers on 8080 — would attach to the wrong server.
+
+Guards (both `start_chatbot.py` and `scripts/11_compare_generator_models.py`):
+
+1. **Free port 8080 before launching.** A helper finds whatever is listening on
+   8080 and kills it (SIGTERM then SIGKILL on POSIX via `lsof`/`os.kill`;
+   `netstat`/`taskkill` on Windows).
+2. **Detect our own process dying.** The readiness loop checks `process.poll()`;
+   if our `llama-server` exits during startup it aborts with a clear message
+   instead of polling into some other server.
+3. **Verify the server is OURS by the loaded model name.** After ready, it reads
+   `/props` and confirms `model_path`'s filename matches the GGUF we launched.
+   This — **not** the context size — is the reliable stale-server signal.
+4. `--ctx-size` is driven by `str(SERVER_CTX_SIZE)` so the flag can't drift from
+   the constant.
+
+### Context size is the *model's* cap, not a stale-server signal
+
+An earlier version aborted whenever the live `n_ctx` was below the requested
+16384, on the theory that a smaller window meant a stale server. That was a
+**false-positive bug**: llama.cpp clamps `--ctx-size` down to a model's own
+trained context. The plain **`Sailor2-8B-Chat` GGUF is built at
+`context_length = 4096`**, so it legitimately came up at `n_ctx=4096` and was
+wrongly rejected as "stale".
+
+Final behaviour: `verify_server()` **warns** (does not abort) when the correct
+model reports `n_ctx < SERVER_CTX_SIZE`, noting it's the GGUF's own limit. A
+small-context model can then still be evaluated on whatever fits.
+
+> **Sailor fix.** Sailor2-8B at 4096 ctx cannot hold the 5k–13k-token RAG
+> prompts (most 400'd). The model was swapped to **`Sailor2-L-8B-Chat`** — the
+> "L" long-context variant, natively `131072` ctx, no rope scaling — in
+> `install_models.py`, `scripts/11`, and `start_chatbot.py`
+> (`local_filename = Sailor2-L-8B-Chat-Q4_K_M.gguf`, label `Sailor2-L 8B`). The
+> `_is_sailor()` "sailor" substring match still applies the §13 style rule.
+
+### Clean shutdown under Ctrl+C
+
+`stop_llama_server()` (script 11) is interrupt-proof: SIGTERM → wait loop that
+**swallows a second Ctrl+C** so the kill always finishes → SIGKILL if needed →
+`_free_port_8080()` as a backstop. The per-model `process` is assigned **inside**
+the `try`, so the `finally` stops the server even if Ctrl+C lands during
+startup. A top-level handler prints a clean message and frees the port instead
+of dumping a traceback. Net effect: a single (or impatient double) Ctrl+C leaves
+no orphaned server on 8080.
+
+**Recovery in general.** Failed questions are written as error rows and
+`load_existing_results()` skips them (§8), so re-running regenerates only the
+failures — no manual cleanup.
+
+---
+
+## 12. Sailor-only output style rule
+
+Sailor alone tended to dress answers up — an invented bold heading, markdown
+emphasis, injected source citations/dates pulled from chunk metadata (e.g.
+`(មាត្រា ១)`, `(2023-10-17)`), and a literal closing tag like `(ចប់) ៕`. The
+content was correct, but it read as embellishment next to the plain gold answer,
+which matters for the human-eval UI.
+
+`build_prompt(..., model_id=...)` appends a `SAILOR_STYLE_RULES` block **only**
+when `_is_sailor(model_id)` matches (case-insensitive "sailor"), so the base
+prompt every other model sees is byte-for-byte unchanged and their existing
+results stay valid. The rule forbids headings/markdown, source/date citations,
+and closing tags, and tells the model to match the source's wording. It is
+duplicated identically in `app.py` and `scripts/11`. (Trade-off on record:
+Sailor now gets one instruction block the others don't, so the prompt is no
+longer perfectly identical across models — a deliberate choice to clean up
+Sailor's house style.)
+
+---
+
+## 13. Known limitation: Qwen3.5 reasoning + the PEG parser
+
+`Qwen3.5-9B` is a **reasoning** model. To return the clean, short answers we
+want, llama.cpp must *extract* its `<think>…</think>` out of the content — and
+that extraction parser (chat format `peg-native` for the `qwen35` arch)
+**stochastically crashes** with `"does not match the expected peg-native
+format"`. It clears on retry for most prompts (~1% affected), but a few prompts
+(e.g. `prakas_qid_021`) trigger it almost every time, so retries don't help.
+
+Investigated alternatives and why each was rejected:
+
+- `--skip-chat-parsing` — does **not** prevent it.
+- `--chat-template chatml`, `--no-jinja`, `--reasoning-format none`,
+  `--reasoning-budget 0` — all **eliminate** the crash, but Qwen then emits its
+  full verbose `<think>` reasoning into the content (≈1000 tokens), which is
+  slow and can crowd out the answer. `--reasoning off` only suppresses thinking
+  under the native template — the one with the bug.
+
+Decision: **leave Qwen on its original config** (`--jinja --reasoning off`,
+plain streaming) to preserve the already-generated answers. The rare hard
+failure is accepted as a known limitation rather than regenerating everything in
+a slower thinking mode or swapping the model. (Non-reasoning peers like SeaLLM,
+which is Qwen2-based, do not have this issue.)
+
+---
+
+## 14. Summary of where each change lives
+
+| Change | `app.py` / `start_chatbot.py` | `scripts/11_compare_generator_models.py` |
 |---|---|---|
 | Embedding device pinned to CPU | already had | **added** |
 | macOS OpenMP guard | already had | **added** |
@@ -236,10 +409,20 @@ narrow for the question — a gold-data fix, not a pipeline fix. See
 | Dynamic `max_tokens` | by retrieved chunk | by gold answer |
 | `frequency_penalty = 0.3` | **added** | **added** |
 | "End with ។" prompt rule | **added** | **added** |
-| Retry on PEG error | **added** (pre-first-token) | **added** (full re-roll) |
+| Retry on transient gen error | **added** (pre-first-token) | **added** (full re-roll) |
 | Resume re-processes error rows | n/a | **added** |
+| Per-model gold scope (manual/full) | n/a | **added** |
+| Summary per result file (manual + full) | n/a | **added** |
+| Free port 8080 before launch | **added** (`start_chatbot.py`) | **added** |
+| Verify server by loaded **model name**; warn (not abort) on model ctx cap | **added** (`start_chatbot.py`) | **added** |
+| Ctrl+C-proof server shutdown + port backstop | n/a | **added** |
+| Sailor-only style rule | **added** (`app.py`) | **added** |
+| Sailor → Sailor2-L (128K ctx) | **added** (`start_chatbot.py` + `install_models.py`) | **added** |
 
 Shared constants (`GEN_FREQUENCY_PENALTY`, `MAX_TOKENS_FLOOR`,
 `GEN_TOKEN_HEADROOM`, `SERVER_CTX_SIZE`, `PROMPT_TOKEN_MARGIN`,
 `SERVER_OUTPUT_HARD_CAP`, `GEN_MAX_RETRIES`, `GEN_RETRY_BACKOFF`) and the
-`build_prompt()` text must stay identical between the two files.
+`build_prompt()` text (including the Sailor-only block) must stay identical
+between the two files. The `--ctx-size` launch flag is driven by
+`SERVER_CTX_SIZE` in both launchers, so the server window and the token-budget
+maths can never disagree.

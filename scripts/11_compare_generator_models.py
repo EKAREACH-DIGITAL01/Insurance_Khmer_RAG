@@ -2,6 +2,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -359,8 +360,10 @@ LLM_MODELS = {
         "extra_args": ["--jinja", "--reasoning", "off"],
     },
     "3": {
-        "local_filename": "Sailor2-8B-Chat-Q4_K_M.gguf",
-        "label": "Sailor2 8B",
+        # Sailor2-L = the 128K-context variant (the plain Sailor2-8B GGUF is
+        # capped at 4096, too small for these prompts). See install_models.py.
+        "local_filename": "Sailor2-L-8B-Chat-Q4_K_M.gguf",
+        "label": "Sailor2-L 8B",
         "extra_args": ["--jinja"],
     },
     "4": {
@@ -529,7 +532,26 @@ def build_context(results):
 # as app.py does.
 # ----------------------------------------------------------------------------
 
-def build_prompt(question, context, low_confidence=False):
+# Per-model style correction. Sailor2 alone tends to dress answers up with an
+# invented bold heading, markdown emphasis, injected source citations/dates
+# pulled from chunk metadata (e.g. "(មាត្រា ១)", "(2023-10-17)"), and a literal
+# closing tag like "(ចប់) ៕" -- which reads as embellishment next to the plain
+# gold answer. This extra rule block is appended to the prompt ONLY for Sailor,
+# so the base prompt the other models see stays byte-for-byte unchanged (and
+# their already-generated results stay valid). Keyed on a case-insensitive
+# "sailor" substring so it matches both the eval label ("Sailor2-L 8B") and the
+# app's model id ("Sailor2-L-8B-Chat-Q4_K_M.gguf"). Must stay identical in app.py.
+SAILOR_STYLE_RULES = """
+- Do NOT add a title or heading, do NOT use bold or any markdown formatting, and do NOT cite the source document's name, article/provision number, or any date (for example, do NOT write "(មាត្រា ១)", "(2023-10-17)", or "(តាម គោលការណ៍ណែនាំ...)"). Answer in plain Khmer prose, or a plain numbered/dashed list, exactly as the source presents it.
+- Do NOT write any closing word or tag such as "(ចប់)", "(បញ្ចប់)", or a trailing "៕". End only with ។ on the final sentence.
+- Do NOT add framing, emphasis, or any information that is not in the context. Match the wording and scope of the source -- do not expand, summarize away, or restructure its meaning."""
+
+
+def _is_sailor(model_id):
+    return "sailor" in (model_id or "").lower()
+
+
+def build_prompt(question, context, low_confidence=False, model_id=""):
     relevance_check = ""
     if low_confidence:
         relevance_check = """
@@ -546,6 +568,10 @@ related answer.
     not_found_message = (
         f"រកមិនឃើញព័ត៌មាននេះនៅក្នុងឯកសារដែលបានផ្តល់។ {REDIRECT_TEXT}"
     )
+
+    # Sailor-only style correction (empty for every other model, so their
+    # prompt is unchanged). Appended at the end of the rules list below.
+    style_rules = SAILOR_STYLE_RULES if _is_sailor(model_id) else ""
 
     return f"""
 You are a Khmer legal assistant.
@@ -564,7 +590,7 @@ Rules:
 - Do not reinterpret a number, rate, or statistic for a purpose other than what it was stated for in the source (for example, a mortality or incidence rate expressed "per 1,000 people" is NOT the same as a total population count -- never restate a rate's denominator as if it were the literal answer to a "how many" question).
 - Do not recommend, endorse, or compare any specific insurance product, company, or policy, even if the context mentions one and the question asks for a recommendation.
 - Do not calculate, estimate, or infer a premium, payout, deductible, or any monetary amount that is not stated explicitly and directly in the context for that exact purpose.
-- Do not give personalized financial or legal advice (e.g. "should I buy X", "what should I do in my situation"). If the question asks for a personal recommendation, a calculation, or advice tailored to the user's situation, decline and reply with the message below instead of attempting an answer.
+- Do not give personalized financial or legal advice (e.g. "should I buy X", "what should I do in my situation"). If the question asks for a personal recommendation, a calculation, or advice tailored to the user's situation, decline and reply with the message below instead of attempting an answer.{style_rules}
 - If the answer is not found in the context, OR the question asks for a product recommendation, a premium/payout calculation, or personalized advice, reply EXACTLY with this message and nothing else:
 
 {not_found_message}
@@ -705,17 +731,111 @@ def is_installed(info):
     return (LLM_DIR / info["local_filename"]).exists()
 
 
+def _free_port_8080():
+    """Kill any llama-server already bound to port 8080 before we launch ours.
+
+    A stale server left over from a crashed/manually-started run (commonly the
+    bare llama.cpp DEFAULT of n_ctx=4096) keeps the port. Our new process then
+    fails to bind, dies, and the readiness poll below silently attaches to the
+    WRONG server -- which then 400s every prompt over 4096 tokens
+    ('exceeds the available context size (4096)'). Freeing the port first
+    guarantees we only ever talk to the server we just started."""
+    try:
+        out = subprocess.run(
+            ["lsof", "-nP", "-iTCP:8080", "-sTCP:LISTEN", "-t"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout.strip()
+    except Exception:
+        return
+    pids = [p for p in out.split() if p.isdigit()]
+    if not pids:
+        return
+    print(f"  WARNING: port 8080 already in use (pid {', '.join(pids)}); "
+          f"killing stale server(s) so we don't attach to the wrong context.")
+    for pid in pids:
+        try:
+            os.kill(int(pid), signal.SIGTERM)
+        except Exception:
+            pass
+    time.sleep(2)
+    # Force-kill anything still holding the port.
+    try:
+        still = subprocess.run(
+            ["lsof", "-nP", "-iTCP:8080", "-sTCP:LISTEN", "-t"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout.split()
+        for pid in still:
+            if pid.isdigit():
+                os.kill(int(pid), signal.SIGKILL)
+    except Exception:
+        pass
+    time.sleep(1)
+
+
+def _verify_server(info, expected_ctx):
+    """Verify the live server is OURS, and report its real context window.
+
+    Two distinct things are checked via /props:
+
+    1. STALE/WRONG SERVER -- the model the server has loaded must be the one we
+       just launched. If `model_path` names a different file, we are talking to
+       a leftover server on port 8080 (the bug this whole guard exists for), so
+       we abort loudly. This is the reliable signal -- NOT the context size.
+
+    2. MODEL CONTEXT CAP -- if the correct model reports n_ctx < expected, that
+       is the MODEL'S OWN trained-context limit (llama.cpp clamps --ctx-size
+       down to it; e.g. Sailor2-8B's GGUF is capped at 4096), not a stale
+       server. We WARN (long prompts may 400) but do NOT abort, so a
+       small-context model can still be evaluated on whatever fits."""
+    label = info["label"]
+    try:
+        props = requests.get(f"{LLAMA_SERVER_ROOT}/props", timeout=10).json()
+    except Exception as e:
+        print(f"  WARNING: could not read /props to verify server for {label}: {e}")
+        return None
+
+    model_path = props.get("model_path") or props.get("model") or ""
+    expected_file = info["local_filename"]
+    if model_path and Path(model_path).name != expected_file:
+        raise SystemExit(
+            f"\nllama-server on port 8080 has '{Path(model_path).name}' loaded, "
+            f"but we launched '{expected_file}' for {label}. This is a "
+            f"wrong/stale server. Aborting -- make sure no other llama-server "
+            f"is running on port 8080, then re-run."
+        )
+
+    n_ctx = (
+        props.get("default_generation_settings", {}).get("n_ctx")
+        or props.get("n_ctx")
+    )
+    if n_ctx is None:
+        print(f"  WARNING: server did not report n_ctx for {label}; "
+              f"could not verify context size.")
+        return None
+    n_ctx = int(n_ctx)
+    if n_ctx < expected_ctx:
+        print(f"  WARNING: {label} model caps context at n_ctx={n_ctx} "
+              f"(requested {expected_ctx}). This is the GGUF's own trained "
+              f"limit, not a stale server. Prompts longer than ~{n_ctx} tokens "
+              f"will be rejected for this model.")
+    else:
+        print(f"  Context   : n_ctx={n_ctx} (verified)")
+    return n_ctx
+
+
 def start_llama_server(info):
     llama_bin = shutil.which("llama-server")
     if llama_bin is None:
         raise SystemExit("llama-server not found. Install llama.cpp and add it to PATH.")
+
+    _free_port_8080()
 
     model_path = LLM_DIR / info["local_filename"]
     process = subprocess.Popen(
         [
             llama_bin, "-m", str(model_path),
             "-ngl", "999",
-            "--ctx-size", "16384",
+            "--ctx-size", str(SERVER_CTX_SIZE),
             "--flash-attn", "on",
             "--cache-type-k", "q8_0",
             "--cache-type-v", "q8_0",
@@ -733,6 +853,15 @@ def start_llama_server(info):
                 f"llama-server failed to start within "
                 f"{LLAMA_SERVER_STARTUP_TIMEOUT}s for {info['label']}."
             )
+        # If our own process died (e.g. couldn't bind the port, or OOM at this
+        # ctx size), stop -- otherwise the poll could latch onto a different
+        # server still listening on 8080.
+        if process.poll() is not None:
+            raise SystemExit(
+                f"llama-server process for {info['label']} exited during "
+                f"startup (code {process.returncode}). Check the model loads "
+                f"at --ctx-size {SERVER_CTX_SIZE} and that port 8080 is free."
+            )
         try:
             r = requests.get(f"{LLAMA_SERVER_ROOT}/v1/models", timeout=5)
             if r.status_code == 200:
@@ -740,17 +869,41 @@ def start_llama_server(info):
         except Exception:
             pass
         time.sleep(1)
+    _verify_server(info, SERVER_CTX_SIZE)
     return process
 
 
 def stop_llama_server(process):
-    process.terminate()
+    """Stop the llama-server we launched, robustly -- even under Ctrl+C.
+
+    SIGTERM first, then SIGKILL if it doesn't exit in time. The wait loop
+    swallows a second KeyboardInterrupt (an impatient double Ctrl+C) so the
+    cleanup always finishes instead of being abandoned mid-kill -- that
+    abandonment is what used to leave a stale server bound to port 8080. As a
+    final backstop we free the port directly, which also catches any orphaned
+    child the process handle didn't account for."""
     try:
-        process.wait(timeout=15)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait()
-    time.sleep(2)
+        process.terminate()
+    except Exception:
+        pass
+    for _ in range(15):
+        try:
+            process.wait(timeout=1)
+            break
+        except subprocess.TimeoutExpired:
+            continue
+        except KeyboardInterrupt:
+            # Ignore extra Ctrl+C while we're killing the server; keep going.
+            continue
+    if process.poll() is None:
+        try:
+            process.kill()
+            process.wait(timeout=5)
+        except Exception:
+            pass
+    # Backstop: guarantee nothing is left listening on 8080 regardless of how
+    # the handle behaved (silent no-op if the port is already free).
+    _free_port_8080()
 
 
 # ----------------------------------------------------------------------------
@@ -1253,7 +1406,9 @@ def evaluate_model(
                     # low_confidence mirrors app.py exactly: best_score < MIN_SCORE
                     # (but >= OUT_OF_DOMAIN_THRESHOLD, since lower already gated out)
                     prompt = build_prompt(
-                        question, context, low_confidence=best_score < MIN_SCORE
+                        question, context,
+                        low_confidence=best_score < MIN_SCORE,
+                        model_id=label,
                     )
                     # Size the output cap to THIS answer's expected length
                     # (see choose_max_tokens). Sized with the live model's own
@@ -1702,6 +1857,49 @@ def print_model_summary(summary):
     ))
 
 
+def load_all_rows(label):
+    """Loads EVERY row from this model's result file for the current
+    RESULTS_SUFFIX (errors included), for summarisation. Unlike
+    load_existing_results(), it does not dedupe or drop error rows -- summarise()
+    handles those itself."""
+    path = result_path(label)
+    if not path.exists():
+        return None
+    rows = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+    return rows
+
+
+def generate_all_summaries(label):
+    """Writes a summary (json + md) for EVERY result file this model has on disk
+    -- the manual-only `generated_answer_results.jsonl` and, when present, the
+    full `generated_answer_results_full.jsonl`. Each writes its own matching
+    `..._summary.json` / `..._summary.md` (the "_full" suffix flows through the
+    path helpers via RESULTS_SUFFIX).
+
+    Returns {suffix: summary_dict} for whichever files existed. The caller picks
+    which one feeds the cross-model comparison (the model's primary scope)."""
+    global RESULTS_SUFFIX
+    saved_suffix = RESULTS_SUFFIX
+    out = {}
+    for suffix in ("", "_full"):
+        RESULTS_SUFFIX = suffix
+        rows = load_all_rows(label)
+        if rows is None:
+            continue  # this scope's result file doesn't exist for this model
+        out[suffix] = summarise(rows, label)  # writes ..._summary.json / .md
+    RESULTS_SUFFIX = saved_suffix
+    return out
+
+
 def print_final_comparison(summaries):
     from tabulate import tabulate
 
@@ -2082,16 +2280,27 @@ def main():
             existing = load_existing_results(label)
             if len(existing) >= len(gold_entries):
                 print(f"\n  Skipping {label} -- all {len(existing)} questions already done.")
+                # Still (re)write summaries for every result file this model has,
+                # so both generated_answer_results(.jsonl) and its _full variant
+                # always have an up-to-date *_summary.json/.md even on a no-op run.
+                primary_suffix, _ = scope_for(info)
+                summaries = generate_all_summaries(label)
+                if primary_suffix in summaries:
+                    all_summaries = [s for s in all_summaries if s["label"] != label]
+                    all_summaries.append(summaries[primary_suffix])
                 continue
 
         print(f"\n{SEPARATOR}")
         print(f"{BOLD}Starting llama-server for: {label}{RESET}")
         print(SEPARATOR)
 
-        process = start_llama_server(info)
-        print(f"  llama-server ready.")
-
+        # process is assigned INSIDE the try so the finally below always stops
+        # the server -- including when Ctrl+C lands during startup itself.
+        process = None
         try:
+            process = start_llama_server(info)
+            print(f"  llama-server ready.")
+
             client     = OpenAI(base_url=LLAMA_SERVER_URL, api_key="not-needed")
             model_resp = requests.get(f"{LLAMA_SERVER_URL}/models", timeout=5)
             model_name = model_resp.json()["data"][0]["id"]
@@ -2106,14 +2315,20 @@ def main():
             )
 
             if not DRY_RUN:
-                summary = summarise(results, label)
+                # Summarise EVERY result file this model has (manual "" and, for
+                # SeaLLM, full "_full"), each into its own *_summary.json/.md.
+                primary_suffix, _ = scope_for(info)
+                summaries = generate_all_summaries(label)
+                # The cross-model comparison uses this model's PRIMARY scope.
+                summary = summaries.get(primary_suffix) or summarise(results, label)
                 all_summaries = [s for s in all_summaries if s["label"] != label]
                 all_summaries.append(summary)
                 print_model_summary(summary)
 
         finally:
-            print(f"\n  Stopping llama-server for: {label}")
-            stop_llama_server(process)
+            if process is not None:
+                print(f"\n  Stopping llama-server for: {label}")
+                stop_llama_server(process)
 
     if DRY_RUN:
         print(f"\n{'=' * SEPARATOR_WIDTH}")
@@ -2142,4 +2357,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        # The per-model finally has already stopped the current server (and
+        # freed port 8080). Exit cleanly instead of dumping a traceback; the
+        # backstop at the next launch will catch anything left regardless.
+        print("\nInterrupted by user. llama-server stopped; progress saved.")
+        _free_port_8080()
+        raise SystemExit(130)
