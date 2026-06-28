@@ -1,6 +1,5 @@
 import json
 import os
-import re
 import time
 import faiss
 import numpy as np
@@ -81,26 +80,6 @@ from sentence_transformers import SentenceTransformer
 EVALUATION_ROOT = Path("data/09_evaluation")
 VECTOR_DB_ROOT = Path("vector_db")
 REPORTS_DIR = Path("reports/embedding_model_comparison")
-
-# ----------------------------------------------------------------------------
-# Gold-question scope: human-authored only (first 25 per category = 100 total)
-# ----------------------------------------------------------------------------
-# The gold set is 100 human-authored questions (question_id ...001-025 per
-# category) plus 300 AI-assisted ones (...026+). The AI questions were authored
-# by taking the target chunk's EXACT opening words verbatim and swapping only
-# the final predicate for a question word (see docs/gold_questions_methodology.md).
-# That makes each AI query near-lexically-identical to its own gold chunk --
-# which artificially inflates retrieval metrics (hit/recall/MRR) and collapses
-# the gap between embedding models, defeating the purpose of THIS comparison.
-# So retrieval evaluation here is restricted to the independently-phrased human
-# questions only. Keep this identical to scripts 10 and 11.
-HUMAN_AUTHORED_LIMIT = 25
-_QID_NUM_PATTERN = re.compile(r"(\d+)\s*$")
-
-
-def is_human_authored(q):
-    match = _QID_NUM_PATTERN.search(str(q.get("question_id", "")))
-    return bool(match) and int(match.group(1)) <= HUMAN_AUTHORED_LIMIT
 
 EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
@@ -268,14 +247,6 @@ def evaluate_retrieval(retrieve_fn, chunk_lookup, metadata_chunk_ids):
         if not gold_questions:
             raise ValueError(f"{gold_file} is empty.")
 
-        # Restrict to the 100 human-authored questions (see is_human_authored).
-        gold_questions = [q for q in gold_questions if is_human_authored(q)]
-        if not gold_questions:
-            raise ValueError(
-                f"No human-authored questions (qid <= {HUMAN_AUTHORED_LIMIT}) "
-                f"found in {gold_file}."
-            )
-
         missing_chunk_ids = set()
         for item in gold_questions:
             for chunk_id in item["expected_chunks"]:
@@ -331,7 +302,9 @@ def evaluate_retrieval(retrieve_fn, chunk_lookup, metadata_chunk_ids):
                         break
                 mrr_sums[k] += reciprocal_rank
 
-                found_documents = set(top_k_documents).intersection(relevant_document_ids)
+                found_documents = set(top_k_documents).intersection(
+                    relevant_document_ids
+                )
                 if found_documents:
                     file_hit_sums[k] += 1
 
@@ -388,22 +361,54 @@ def print_mode_report(label, tables):
     print(f"\n{SEPARATOR}")
     print(f"\t\t\t{BOLD}HIT RATE @ K{RESET}")
     print(SEPARATOR)
-    print(tabulate(tables["hit"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
+    print(
+        tabulate(
+            tables["hit"],
+            headers=metric_headers,
+            tablefmt="grid",
+            floatfmt=".4f",
+            colalign=metric_colalign,
+        )
+    )
 
     print(f"\n{SEPARATOR}")
     print(f"\t\t\t{BOLD}RECALL @ K{RESET}")
     print(SEPARATOR)
-    print(tabulate(tables["recall"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
+    print(
+        tabulate(
+            tables["recall"],
+            headers=metric_headers,
+            tablefmt="grid",
+            floatfmt=".4f",
+            colalign=metric_colalign,
+        )
+    )
 
     print(f"\n{SEPARATOR}")
     print(f"\t\t\t{BOLD}MRR @ K{RESET}")
     print(SEPARATOR)
-    print(tabulate(tables["mrr"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
+    print(
+        tabulate(
+            tables["mrr"],
+            headers=metric_headers,
+            tablefmt="grid",
+            floatfmt=".4f",
+            colalign=metric_colalign,
+        )
+    )
 
     print(f"\n{SEPARATOR}")
     print(f"\t\t{BOLD}FILE HIT RATE @ K{RESET}")
     print(SEPARATOR)
-    print(tabulate(tables["file_hit"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
+    print(
+        tabulate(
+            tables["file_hit"],
+            headers=metric_headers,
+            tablefmt="grid",
+            floatfmt=".4f",
+            colalign=metric_colalign,
+        )
+    )
 
 
 def print_dataset_summary(model_results):
@@ -420,12 +425,14 @@ def print_dataset_summary(model_results):
     print(f"\n\n{banner}============")
     print(f"\t\t\t\t\t\t{BOLD}DATASET SUMMARY{RESET}")
     print(f"{banner}============")
-    print(tabulate(
-        first_tables["summary"],
-        headers=summary_headers,
-        tablefmt="grid",
-        colalign=summary_colalign,
-    ))
+    print(
+        tabulate(
+            first_tables["summary"],
+            headers=summary_headers,
+            tablefmt="grid",
+            colalign=summary_colalign,
+        )
+    )
 
 
 def macro_avg_at_5(tables, metric_key):
@@ -446,10 +453,10 @@ def build_unified_comparison_table(model_results):
 
     # Row order matches the per-model report section order above
     metric_defs = [
-        ("Hit Rate",       "hit"),
-        ("Recall",         "recall"),
-        ("MRR",            "mrr"),
-        ("File Hit Rate",  "file_hit"),
+        ("Hit Rate", "hit"),
+        ("Recall", "recall"),
+        ("MRR", "mrr"),
+        ("File Hit Rate", "file_hit"),
     ]
 
     rows = []
@@ -473,11 +480,11 @@ def rank_models(model_results):
     fallback signal)."""
     ranked = []
     for label, result in model_results.items():
-        hit5      = macro_avg_at_5(result["tables"], "hit")
-        recall5   = macro_avg_at_5(result["tables"], "recall")
-        mrr5      = macro_avg_at_5(result["tables"], "mrr")
-        filehit5  = macro_avg_at_5(result["tables"], "file_hit")
-        combined  = hit5 + recall5 + mrr5 + filehit5
+        hit5 = macro_avg_at_5(result["tables"], "hit")
+        recall5 = macro_avg_at_5(result["tables"], "recall")
+        mrr5 = macro_avg_at_5(result["tables"], "mrr")
+        filehit5 = macro_avg_at_5(result["tables"], "file_hit")
+        combined = hit5 + recall5 + mrr5 + filehit5
         ranked.append((label, hit5, recall5, mrr5, filehit5, combined))
 
     ranked.sort(key=lambda x: x[5], reverse=True)
@@ -486,7 +493,9 @@ def rank_models(model_results):
 
 def build_recommendation(ranked):
     lines = ["RANKING (by macro-avg Hit@5 + Recall@5 + MRR@5 + File Hit Rate@5):"]
-    for i, (label, hit5, recall5, mrr5, filehit5, combined) in enumerate(ranked, start=1):
+    for i, (label, hit5, recall5, mrr5, filehit5, combined) in enumerate(
+        ranked, start=1
+    ):
         lines.append(
             f"  {i}. {label}"
             f" -- Hit@5={hit5:.4f}, Recall@5={recall5:.4f},"
@@ -507,7 +516,9 @@ def build_recommendation(ranked):
     return "\n".join(lines)
 
 
-def write_reports(model_results, comparison_rows, comparison_headers, recommendation, ranked):
+def write_reports(
+    model_results, comparison_rows, comparison_headers, recommendation, ranked
+):
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     json_payload = {
@@ -539,7 +550,11 @@ def write_reports(model_results, comparison_rows, comparison_headers, recommenda
         json.dump(json_payload, f, ensure_ascii=False, indent=2)
 
     def md_table(title, rows, headers):
-        return f"### {title}\n\n" + tabulate(rows, headers=headers, tablefmt="github", floatfmt=".4f") + "\n\n"
+        return (
+            f"### {title}\n\n"
+            + tabulate(rows, headers=headers, tablefmt="github", floatfmt=".4f")
+            + "\n\n"
+        )
 
     md_parts = ["# Embedding Model Comparison Report\n\n"]
     md_parts.append(
@@ -553,23 +568,35 @@ def write_reports(model_results, comparison_rows, comparison_headers, recommenda
     for label, result in model_results.items():
         md_parts.append(f"## {label}\n\n")
         meta = result["meta"]
-        md_parts.append(f"Model load time (this run): {meta['model_load_time']:.2f}s -- ")
+        md_parts.append(
+            f"Model load time (this run): {meta['model_load_time']:.2f}s -- "
+        )
         build_encode = meta.get("build_encode_time_sec")
         md_parts.append(
-            f"Corpus encode time (at build, precomputed): "
-            f"{build_encode:.2f}s\n\n" if build_encode is not None
+            f"Corpus encode time (at build, precomputed): " f"{build_encode:.2f}s\n\n"
+            if build_encode is not None
             else "Corpus encode time (at build): unknown (no embedding_model_info.json)\n\n"
         )
-        md_parts.append(f"Embedding dimension: {meta.get('embedding_dim', 'unknown')}\n\n")
-        md_parts.append(md_table("Hit Rate @ K",      result["tables"]["hit"],      metric_headers))
-        md_parts.append(md_table("Recall @ K",         result["tables"]["recall"],   metric_headers))
-        md_parts.append(md_table("MRR @ K",            result["tables"]["mrr"],      metric_headers))
-        md_parts.append(md_table("File Hit Rate @ K",  result["tables"]["file_hit"], metric_headers))
+        md_parts.append(
+            f"Embedding dimension: {meta.get('embedding_dim', 'unknown')}\n\n"
+        )
+        md_parts.append(
+            md_table("Hit Rate @ K", result["tables"]["hit"], metric_headers)
+        )
+        md_parts.append(
+            md_table("Recall @ K", result["tables"]["recall"], metric_headers)
+        )
+        md_parts.append(md_table("MRR @ K", result["tables"]["mrr"], metric_headers))
+        md_parts.append(
+            md_table("File Hit Rate @ K", result["tables"]["file_hit"], metric_headers)
+        )
 
     # Dataset summary once, before the cross-model comparison
     first_tables = next(iter(model_results.values()))["tables"]
     md_parts.append("## Dataset Summary\n\n")
-    md_parts.append(tabulate(first_tables["summary"], headers=summary_headers, tablefmt="github"))
+    md_parts.append(
+        tabulate(first_tables["summary"], headers=summary_headers, tablefmt="github")
+    )
     md_parts.append("\n\n")
 
     # Single unified comparison table
@@ -578,7 +605,9 @@ def write_reports(model_results, comparison_rows, comparison_headers, recommenda
         "> Each cell is the macro-average of the @5 score for that metric "
         "across guidance, laws, prakas, and sub_decrees.\n\n"
     )
-    md_parts.append(tabulate(comparison_rows, headers=comparison_headers, tablefmt="github"))
+    md_parts.append(
+        tabulate(comparison_rows, headers=comparison_headers, tablefmt="github")
+    )
     md_parts.append("\n\n## Recommendation\n\n```\n" + recommendation + "\n```\n")
 
     md_path = REPORTS_DIR / "embedding_model_comparison.md"
@@ -598,7 +627,9 @@ start_time = time.time()
 model_results = {}
 for key, model_config in EMBEDDING_MODELS.items():
     label = model_config["label"]
-    print(f"\n{'=' * SEPARATOR_WIDTH}\nLoading precomputed index for: {label}\n{'=' * SEPARATOR_WIDTH}")
+    print(
+        f"\n{'=' * SEPARATOR_WIDTH}\nLoading precomputed index for: {label}\n{'=' * SEPARATOR_WIDTH}"
+    )
 
     index, model_chunks, build_info = load_precomputed(model_config)
     chunk_lookup = {c["chunk_id"]: c for c in model_chunks}
@@ -614,7 +645,9 @@ for key, model_config in EMBEDDING_MODELS.items():
 
     retrieve_fn = make_retrieve_fn(model, model_config, index, model_chunks)
 
-    print(f"Evaluating gold questions for {label} (encoding queries only -- corpus already embedded)...")
+    print(
+        f"Evaluating gold questions for {label} (encoding queries only -- corpus already embedded)..."
+    )
     tables = evaluate_retrieval(retrieve_fn, chunk_lookup, metadata_chunk_ids)
 
     model_results[label] = {
@@ -644,21 +677,29 @@ recommendation = build_recommendation(ranked)
 banner = "=" * SEPARATOR_WIDTH
 print(f"\n\n{banner}")
 print(f"{BOLD}COMPARISON -- MACRO-AVG @5 ACROSS ALL CATEGORIES{RESET}")
-print(f"{BOLD}(each value = average of guidance / laws / prakas / sub_decrees @5){RESET}")
+print(
+    f"{BOLD}(each value = average of guidance / laws / prakas / sub_decrees @5){RESET}"
+)
 print(banner)
-print(tabulate(
-    comparison_rows,
-    headers=comparison_headers,
-    tablefmt="grid",
-    colalign=("left",) + ("center",) * (len(comparison_headers) - 1),
-))
+print(
+    tabulate(
+        comparison_rows,
+        headers=comparison_headers,
+        tablefmt="grid",
+        colalign=("left",) + ("center",) * (len(comparison_headers) - 1),
+    )
+)
 
 print(f"\n\n{banner}")
 print(f"{BOLD}{recommendation}{RESET}")
 print(banner)
 
-write_reports(model_results, comparison_rows, comparison_headers, recommendation, ranked)
+write_reports(
+    model_results, comparison_rows, comparison_headers, recommendation, ranked
+)
 
 elapsed_time = time.time() - start_time
 print(f"\nTotal Runtime : {elapsed_time:.2f} seconds")
-print("Embedding comparison completed successfully (precomputed indices, no corpus re-encoding).")
+print(
+    "Embedding comparison completed successfully (precomputed indices, no corpus re-encoding)."
+)

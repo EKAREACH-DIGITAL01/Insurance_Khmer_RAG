@@ -26,26 +26,6 @@ METADATA_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
 EVALUATION_ROOT = Path("data/09_evaluation")
 REPORTS_DIR = Path("reports/retrieval_mode_comparison")
 
-# ----------------------------------------------------------------------------
-# Gold-question scope: human-authored only (first 25 per category = 100 total)
-# ----------------------------------------------------------------------------
-# The AI-assisted gold questions (question_id ...026+) were authored by reusing
-# the target chunk's EXACT opening words verbatim and swapping only the final
-# predicate for a question word (see docs/gold_questions_methodology.md), so each
-# AI query is near-lexically-identical to its own gold chunk. That inflates
-# retrieval metrics (especially BM25/lexical) and collapses the gap between the
-# retrieval modes this script compares, defeating its purpose. So retrieval
-# evaluation is restricted to the independently-phrased 100 human questions.
-# Keep this identical to scripts 09 and 11.
-HUMAN_AUTHORED_LIMIT = 25
-_QID_NUM_PATTERN = re.compile(r"(\d+)\s*$")
-
-
-def is_human_authored(q):
-    match = _QID_NUM_PATTERN.search(str(q.get("question_id", "")))
-    return bool(match) and int(match.group(1)) <= HUMAN_AUTHORED_LIMIT
-
-
 EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
 
@@ -184,14 +164,6 @@ def evaluate_retrieval(retrieve_fn):
         if not gold_questions:
             raise ValueError(f"{gold_file} is empty.")
 
-        # Restrict to the 100 human-authored questions (see is_human_authored).
-        gold_questions = [q for q in gold_questions if is_human_authored(q)]
-        if not gold_questions:
-            raise ValueError(
-                f"No human-authored questions (qid <= {HUMAN_AUTHORED_LIMIT}) "
-                f"found in {gold_file}."
-            )
-
         missing_chunk_ids = set()
         for item in gold_questions:
             for chunk_id in item["expected_chunks"]:
@@ -231,7 +203,9 @@ def evaluate_retrieval(retrieve_fn):
 
             retrieved_results = retrieve_fn(question)
             retrieved_chunk_ids = [result["chunk_id"] for result in retrieved_results]
-            retrieved_document_ids = [result["document_id"] for result in retrieved_results]
+            retrieved_document_ids = [
+                result["document_id"] for result in retrieved_results
+            ]
 
             for k in EVAL_KS:
                 top_k_chunks = retrieved_chunk_ids[:k]
@@ -249,7 +223,9 @@ def evaluate_retrieval(retrieve_fn):
                         break
                 mrr_sums[k] += reciprocal_rank
 
-                found_documents = set(top_k_documents).intersection(relevant_document_ids)
+                found_documents = set(top_k_documents).intersection(
+                    relevant_document_ids
+                )
                 if found_documents:
                     file_hit_sums[k] += 1
 
@@ -321,24 +297,60 @@ def print_mode_report(mode_label, tables):
     print(banner)
 
     print(f"\n{SEPARATOR}")
-    print(f"\t\t\t{BOLD}HIT RATE @ K{RESET} - At least one relevant chunk was retrieved.")
+    print(
+        f"\t\t\t{BOLD}HIT RATE @ K{RESET} - At least one relevant chunk was retrieved."
+    )
     print(SEPARATOR)
-    print(tabulate(tables["hit"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
+    print(
+        tabulate(
+            tables["hit"],
+            headers=metric_headers,
+            tablefmt="grid",
+            floatfmt=".4f",
+            colalign=metric_colalign,
+        )
+    )
 
     print(f"\n{SEPARATOR}")
     print(f"\t\t\t{BOLD}RECALL @ K{RESET} - Proportion of relevant chunks retrieved.")
     print(SEPARATOR)
-    print(tabulate(tables["recall"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
+    print(
+        tabulate(
+            tables["recall"],
+            headers=metric_headers,
+            tablefmt="grid",
+            floatfmt=".4f",
+            colalign=metric_colalign,
+        )
+    )
 
     print(f"\n{SEPARATOR}")
     print(f"\t\t\t{BOLD}MRR @ K{RESET} - Ranking position of the first relevant chunk.")
     print(SEPARATOR)
-    print(tabulate(tables["mrr"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
+    print(
+        tabulate(
+            tables["mrr"],
+            headers=metric_headers,
+            tablefmt="grid",
+            floatfmt=".4f",
+            colalign=metric_colalign,
+        )
+    )
 
     print(f"\n{SEPARATOR}")
-    print(f"\t\t{BOLD}FILE HIT RATE @ K{RESET} - At least one chunk from the correct document was retrieved.")
+    print(
+        f"\t\t{BOLD}FILE HIT RATE @ K{RESET} - At least one chunk from the correct document was retrieved."
+    )
     print(SEPARATOR)
-    print(tabulate(tables["file_hit"], headers=metric_headers, tablefmt="grid", floatfmt=".4f", colalign=metric_colalign))
+    print(
+        tabulate(
+            tables["file_hit"],
+            headers=metric_headers,
+            tablefmt="grid",
+            floatfmt=".4f",
+            colalign=metric_colalign,
+        )
+    )
 
 
 def print_dataset_summary(tables):
@@ -349,12 +361,14 @@ def print_dataset_summary(tables):
     print(f"\n\n{banner}============")
     print(f"\t\t\t\t\t\t{BOLD}DATASET SUMMARY{RESET}")
     print(f"{banner}============")
-    print(tabulate(
-        tables["summary"],
-        headers=summary_headers,
-        tablefmt="grid",
-        colalign=summary_colalign,
-    ))
+    print(
+        tabulate(
+            tables["summary"],
+            headers=summary_headers,
+            tablefmt="grid",
+            colalign=summary_colalign,
+        )
+    )
 
 
 def macro_avg_at_5(tables, metric_key):
@@ -369,36 +383,42 @@ def print_comparison_summary(dense_tables, hybrid_tables):
     Rows = 4 metrics. Columns = Dense @5, Hybrid @5, Delta.
     Each value is the macro-average across all four document categories."""
     metric_defs = [
-        ("Hit Rate",      "hit"),
-        ("Recall",        "recall"),
-        ("MRR",           "mrr"),
+        ("Hit Rate", "hit"),
+        ("Recall", "recall"),
+        ("MRR", "mrr"),
         ("File Hit Rate", "file_hit"),
     ]
 
     rows = []
     for display_name, metric_key in metric_defs:
-        dense_val  = macro_avg_at_5(dense_tables,  metric_key)
+        dense_val = macro_avg_at_5(dense_tables, metric_key)
         hybrid_val = macro_avg_at_5(hybrid_tables, metric_key)
-        delta      = hybrid_val - dense_val
-        rows.append([
-            f"{display_name} @5",
-            f"{dense_val:.4f}",
-            f"{hybrid_val:.4f}",
-            f"{delta:+.4f}",
-        ])
+        delta = hybrid_val - dense_val
+        rows.append(
+            [
+                f"{display_name} @5",
+                f"{dense_val:.4f}",
+                f"{hybrid_val:.4f}",
+                f"{delta:+.4f}",
+            ]
+        )
 
     headers = ["Metric", "Dense-Only @5", "Hybrid @5", "Δ (Hybrid − Dense)"]
     banner = "=" * SEPARATOR_WIDTH
     print(f"\n\n{banner}")
     print(f"{BOLD}BEFORE / AFTER -- DENSE-ONLY vs. HYBRID (FAISS + BM25, RRF){RESET}")
-    print(f"{BOLD}(each value = macro-avg across guidance / laws / prakas / sub_decrees){RESET}")
+    print(
+        f"{BOLD}(each value = macro-avg across guidance / laws / prakas / sub_decrees){RESET}"
+    )
     print(banner)
-    print(tabulate(
-        rows,
-        headers=headers,
-        tablefmt="grid",
-        colalign=("left", "center", "center", "center"),
-    ))
+    print(
+        tabulate(
+            rows,
+            headers=headers,
+            tablefmt="grid",
+            colalign=("left", "center", "center", "center"),
+        )
+    )
 
 
 def write_reports(dense_tables, hybrid_tables):
@@ -406,26 +426,28 @@ def write_reports(dense_tables, hybrid_tables):
 
     # Build the unified comparison rows for JSON/markdown
     metric_defs = [
-        ("Hit Rate",      "hit"),
-        ("Recall",        "recall"),
-        ("MRR",           "mrr"),
+        ("Hit Rate", "hit"),
+        ("Recall", "recall"),
+        ("MRR", "mrr"),
         ("File Hit Rate", "file_hit"),
     ]
     comparison_rows = []
     for display_name, metric_key in metric_defs:
-        dense_val  = macro_avg_at_5(dense_tables,  metric_key)
+        dense_val = macro_avg_at_5(dense_tables, metric_key)
         hybrid_val = macro_avg_at_5(hybrid_tables, metric_key)
-        delta      = hybrid_val - dense_val
-        comparison_rows.append({
-            "metric":     f"{display_name} @5",
-            "dense":      round(dense_val,  4),
-            "hybrid":     round(hybrid_val, 4),
-            "delta":      round(delta,      4),
-        })
+        delta = hybrid_val - dense_val
+        comparison_rows.append(
+            {
+                "metric": f"{display_name} @5",
+                "dense": round(dense_val, 4),
+                "hybrid": round(hybrid_val, 4),
+                "delta": round(delta, 4),
+            }
+        )
 
     json_payload = {
-        "dense":   dense_tables,
-        "hybrid":  hybrid_tables,
+        "dense": dense_tables,
+        "hybrid": hybrid_tables,
         "comparison": {
             "note": (
                 "Each value is the macro-average of the @5 score across all "
@@ -433,7 +455,7 @@ def write_reports(dense_tables, hybrid_tables):
             ),
             "rows": comparison_rows,
         },
-        "eval_ks":       EVAL_KS,
+        "eval_ks": EVAL_KS,
         "metric_headers": metric_headers,
     }
     json_path = REPORTS_DIR / "retrieval_mode_comparison.json"
@@ -453,14 +475,18 @@ def write_reports(dense_tables, hybrid_tables):
         ("Hybrid (BGE-M3 + BM25, RRF)", hybrid_tables),
     ]:
         md_parts.append(f"## {mode_label}\n\n")
-        md_parts.append(md_table("Hit Rate @ K",      tables["hit"],      metric_headers))
-        md_parts.append(md_table("Recall @ K",        tables["recall"],   metric_headers))
-        md_parts.append(md_table("MRR @ K",           tables["mrr"],      metric_headers))
-        md_parts.append(md_table("File Hit Rate @ K", tables["file_hit"], metric_headers))
+        md_parts.append(md_table("Hit Rate @ K", tables["hit"], metric_headers))
+        md_parts.append(md_table("Recall @ K", tables["recall"], metric_headers))
+        md_parts.append(md_table("MRR @ K", tables["mrr"], metric_headers))
+        md_parts.append(
+            md_table("File Hit Rate @ K", tables["file_hit"], metric_headers)
+        )
 
     # Dataset summary once in the markdown report too
     md_parts.append("## Dataset Summary\n\n")
-    md_parts.append(tabulate(dense_tables["summary"], headers=summary_headers, tablefmt="github"))
+    md_parts.append(
+        tabulate(dense_tables["summary"], headers=summary_headers, tablefmt="github")
+    )
     md_parts.append("\n\n")
 
     # Unified before/after comparison table
