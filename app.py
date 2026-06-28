@@ -304,6 +304,20 @@ SCOPE_VIOLATION_PATTERNS = [
     # exact rate-vs-amount conflation the build_prompt() rules separately
     # warn against, so it's safer to redirect than to answer here.
     re.compile(r"(បុព្វលាភ|ថ្លៃ|តម្លៃ).{0,30}ប៉ុន្មាន"),
+    # First-person "should I <do X>, yes or no?" -- a personal decision the
+    # user wants the assistant to make for them (e.g. "should I file a claim
+    # now?", "should I renew?"). Anchored on "ខ្ញុំគួរ" ("I should") closing
+    # with a yes/no marker ("ទេ"/"ឬទេ"), so it stays first-person and
+    # decision-shaped. The corpus answers regulatory facts in third person and
+    # never contains "ខ្ញុំគួរ", so this does not false-positive on legitimate
+    # retrievable content. Broader than the product-SELECTION verb pattern
+    # above, which only catches choose/buy/use/look-at.
+    re.compile(r"ខ្ញុំគួរ.{0,40}(ឬ)?ទេ"),
+    # Off-task requests that are not Cambodian-insurance-law questions at all:
+    # asking the assistant to translate a word/phrase. Translation is a
+    # general-purpose task outside this assistant's scope; "បកប្រែ" does not
+    # appear in legitimate questions about the corpus's content.
+    re.compile(r"បកប្រែ"),
 ]
 
 

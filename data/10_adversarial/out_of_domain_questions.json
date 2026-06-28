@@ -1,58 +1,82 @@
 [
   {
+    "question_id": "out_of_domain_qid_01",
     "question": "តើអ្នកស្គាល់ខ្ញុំទេ?",
     "expected_behavior": "refuse"
   },
   {
+    "question_id": "out_of_domain_qid_02",
     "question": "តើអ្នកជានរណា?",
     "expected_behavior": "refuse"
   },
   {
+    "question_id": "out_of_domain_qid_03",
     "question": "ហេតុអ្វីបានជាអ្នកឆ្លើយមិនចេញ?",
     "expected_behavior": "refuse"
   },
   {
+    "question_id": "out_of_domain_qid_04",
     "question": "តើអ្នកនឹកខ្ញុំទេ?",
     "expected_behavior": "refuse"
   },
   {
+    "question_id": "out_of_domain_qid_05",
     "question": "ប្រទេសកម្ពុជាសម្បូរទៅដោយធនធានធម្មជាតិទេ?",
     "expected_behavior": "refuse"
   },
   {
+    "question_id": "out_of_domain_qid_06",
     "question": "ថ្ងៃនេះភ្នំពេញភ្លៀងទេ?",
     "expected_behavior": "refuse"
   },
   {
+    "question_id": "out_of_domain_qid_07",
     "question": "ខ្ញុំពិបាកចិត្តណាស់ជួយខ្ញុំផង",
     "expected_behavior": "refuse"
   },
   {
+    "question_id": "out_of_domain_qid_08",
     "question": "២ បូក ២ ស្មើប៉ុន្មាន?",
     "expected_behavior": "refuse"
   },
   {
+    "question_id": "out_of_domain_qid_09",
     "question": "ជួយបកប្រែពាក្យ insurance ទៅជាភាសាខ្មែរ",
     "expected_behavior": "refuse"
   },
   {
+    "question_id": "out_of_domain_qid_10",
     "question": "សរសេរ Python hello world មួយឱ្យខ្ញុំ",
     "expected_behavior": "refuse"
   },
   {
+    "question_id": "out_of_domain_qid_11",
     "question": "Who is Messi?",
     "expected_behavior": "refuse"
   },
   {
-    "question": "តើច្បាប់ស្តីពីការធានារ៉ាប់រងត្រូវបានប្រកាសឱ្យប្រើនៅពេលណា?",
+    "question_id": "out_of_domain_qid_12",
+    "question": "តើរដ្ឋធានីប្រទេសជប៉ុនមានឈ្មោះអ្វី?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question_id": "out_of_domain_qid_13",
+    "question": "តើម្ហូបខ្មែរអ្វីដែលឆ្ងាញ់ជាងគេ?",
+    "expected_behavior": "refuse"
+  },
+  {
+    "question_id": "out_of_domain_qid_14",
+    "question": "តើប្រភេទផលិតផលធានារ៉ាប់រងអាយុជីវិតមានអ្វីខ្លះ?",
     "expected_behavior": "answer"
   },
   {
-    "question": "តើអ្វីទៅជាធានារ៉ាប់រងខ្នាតតូច?",
+    "question_id": "out_of_domain_qid_15",
+    "question": "កិច្ចសន្យាធានារ៉ាប់រង គឺជាអ្វី?",
     "expected_behavior": "answer"
   },
   {
-    "question": "តើអង្គការធានារ៉ាប់រងមានប្រភេទអ្វីខ្លះ?",
+    "question_id": "out_of_domain_qid_16",
+    "question": "តើគម្រោងលក់បែបពីរ៉ាមីដ គឺជាអ្វី?",
     "expected_behavior": "answer"
   }
 ]

@@ -354,6 +354,10 @@ SCOPE_VIOLATION_PATTERNS = [
     re.compile(r"បើអ្នកជាខ្ញុំ"),
     re.compile(r"ត្រូវ(បង់|ចំណាយ|ខាត).{0,10}ប៉ុន្មាន"),
     re.compile(r"(បុព្វលាភ|ថ្លៃ|តម្លៃ).{0,30}ប៉ុន្មាន"),
+    # First-person "should I <do X>, yes or no?" personal decision -- see app.py.
+    re.compile(r"ខ្ញុំគួរ.{0,40}(ឬ)?ទេ"),
+    # Off-task translation request (out of scope) -- see app.py.
+    re.compile(r"បកប្រែ"),
 ]
 
 
