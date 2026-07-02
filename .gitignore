@@ -32,6 +32,9 @@ models/generator/*
 models/retriever/*
 !models/retriever/.gitkeep
 
+# Ignore Internship Report
+docs/Internship_Report.docx
+
 # Locally generated human-evaluation databases (incl. WAL sidecar files)
 reports/human_answer_evaluation/*.db
 reports/human_answer_evaluation/*.db-*
