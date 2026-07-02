@@ -156,6 +156,22 @@ def collapse_blank_lines(text: str) -> str:
     return "\n".join(lines)
 
 
+def humanize_time_ago(ts: int) -> str:
+    """Turn a unix timestamp into 'just now' / 'N minutes ago' / 'N hours ago'
+    / 'N days ago' for the target-answer edit log."""
+    delta = int(time.time()) - int(ts)
+    if delta < 45:
+        return "just now"
+    if delta < 3600:
+        n = max(1, delta // 60)
+        return f"{n} minute{'s' if n != 1 else ''} ago"
+    if delta < 86400:
+        n = delta // 3600
+        return f"{n} hour{'s' if n != 1 else ''} ago"
+    n = delta // 86400
+    return f"{n} day{'s' if n != 1 else ''} ago"
+
+
 def parse_question_id(qid: str):
     """
     'guidance_qid_026' -> ('guidance', 'ai')
@@ -223,6 +239,20 @@ def init_db():
             UNIQUE (evaluator_id, question_id),
             FOREIGN KEY (evaluator_id) REFERENCES evaluators(id)
         );
+        -- Shared, global edits to a question's target answer. One row per edit
+        -- (full history kept for the activity log); the current target answer
+        -- for a question is the most recent row, falling back to the gold
+        -- expected_answer when there are no edits.
+        CREATE TABLE IF NOT EXISTS target_edits (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            question_id    TEXT NOT NULL,
+            evaluator_id   INTEGER NOT NULL,
+            evaluator_name TEXT NOT NULL,
+            new_answer     TEXT NOT NULL,
+            edited_at      INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_target_edits_qid
+            ON target_edits (question_id, edited_at DESC);
     """)
     # --- lightweight migrations for older DBs ---
     resp_cols = {
@@ -376,6 +406,42 @@ def load_gold():
             if qid:
                 gold[qid] = e
     return gold
+
+
+def get_target_override(question_id):
+    """Most recent shared edit for this question's target answer, or None."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT new_answer, evaluator_name, edited_at FROM target_edits "
+        "WHERE question_id = ? ORDER BY edited_at DESC, id DESC LIMIT 1",
+        (question_id,),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_target_history(question_id, limit=10):
+    """Recent target-answer edits for this question (newest first)."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT evaluator_name, edited_at FROM target_edits "
+        "WHERE question_id = ? ORDER BY edited_at DESC, id DESC LIMIT ?",
+        (question_id, limit),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def save_target_edit(question_id, evaluator_id, evaluator_name, new_answer):
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO target_edits "
+        "(question_id, evaluator_id, evaluator_name, new_answer, edited_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (question_id, evaluator_id, evaluator_name, new_answer, int(time.time())),
+    )
+    conn.commit()
+    conn.close()
 
 
 @st.cache_data
@@ -715,7 +781,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 
 /* ── Comment / feedback box ──────────────────────────────────────────── */
-.ev-comment-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--stone-light); margin: 14px 0 6px 0; }
+.ev-comment-label { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--stone-light); margin: 14px 0 6px 0; }
 [data-testid="stTextArea"] textarea {
     background: var(--parchment-soft) !important;
     border: 1px solid var(--brass-soft) !important;
@@ -738,6 +804,37 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     line-height: 1.7;
     white-space: pre-wrap;
     min-height: 42px;
+}
+
+/* ── Target-answer edit log (replaces the old comment box) ───────────── */
+.ev-log-list {
+    list-style: none; margin: 6px 0 0 0;
+    background: var(--parchment-soft);
+    border: 1px solid var(--brass-soft);
+    border-radius: 8px;
+    padding: 2px 12px;
+}
+.ev-log-item {
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+    color: var(--stone-light); padding: 4px 0;
+    border-bottom: 1px solid var(--brass-soft);
+}
+.ev-log-item:last-child { border-bottom: none; }
+.ev-log-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--indigo); flex-shrink: 0; }
+.ev-log-when { color: var(--lacquer); font-weight: 600; }
+.ev-log-who  { color: var(--indigo); font-weight: 600; }
+.ev-log-empty {
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 11px;
+    color: var(--stone-light); font-style: italic;
+    margin-top: 6px; padding: 6px 0;
+}
+.ev-target-edited-flag {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9.5px;
+    letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;
+    color: var(--indigo); background: var(--indigo-mist);
+    border: 1px solid rgba(59,76,140,0.25); border-radius: 99px;
+    padding: 1px 8px; margin-left: 6px;
 }
 
 /* ── Inline progress label: "Question X of Y" on the left, done-count/name
@@ -817,7 +914,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 
 /* ── Answer panes ─────────────────────────────────────────────────── */
-.ev-answer-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.ev-answer-label { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
 .ev-answer-label.expected  { color: var(--signal); }
 .ev-answer-label.generated { color: var(--lacquer); }
 .ev-answer-label .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -1071,6 +1168,50 @@ SLIDER_FILL_JS = """
 """
 
 # ----------------------------------------------------------------------------
+# Target-answer textarea auto-grow JS
+# ----------------------------------------------------------------------------
+# Streamlit's text_area has a fixed pixel height (and would show an inner
+# scrollbar for long answers). This runs in a 0-height same-origin component
+# iframe, reaches into the parent document, and continuously sizes the target
+# editor's <textarea> to its exact content height — so the whole answer shows
+# with no empty gap below and no inner scroll, growing live as the user types.
+# The surrounding Streamlit wrappers (which carry the fixed height) are set to
+# auto so they don't clip or leave a gap.
+TARGET_AUTOGROW_JS = """
+<script>
+(function () {
+    const pdoc = window.parent.document;
+    if (window.parent.__targetGrowTimer) {
+        clearInterval(window.parent.__targetGrowTimer);
+    }
+    function grow() {
+        const box = pdoc.querySelector('.st-key-target_editor_box');
+        if (!box) return;
+        const ta = box.querySelector('textarea');
+        if (!ta) return;
+        // measure natural content height
+        ta.style.setProperty('height', 'auto', 'important');
+        const h = ta.scrollHeight;
+        ta.style.setProperty('height', h + 'px', 'important');
+        ta.style.setProperty('overflow-y', 'hidden', 'important');
+        ta.style.setProperty('resize', 'none', 'important');
+        // release fixed height on the wrappers Streamlit sized, so the pane
+        // hugs the textarea with no gap.
+        let p = ta.parentElement, hops = 0;
+        while (p && hops < 5 && !p.classList.contains('st-key-target_editor_box')) {
+            p.style.setProperty('height', 'auto', 'important');
+            p.style.setProperty('max-height', 'none', 'important');
+            p = p.parentElement;
+            hops++;
+        }
+    }
+    window.parent.__targetGrowTimer = setInterval(grow, 60);
+    grow();
+})();
+</script>
+"""
+
+# ----------------------------------------------------------------------------
 # Pages
 # ----------------------------------------------------------------------------
 
@@ -1316,17 +1457,27 @@ def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
     # html.escape leaves newlines intact, so the answer blocks' white-space:
     # pre-wrap still renders multi-line lists correctly.
     # Left pane ("Context") shows the full source chunk the answer was drawn
-    # from; right pane ("Target Answer") shows the expected/target answer.
-    # Both come from the gold question set (merged in load_questions).
+    # from (static). The gold `context` comes from load_questions.
     # The panes render with white-space: pre-wrap, so the source's ragged
     # newlines (mixed single \n and runs of \n\n\n between list items) would
     # show as uneven blank gaps. collapse_blank_lines() trims per-line
     # trailing space and squashes any run of blank lines to a single break,
     # so lists render compactly and evenly.
     context = html.escape(collapse_blank_lines(question.get("context") or ""))
-    expected = html.escape(collapse_blank_lines(question.get("expected_answer") or ""))
     context_body = context if context else "—"
-    target_body = expected if expected else "—"
+
+    # Right pane ("Target Answer") is EDITABLE and SHARED across evaluators.
+    # The effective target is the most recent shared edit (from target_edits),
+    # falling back to the gold expected_answer when nobody has edited it yet.
+    override = get_target_override(q_idx)
+    gold_target = collapse_blank_lines(question.get("expected_answer") or "")
+    effective_target = (
+        override["new_answer"] if override else gold_target
+    )
+    edited_flag = (
+        '<span class="ev-target-edited-flag">edited</span>' if override else ""
+    )
+
     st.markdown(
         f'<div class="ev-pill-row">'
         f'<span class="ev-category-pill">{category}</span>'
@@ -1338,19 +1489,43 @@ def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
         f'<div class="ev-question-text">{html.escape(question["question"])}</div>',
         unsafe_allow_html=True,
     )
-    st.markdown(
-        '<div class="ev-answer-grid">'
-        "<div>"
-        '<div class="ev-answer-label expected"><span class="dot"></span>Context</div>'
-        f'<div class="ev-answer-block expected">{context_body}</div>'
-        "</div>"
-        "<div>"
-        '<div class="ev-answer-label generated"><span class="dot"></span>Target Answer</div>'
-        f'<div class="ev-answer-block generated">{target_body}</div>'
-        "</div>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+
+    # Two side-by-side columns: static Context (left), editable Target (right).
+    # Streamlit widgets can't live inside a raw-HTML grid, so real columns
+    # replace the old .ev-answer-grid markup here.
+    col_ctx, col_tgt = st.columns(2, gap="medium")
+    with col_ctx:
+        st.markdown(
+            '<div class="ev-answer-label expected"><span class="dot"></span>Context</div>'
+            f'<div class="ev-answer-block expected">{context_body}</div>',
+            unsafe_allow_html=True,
+        )
+    with col_tgt:
+        st.markdown(
+            '<div class="ev-answer-label generated"><span class="dot"></span>'
+            f"Target Answer{edited_flag}"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        # Seed the editor once per question visit; keyed by question_id so the
+        # slider revisiting a question doesn't reset an in-progress edit. We do
+        # NOT reseed on every run (that would clobber typing), so a concurrent
+        # edit by someone else surfaces via the log below rather than live.
+        target_key = f"target_edit_{q_idx}"
+        if target_key not in st.session_state:
+            st.session_state[target_key] = effective_target
+        # The box auto-grows to fit its content exactly (no gap, no inner
+        # scroll) via TARGET_AUTOGROW_JS below — it grows as the evaluator
+        # types too. The height= here is just a pre-JS fallback minimum.
+        with st.container(key="target_editor_box"):
+            st.text_area(
+                "target_answer_editor",
+                key=target_key,
+                label_visibility="collapsed",
+                height=120,
+                disabled=is_submitted,
+            )
+        st_html(TARGET_AUTOGROW_JS, height=0)
 
     # ── Rating cards (5 in a row) ─────────────────────────────────────
     current_scores: dict = {}
@@ -1478,29 +1653,27 @@ def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
         if val is None:
             all_scored = False
 
-    # ── Free-text comment (optional) ──────────────────────────────────
-    comment_key = f"comment_{q_idx}"
-    if comment_key not in st.session_state:
-        st.session_state[comment_key] = existing.get("comment") or ""
-
+    # ── Target-answer edit log (shared, replaces the old comment box) ──────
+    # Shows who last changed this question's target answer and how long ago,
+    # so evaluators see each other's curation activity.
     st.markdown(
-        '<div class="ev-comment-label">Comment / feedback (optional)</div>',
+        '<div class="ev-comment-label">Target answer edit history</div>',
         unsafe_allow_html=True,
     )
-    if is_submitted:
-        saved_comment = existing.get("comment") or ""
-        comment_html = html.escape(saved_comment) if saved_comment else "— no comment left —"
-        st.markdown(
-            f'<div class="ev-comment-view">{comment_html}</div>',
-            unsafe_allow_html=True,
+    history = get_target_history(q_idx)
+    if history:
+        items = "".join(
+            f'<li class="ev-log-item"><span class="ev-log-dot"></span>'
+            f'Edited <span class="ev-log-when">{humanize_time_ago(h["edited_at"])}</span> '
+            f'by <span class="ev-log-who">{html.escape(h["evaluator_name"])}</span></li>'
+            for h in history
         )
+        st.markdown(f'<ul class="ev-log-list">{items}</ul>', unsafe_allow_html=True)
     else:
-        st.text_area(
-            "comment",
-            key=comment_key,
-            placeholder="Anything you'd like to note about this answer…",
-            label_visibility="collapsed",
-            height=80,
+        st.markdown(
+            '<div class="ev-log-empty">No edits yet — the target answer above is the '
+            "original golden answer. Edit and save it to start a history.</div>",
+            unsafe_allow_html=True,
         )
 
     # ── Footer: score bar + submit (or locked notice) ──────────────────
@@ -1539,13 +1712,22 @@ def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
                 final_scores = {
                     k: v for k, v in current_scores.items() if v is not None
                 }
-                comment_text = st.session_state.get(comment_key, "")
+                # Comment field was replaced by the shared target-answer editor;
+                # responses.comment is retained in the schema but no longer used.
                 save_response(
                     evaluator_id,
                     q_idx,
                     final_scores,
-                    comment_text,
+                    "",
                 )
+                # Persist any target-answer edit as part of the same submit —
+                # there's no separate save button. Only writes when the text
+                # actually changed from the current effective target.
+                edited_target = st.session_state.get(target_key, "").strip()
+                if edited_target and edited_target != effective_target.strip():
+                    save_target_edit(
+                        q_idx, evaluator_id, evaluator_name, edited_target
+                    )
                 # Advance to the next unanswered question after this one in
                 # assignment order; wrap to the first unanswered overall if
                 # none remain after the current position (out-of-order rating
