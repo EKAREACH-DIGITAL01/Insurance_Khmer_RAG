@@ -136,6 +136,12 @@ EVAL_MODES = [
 ]
 MODE_BY_KEY = {m["key"]: m for m in EVAL_MODES}
 
+# Each evaluator is assigned a coverage-aware subset of this many questions,
+# drawn once from the full 400-question gold set and persisted in the
+# assignments table. No mode split: every evaluator rates a mix of human- and
+# AI-created questions, so no evaluator is biased toward one source.
+QUESTIONS_PER_EVALUATOR = 50
+
 # ----------------------------------------------------------------------------
 # Question id parsing
 # ----------------------------------------------------------------------------
@@ -273,12 +279,18 @@ def get_or_create_evaluator(name, eval_mode):
     return eid, session_id, False
 
 
-def get_or_create_assignment(evaluator_id, mode_questions):
+def get_or_create_assignment(evaluator_id, all_question_ids):
     """
-    mode_questions: the already-filtered list of question dicts for this
-    evaluator's chosen mode (human / ai / all), in display order.
-    Assignment is keyed by question_id so subsets never collide with the
-    full 400-question id space.
+    all_question_ids: the full list of available question_ids (all 400 gold
+    questions). On first login a subset of QUESTIONS_PER_EVALUATOR is drawn for
+    this evaluator and persisted; on resume the same stored subset is returned.
+
+    Coverage-aware selection (guarantees full coverage): pick the
+    QUESTIONS_PER_EVALUATOR questions with the FEWEST existing assignments across
+    all evaluators, breaking ties randomly. Every question is assigned once
+    before any is assigned twice, so the first ceil(400/50)=8 evaluators cover
+    all 400 with no gaps, and each later evaluator begins the next redundancy
+    layer on the least-covered questions.
     """
     conn = get_db()
     rows = conn.execute(
@@ -288,7 +300,16 @@ def get_or_create_assignment(evaluator_id, mode_questions):
     if rows:
         assignment = [r["question_id"] for r in rows]
     else:
-        assignment = [q["question_id"] for q in mode_questions]
+        counts = {qid: 0 for qid in all_question_ids}
+        for r in conn.execute(
+            "SELECT question_id, COUNT(*) AS n FROM assignments GROUP BY question_id"
+        ).fetchall():
+            if r["question_id"] in counts:
+                counts[r["question_id"]] = r["n"]
+        k = min(QUESTIONS_PER_EVALUATOR, len(all_question_ids))
+        shuffled = list(all_question_ids)
+        random.shuffle(shuffled)
+        assignment = sorted(shuffled, key=lambda qid: counts[qid])[:k]
         for pos, qid in enumerate(assignment):
             conn.execute(
                 "INSERT INTO assignments (evaluator_id, question_id, position) VALUES (?, ?, ?)",
@@ -1048,35 +1069,11 @@ def page_login():
     st.markdown(
         '<div style="text-align:center; padding-top:10vh; padding-bottom:18px;">'
         '<div style="font-size:28px;font-weight:700;color:var(--stone);margin-bottom:8px;letter-spacing:-0.5px;">Khmer Rag Insurance Chatbot Evaluation</div>'
-        '<div style="font-size:15px;color:var(--stone-light);">Choose a mode and enter your name to begin — or to continue an evaluation you started earlier.</div>'
+        f'<div style="font-size:15px;color:var(--stone-light);">Enter your name to begin — or to continue an evaluation you started earlier. '
+        f"You'll be assigned a random {QUESTIONS_PER_EVALUATOR} out of our total 400 golden questions.</div>"
         "</div>",
         unsafe_allow_html=True,
     )
-    # ── Mode radio row: "Choose mode:" label + the options all on one line ──
-    # A single native radio (mutually-exclusive by construction) replaces the
-    # old three-button toggle: it holds its own selection state, so no manual
-    # session_state bookkeeping or st.rerun() is needed on each pick.
-    radio_options = [m["key"] for m in EVAL_MODES]
-    radio_labels = ["Human-Created (100)", "AI-Created (300)", "All Questions (400)"]
-
-    # The "Choose Gold Question Mode:" caption is injected via CSS ::before on the
-    # radio's options row (see .st-key-login_mode_radio), so label + options are a
-    # single inline element that can be centred reliably (no separate markdown
-    # column to fight with). The radio widget's own key class is the one selector
-    # we know Streamlit 1.58 emits, so all styling hangs off it.
-    chosen_label = st.radio(
-        "Choose Gold Question Mode:",
-        options=radio_labels,
-        index=None,
-        horizontal=True,
-        key="login_mode_radio",
-        label_visibility="collapsed",
-    )
-    chosen_mode = (
-        radio_options[radio_labels.index(chosen_label)] if chosen_label else None
-    )
-
-    st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
 
     # ── Name input + Begin button: nested inside a single centred middle column
     #    so the pair is centred as one unit (not packed against either side). ──
@@ -1088,7 +1085,7 @@ def page_login():
             "name", placeholder="Enter your name", label_visibility="collapsed"
         )
     name_clean = name.strip()
-    can_begin = bool(name_clean) and chosen_mode is not None
+    can_begin = bool(name_clean)
     with c_btn:
         with st.container(key="begin_eval_row"):
             if st.button(
@@ -1098,22 +1095,14 @@ def page_login():
                 st.session_state.pop("session_id", None)
                 st.session_state.pop("q_pos", None)
                 st.session_state["evaluator_name"] = name_clean
-                st.session_state["eval_mode"] = chosen_mode
                 st.rerun()
 
     # ── Contextual hint: tell the user exactly what's still missing ──────────
-    if not name_clean and chosen_mode is None:
-        hint = "Choose a mode and enter your name above to continue."
-    elif not name_clean:
-        hint = "Enter your name above to continue."
-    elif chosen_mode is None:
-        hint = "Choose a mode above to continue."
-    else:
-        hint = None
-    if hint:
+    if not name_clean:
         st.markdown(
-            f'<p style="text-align:center;color:var(--stone-light);font-size:12.5px;'
-            f"font-family:'IBM Plex Mono',monospace;margin-top:2px;\">{hint}</p>",
+            '<p style="text-align:center;color:var(--stone-light);font-size:12.5px;'
+            "font-family:'IBM Plex Mono',monospace;margin-top:2px;\">"
+            "Enter your name above to continue.</p>",
             unsafe_allow_html=True,
         )
 
@@ -1122,11 +1111,6 @@ def page_login():
     # reads fuller while remaining centred — extended out to both sides.
     _, c_exp, _ = st.columns([0.5, 3, 0.5])
     with c_exp:
-        mode_lines = "".join(
-            f'<p class="login-mode-line"><span class="tag {m["key"]}">{m["label"]}</span>'
-            f'{m["desc"]}</p>'
-            for m in EVAL_MODES
-        )
         metric_lines = "".join(
             f'<p class="login-metric-line"><strong>{m["label"]}</strong> — {m["desc"]}</p>'
             for m in METRICS
@@ -1137,18 +1121,18 @@ def page_login():
         )
         st.markdown(
             f'<div class="login-explain">'
-            f"<h4>Your progress is always saved</h4>"
+            f"<h4>How the assignment works</h4>"
+            f'<p class="login-metric-line">When you begin, you are assigned a random '
+            f"<strong>{QUESTIONS_PER_EVALUATOR} questions</strong> drawn from our full set of "
+            f"<strong>400 golden questions</strong> — a mix of human-created and AI-created. "
+            f"That same set stays yours every time you return.</p>"
+            f'<h4 class="second">Your progress is always saved</h4>'
             f'<p class="login-metric-line">Don\'t worry about losing your work — every rating is '
             f"saved the moment you submit it. You can close the browser at any time and come back "
             f"later to continue right where you left off.</p>"
             f'<p class="login-metric-line">To resume, just <strong>enter the same name</strong> — '
-            f"that's all. Your ratings are shared across all three modes, so a question you've already "
-            f"rated stays rated no matter which mode you open. "
-            f"To change mode later, simply <strong>refresh the page</strong>: that brings you back to "
-            f"this screen to choose the mode you want, and since your ratings are shared across modes, "
-            f"nothing is ever repeated or lost.</p>"
-            f'<h4 class="second">What do the 3 modes mean?</h4>'
-            f"{mode_lines}"
+            f"that's all. Your assigned questions and ratings are kept against your name, so nothing "
+            f"is ever repeated or lost.</p>"
             f'<h4 class="second">What do the rating metrics mean?</h4>'
             f"{metric_lines}"
             f'<p class="login-hint">Tip: once you start evaluating, hover over any metric '
@@ -1158,23 +1142,18 @@ def page_login():
         )
 
 
-def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id):
+def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
     st.markdown(CSS, unsafe_allow_html=True)
 
-    # The current mode is just a view: the ordered question_ids come straight
-    # from the mode's filtered set (deterministic file order). responses holds
-    # this evaluator's ratings across ALL questions, so done_count must be
-    # restricted to the questions visible in this mode.
-    assignment = [q["question_id"] for q in mode_questions]
+    # `assignment` is this evaluator's fixed coverage-aware slice of question_ids,
+    # persisted at first login. responses holds their ratings for those ids.
     responses = get_responses(evaluator_id)
     total_qs = len(assignment)
     done_count = sum(1 for qid in assignment if qid in responses)
-    mode_meta = MODE_BY_KEY[eval_mode]
 
     if total_qs == 0:
         st.error(
-            f"No questions available for mode '{mode_meta['label']}'. "
-            f"Check that `{JSONL_PATH}` contains questions for this mode."
+            f"No questions assigned. Check that `{JSONL_PATH}` contains questions."
         )
         return
 
@@ -1201,18 +1180,18 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
 
     # ── Completion screen ────────────────────────────────────────────
     if done_count >= total_qs:
-        mode_responses = [responses[qid] for qid in assignment if qid in responses]
+        done_responses = [responses[qid] for qid in assignment if qid in responses]
         avg = (
-            sum(r["total_score"] for r in mode_responses) / len(mode_responses)
-            if mode_responses
+            sum(r["total_score"] for r in done_responses) / len(done_responses)
+            if done_responses
             else 0
         )
-        halluc_count = sum(1 for r in mode_responses if r.get("hallucination") == 1)
+        halluc_count = sum(1 for r in done_responses if r.get("hallucination") == 1)
         st.markdown(
             f'<div class="done-wrap"><div class="done-icon">✓</div>'
             f'<div class="done-title">Evaluation Complete</div>'
             f'<div class="done-sub">Thank you, {evaluator_name}. All {total_qs} questions '
-            f'({mode_meta["label"]}) have been rated.</div>'
+            f"have been rated.</div>"
             f'<div class="done-stat">{avg:.1f}<span>avg score / {MAX_TOTAL}</span></div>'
             f"<p style=\"margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--stone-light);\">"
             f"Hallucination flagged: {halluc_count} / {total_qs} answers</p></div>",
@@ -1259,7 +1238,6 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         f'<div class="ev-top">'
         f'<div class="ev-top-left"></div>'
         f'<div class="ev-top-right">'
-        f'<span class="mode-badge {eval_mode}">{mode_meta["label"]} mode</span>'
         f'<span class="stat-chip submitted">✓ {submitted_n} submitted'
         f'<span class="chip-tip"><span class="tip-head">Submitted questions</span>{submitted_list}</span>'
         f"</span>"
@@ -1631,23 +1609,24 @@ def main():
         st.error(f"No questions found at `{JSONL_PATH}`. Run scripts/13 first.")
         return
 
-    if "evaluator_name" not in st.session_state or "eval_mode" not in st.session_state:
+    if "evaluator_name" not in st.session_state:
         page_login()
         return
 
     name = st.session_state["evaluator_name"]
-    eval_mode = st.session_state["eval_mode"]
-    mode_filter = MODE_BY_KEY[eval_mode]["filter"]
-    mode_questions = get_mode_questions(mode_filter, by_id, order)
 
     if "evaluator_id" not in st.session_state:
-        eid, sid, resumed = get_or_create_evaluator(name, eval_mode)
+        eid, sid, resumed = get_or_create_evaluator(name, "all")
         st.session_state["evaluator_id"] = eid
         st.session_state["session_id"] = sid
         if resumed:
             st.toast(f"Welcome back, {name} — resuming your saved session.", icon="👋")
     evaluator_id = st.session_state["evaluator_id"]
-    page_evaluate(evaluator_id, name, eval_mode, mode_questions, by_id)
+
+    # No mode split: draw a coverage-aware 50-question slice from the full 400
+    # (order is the complete list of gold question_ids in file order).
+    assignment = get_or_create_assignment(evaluator_id, order)
+    page_evaluate(evaluator_id, name, assignment, by_id)
 
 
 if __name__ == "__main__":

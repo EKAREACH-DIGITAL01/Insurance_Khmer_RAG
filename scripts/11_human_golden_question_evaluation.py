@@ -309,10 +309,20 @@ def get_or_create_evaluator(name):
 def get_or_create_assignment(evaluator_id, all_question_ids):
     """
     all_question_ids: the full list of available question_ids (all 400 gold
-    questions). On first login a random subset of QUESTIONS_PER_EVALUATOR is
-    drawn for this evaluator and persisted; on resume the same stored subset is
-    returned. Assignment is keyed by question_id so each evaluator gets their
-    own fixed random slice of the full id space.
+    questions). On first login a subset of QUESTIONS_PER_EVALUATOR is drawn for
+    this evaluator and persisted; on resume the same stored subset is returned.
+    Assignment is keyed by question_id so each evaluator keeps their own fixed
+    slice of the full id space.
+
+    Coverage-aware selection (guarantees full coverage): instead of an
+    independent random sample -- which leaves ~a quarter of the 400 questions
+    unrated with only ~10 evaluators, because independent draws overlap -- this
+    picks the QUESTIONS_PER_EVALUATOR questions that currently have the FEWEST
+    existing assignments across all evaluators, breaking ties randomly. This
+    means every question is assigned once before any is assigned twice, so the
+    first ceil(400/50)=8 evaluators cover all 400 questions with no gaps, and
+    each later evaluator begins the next redundancy layer on the least-covered
+    questions.
     """
     conn = get_db()
     rows = conn.execute(
@@ -322,8 +332,20 @@ def get_or_create_assignment(evaluator_id, all_question_ids):
     if rows:
         assignment = [r["question_id"] for r in rows]
     else:
+        # Current assignment count per question across all evaluators.
+        counts = {qid: 0 for qid in all_question_ids}
+        for r in conn.execute(
+            "SELECT question_id, COUNT(*) AS n FROM assignments GROUP BY question_id"
+        ).fetchall():
+            if r["question_id"] in counts:
+                counts[r["question_id"]] = r["n"]
         k = min(QUESTIONS_PER_EVALUATOR, len(all_question_ids))
-        assignment = random.sample(list(all_question_ids), k)
+        # Random tie-break within each coverage level: shuffle first, then a
+        # stable sort by count keeps equally-covered questions in random order.
+        shuffled = list(all_question_ids)
+        random.shuffle(shuffled)
+        ordered = sorted(shuffled, key=lambda qid: counts[qid])
+        assignment = ordered[:k]
         for pos, qid in enumerate(assignment):
             conn.execute(
                 "INSERT INTO assignments (evaluator_id, question_id, position) VALUES (?, ?, ?)",
