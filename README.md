@@ -52,9 +52,12 @@ happen at chat time.
   uniqueness) to validate the test set, independent of the live chatbot.
   `scripts/12_human_golden_question_evaluation_report.py` rolls those scores
   and target-answer corrections into a report with per-question curation flags.
-- **Generator model comparison** — four quantized LLMs are scored with a
-  RAGAS-style 5-metric LLM-judge by `scripts/13_compare_generator_models.py`,
-  saved to `reports/generator_model_comparison/`.
+- **Generator model comparison** — four quantized LLMs are scored on a
+  RAGAS-style 5-metric scorer that is **fully automated (deterministic +
+  embedding proxies, no LLM judge)** by
+  `scripts/13_compare_generator_models.py`, saved to
+  `reports/generator_model_comparison/`. The winner is then re-checked by the
+  human answer evaluation below.
 - **Human answer evaluation** — a Streamlit rating UI
   (`scripts/16_human_answer_evaluation.py`) collects human scores, merged into
   a report (plus a separate hallucination report) by
@@ -68,15 +71,15 @@ happen at chat time.
 
 ## Architecture
 
-![Khmer Insurance Law Assistant — development flow: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–18), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/Development%20Flow.png)
+![Khmer Insurance Law Assistant — development flow: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–19), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/Development%20Flow.png)
 
 The diagram above reads in three stages:
 
 - **Stage A — Data-Build Pipeline (`01`–`08`):** raw source PDFs are OCR'd,
   cleaned, merged, chunked, and embedded into the FAISS indices under
   `vector_db/`. Run once, or whenever the corpus changes.
-- **Stage B — Evaluation & Reporting (`09`–`18`):** benchmarks the corpus and
-  models (embedding comparison, retrieval modes, generator LLM-judge scoring,
+- **Stage B — Evaluation & Reporting (`09`–`19`):** benchmarks the corpus and
+  models (embedding comparison, retrieval modes, automated generator scoring,
   human evaluation, safety gates) and rolls everything into a data card,
   writing JSON + Markdown to `reports/`. This is where **BGE-M3 is selected
   as the production retriever**; it does not affect the live app.
@@ -359,7 +362,7 @@ python scripts/10_compare_retrieval_modes.py
 python scripts/11_human_golden_question_evaluation.py   # collect scores + corrections
 python scripts/12_human_golden_question_evaluation_report.py  # aggregate + curation flags
 
-# Generator model comparison (requires llama-server; LLM-judge scoring)
+# Generator model comparison (requires llama-server; automated proxy scoring, no LLM judge)
 python scripts/13_compare_generator_models.py
 # optional follow-ups: 14 diagnoses, 15 rescores the generator scores
 

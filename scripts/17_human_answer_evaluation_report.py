@@ -28,8 +28,9 @@ from tabulate import tabulate
 #              total_score, comment, submitted_at)
 #   -- responses are keyed by (evaluator_id, question_id); question_id is the
 #      global TEXT id (e.g. "guidance_qid_001"), NOT a positional index.
-#   -- the assignments table is unused by scripts/16, so coverage is derived
-#      from each evaluator's eval_mode instead.
+#   -- scripts/16 assigns each evaluator a coverage-aware slice of the gold set
+#      (50 questions) and persists it in the assignments table, so coverage is
+#      derived from that per-evaluator count (see load_assignment_counts).
 #
 # Inputs
 #   reports/human_answer_evaluation/human_answer_evaluation.db          (scripts/16)
@@ -165,6 +166,23 @@ def load_evaluators():
     return {r["id"]: {"name": r["name"], "eval_mode": r["eval_mode"]} for r in rows}
 
 
+def load_assignment_counts():
+    """Returns {evaluator_id: n_assigned} from the assignments table.
+
+    scripts/16 now assigns each evaluator a fixed coverage-aware slice of the
+    gold set (50 questions) and persists it here, so the real per-evaluator
+    denominator for the coverage column is this count -- NOT the full mode size.
+    Empty for older DBs written before assignment tracking, in which case the
+    caller falls back to the number of questions the evaluator actually rated.
+    """
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT evaluator_id, COUNT(*) AS n FROM assignments GROUP BY evaluator_id"
+    ).fetchall()
+    conn.close()
+    return {r["evaluator_id"]: r["n"] for r in rows}
+
+
 # ----------------------------------------------------------------------------
 # Load questions + automated proxy scores from the scripts/13 JSONL
 # ----------------------------------------------------------------------------
@@ -267,7 +285,7 @@ def macro_avg_per_metric(q_stats):
     }
 
 
-def per_evaluator_stats(responses, evaluators, mode_sizes):
+def per_evaluator_stats(responses, evaluators, mode_sizes, assignment_counts):
     """Per-evaluator coverage (completed / questions in their chosen mode), avg
     RAGAS metric scores, and the count of hallucination flags they raised."""
     by_eval = {}
@@ -280,7 +298,10 @@ def per_evaluator_stats(responses, evaluators, mode_sizes):
         meta      = evaluators.get(eid, {})
         name      = meta.get("name") or (rows[0]["evaluator_name"] if rows else f"#{eid}")
         mode      = meta.get("eval_mode") or "all"
-        assigned  = mode_sizes.get(mode) or len(rows)
+        # Real denominator: the coverage-aware slice scripts/16 assigned this
+        # evaluator (persisted in the assignments table). Fall back to the mode
+        # size, then to the rated count, for older DBs with no assignment rows.
+        assigned  = assignment_counts.get(eid) or mode_sizes.get(mode) or len(rows)
         completed = len(rows)
 
         metric_avgs  = {m: _avg([r[m] for r in rows], 2) for m in METRICS}
@@ -814,6 +835,7 @@ def main():
     print("Loading human responses from database...")
     responses  = load_all_responses()
     evaluators = load_evaluators()
+    assignment_counts = load_assignment_counts()
 
     if not responses:
         print("No responses found in the database yet.")
@@ -834,7 +856,7 @@ def main():
     print("Computing stats...")
     q_stats           = per_question_stats(responses, by_id)
     macro_avgs        = macro_avg_per_metric(q_stats)
-    eval_stats        = per_evaluator_stats(responses, evaluators, mode_sizes)
+    eval_stats        = per_evaluator_stats(responses, evaluators, mode_sizes, assignment_counts)
     iaa, iaa_multi, halluc_disagree_rate = inter_annotator_from_responses(responses)
     human_proxy_macro = human_vs_proxy(q_stats, by_id)
     halluc            = hallucination_report_data(q_stats, by_id, responses)
