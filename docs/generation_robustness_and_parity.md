@@ -1,12 +1,12 @@
 # Generation Robustness & Eval/Production Parity
 
 This document records a set of changes made to keep the offline generator
-evaluation (`scripts/11_compare_generator_models.py`) faithful to the live
+evaluation (`scripts/12_compare_generator_models.py`) faithful to the live
 chatbot (`app.py`), and to make generation robust against the failure modes
 observed during real runs — repetition loops, silent truncation, a macOS
 segfault, and an intermittent `llama.cpp` parser error.
 
-The guiding principle throughout: **script 11 must generate the same way the
+The guiding principle throughout: **script 12 must generate the same way the
 live app does**, so that a model's comparison score predicts how it will behave
 for real users. Where the two files *must* differ, the difference is explained
 below and is deliberate.
@@ -17,7 +17,7 @@ below and is deliberate.
 
 The next stage after the model comparison is a **human evaluation UI** that
 shows evaluators the `expected_answer` alongside the `generated_answer` produced
-by script 11. The client, separately, uses the live `app.py` chatbot. If the two
+by script 12. The client, separately, uses the live `app.py` chatbot. If the two
 pipelines diverged, the comparison would no longer predict production behaviour
 and evaluators would see artifacts the real app never produces. So the retrieval
 path, prompt, and generation settings are kept byte-for-byte aligned, and any
@@ -33,7 +33,7 @@ originally left the device unspecified, which on Apple Silicon auto-selects
 the FAISS top-K ordering on near-tie chunks — which changes the selected context
 and therefore the generated answer.
 
-**Fix:** script 11 now loads `SentenceTransformer(EMBEDDING_HF_ID, device="cpu")`.
+**Fix:** script 12 now loads `SentenceTransformer(EMBEDDING_HF_ID, device="cpu")`.
 Retrieval is now bit-for-bit comparable between the two pipelines: same
 embeddings → same FAISS order → same fused chunks → same context → same prompt.
 
@@ -50,10 +50,10 @@ embeddings → same FAISS order → same fused chunks → same context → same 
 On macOS, FAISS and PyTorch (pulled in by `sentence-transformers`) each load
 their own OpenMP runtime. The duplicate runtimes collide and **segfault** the
 moment the first real FAISS search and BGE-M3 encode run together. `app.py`
-already guarded against this at its top; script 11 did not, and crashed on the
+already guarded against this at its top; script 12 did not, and crashed on the
 first non-resumed question.
 
-**Fix:** at the very top of script 11, before importing `faiss` or `torch`:
+**Fix:** at the very top of script 12, before importing `faiss` or `torch`:
 
 ```python
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -66,7 +66,7 @@ These must stay in sync with `app.py`.
 
 ---
 
-## 4. Real-time result ordering (script 11)
+## 4. Real-time result ordering (script 12)
 
 Answers are written to the per-model `generated_answer_results.jsonl` the
 instant they are generated (crash safety). That means a question regenerated on
@@ -97,7 +97,7 @@ The cap is now sized **per question**, with each model's *own* tokenizer (via
 the live server's `/tokenize`), then clamped to a floor and a ceiling and
 finally bounded so `prompt + output` can never exceed the context window.
 
-### Eval (script 11): size to the gold answer
+### Eval (script 12): size to the gold answer
 
 A gold answer is a verbatim chunk passage, so the longest answer the eval could
 need is the longest `expected_answer`. `compute_gold_ceiling()` tokenizes
@@ -201,7 +201,7 @@ it can't reconcile. It is stochastic — a re-request almost always succeeds.
   restarting mid-answer. PEG errors almost always fail *before* the first token,
   so this catches the vast majority.
 
-**Fix (script 11): resume re-processes failed rows.** A row that recorded a hard
+**Fix (script 12): resume re-processes failed rows.** A row that recorded a hard
 `error` is no longer treated as "done" by `load_existing_results()`, so the next
 run regenerates it automatically instead of skipping it forever. The stale error
 row is overwritten by the fresh result (reorder dedupes last-write-wins). You no
@@ -226,7 +226,7 @@ narrow for the question — a gold-data fix, not a pipeline fix. See
 
 ---
 
-## 10. Per-model gold scope — manual-only vs. full (script 11)
+## 10. Per-model gold scope — manual-only vs. full (script 12)
 
 The gold set has two tiers per category: the first 25 questions are purely
 **human-authored** (question, expected chunks, *and* expected answer), and
@@ -298,12 +298,12 @@ This area saw several iterations; the **final** design is below.
 
 ### Stale / wrong server on port 8080
 
-A leftover `llama-server` (a crashed run, a manually-started one, or script 11's
+A leftover `llama-server` (a crashed run, a manually-started one, or script 12's
 server for a previous model) can still hold **port 8080**. The new process then
 fails to bind, dies, and a naive readiness poll — which only checks that
 *something* answers on 8080 — would attach to the wrong server.
 
-Guards (both `start_chatbot.py` and `scripts/11_compare_generator_models.py`):
+Guards (both `start_chatbot.py` and `scripts/12_compare_generator_models.py`):
 
 1. **Free port 8080 before launching.** A helper finds whatever is listening on
    8080 and kills it (SIGTERM then SIGKILL on POSIX via `lsof`/`os.kill`;
@@ -333,13 +333,13 @@ small-context model can then still be evaluated on whatever fits.
 > **Sailor fix.** Sailor2-8B at 4096 ctx cannot hold the 5k–13k-token RAG
 > prompts (most 400'd). The model was swapped to **`Sailor2-L-8B-Chat`** — the
 > "L" long-context variant, natively `131072` ctx, no rope scaling — in
-> `install_models.py`, `scripts/11`, and `start_chatbot.py`
+> `install_models.py`, `scripts/12`, and `start_chatbot.py`
 > (`local_filename = Sailor2-L-8B-Chat-Q4_K_M.gguf`, label `Sailor2-L 8B`). The
 > `_is_sailor()` "sailor" substring match still applies the §13 style rule.
 
 ### Clean shutdown under Ctrl+C
 
-`stop_llama_server()` (script 11) is interrupt-proof: SIGTERM → wait loop that
+`stop_llama_server()` (script 12) is interrupt-proof: SIGTERM → wait loop that
 **swallows a second Ctrl+C** so the kill always finishes → SIGKILL if needed →
 `_free_port_8080()` as a backstop. The per-model `process` is assigned **inside**
 the `try`, so the `finally` stops the server even if Ctrl+C lands during
@@ -366,7 +366,7 @@ when `_is_sailor(model_id)` matches (case-insensitive "sailor"), so the base
 prompt every other model sees is byte-for-byte unchanged and their existing
 results stay valid. The rule forbids headings/markdown, source/date citations,
 and closing tags, and tells the model to match the source's wording. It is
-duplicated identically in `app.py` and `scripts/11`. (Trade-off on record:
+duplicated identically in `app.py` and `scripts/12`. (Trade-off on record:
 Sailor now gets one instruction block the others don't, so the prompt is no
 longer perfectly identical across models — a deliberate choice to clean up
 Sailor's house style.)
@@ -401,7 +401,7 @@ which is Qwen2-based, do not have this issue.)
 
 ## 14. Summary of where each change lives
 
-| Change | `app.py` / `start_chatbot.py` | `scripts/11_compare_generator_models.py` |
+| Change | `app.py` / `start_chatbot.py` | `scripts/12_compare_generator_models.py` |
 |---|---|---|
 | Embedding device pinned to CPU | already had | **added** |
 | macOS OpenMP guard | already had | **added** |

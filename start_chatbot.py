@@ -160,7 +160,7 @@ def free_port_8080():
     """Kill any llama-server already bound to port 8080 before we launch ours.
 
     A stale server left over from a crashed run, or one started by
-    scripts/11_compare_generator_models.py (or a previous chatbot launch), keeps
+    scripts/12_compare_generator_models.py (or a previous chatbot launch), keeps
     the port. Our new process then fails to bind, dies, and the readiness poll
     below silently attaches to the WRONG server -- commonly the bare llama.cpp
     DEFAULT of n_ctx=4096, which then 400s every prompt over 4096 tokens

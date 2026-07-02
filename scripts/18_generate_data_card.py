@@ -21,9 +21,9 @@ from tabulate import tabulate
 #   data/10_adversarial/*_questions.json            (safety eval sets)
 #   reports/embedding_model_comparison/*.json       (script 09)
 #   reports/retrieval_mode_comparison/*.json        (script 10)
-#   reports/generator_model_comparison/*.json       (script 11)
-#   reports/human_answer_evaluation/*.json          (script 15)
-#   reports/safety_gate_evaluation/*.json           (script 16)
+#   reports/generator_model_comparison/*.json       (script 12)
+#   reports/human_answer_evaluation/*.json          (script 16)
+#   reports/safety_gate_evaluation/*.json           (script 17)
 #   vector_db/*/embedding_model_info.json           (script 08)
 #
 # Outputs (under reports/data_card/)

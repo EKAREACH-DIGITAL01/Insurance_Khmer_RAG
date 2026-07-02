@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 # ============================================================================
-# Generator Evaluation Rescoring -- thin wrapper around scripts/11 --rescore
+# Generator Evaluation Rescoring -- thin wrapper around scripts/12 --rescore
 # ============================================================================
 # DEPRECATED AS A STANDALONE IMPLEMENTATION.
 #
@@ -17,31 +17,31 @@ from pathlib import Path
 # could no longer produce correct faithfulness scores, because it never re-reads
 # the answer text or the context -- only the stale counts.
 #
-# The canonical rescorer is now `scripts/11_compare_generator_models.py
+# The canonical rescorer is now `scripts/12_compare_generator_models.py
 # --rescore`. It owns the scoring functions (single source of truth), reloads
 # each answer, REBUILDS its retrieval context from the saved context_chunk_ids,
 # and recomputes every metric from scratch with the embedding model -- without
 # ever starting llama-server or regenerating an answer. It then rewrites the
 # JSONL, every summary, and the final comparison report.
 #
-# This file is kept only so the familiar `scripts/13_...` entry point still
-# works; it simply delegates. Re-run scripts/12_diagnose_generator_scores.py
+# This file is kept only so the familiar `scripts/14_...` entry point still
+# works; it simply delegates. Re-run scripts/13_diagnose_generator_scores.py
 # afterwards to refresh the diagnostics.
 #
 # USAGE:
-#   python scripts/13_rescore_generator_scores.py
+#   python scripts/14_rescore_generator_scores.py
 # ============================================================================
 
-SCRIPT_11 = Path(__file__).resolve().parent / "11_compare_generator_models.py"
+SCRIPT_12 = Path(__file__).resolve().parent / "12_compare_generator_models.py"
 
 
 def main():
     print(
-        "scripts/13 now delegates to scripts/11 --rescore (the canonical "
+        "scripts/14 now delegates to scripts/12 --rescore (the canonical "
         "rescorer that owns the scoring functions).\n"
     )
     raise SystemExit(
-        subprocess.call([sys.executable, str(SCRIPT_11), "--rescore"])
+        subprocess.call([sys.executable, str(SCRIPT_12), "--rescore"])
     )
 
 

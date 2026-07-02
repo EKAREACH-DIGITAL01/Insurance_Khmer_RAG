@@ -77,7 +77,7 @@ order:
 
 ## Evaluation harness
 
-`scripts/16_evaluate_safety_gates.py` runs the set against the winner model
+`scripts/17_evaluate_safety_gates.py` runs the set against the winner model
 (SeaLLM v3 7B) and writes `reports/safety_gate_evaluation/`:
 
 - `safety_gate_results.jsonl` — one result row per question (incremental,
@@ -121,4 +121,4 @@ scope-violation phrasing. They are expected to refuse via the **score-based**
 That can only be verified against a live FAISS index + embedding model, not by
 static pattern inspection. If `OUT_OF_DOMAIN_THRESHOLD`/`MIN_SCORE` or the
 corpus changes significantly, re-verify these against the live app (run
-`scripts/16_evaluate_safety_gates.py`) rather than assuming the label holds.
+`scripts/17_evaluate_safety_gates.py`) rather than assuming the label holds.

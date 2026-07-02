@@ -1,6 +1,6 @@
 # Generator Score Diagnostics
 
-Evidence file for the calibration of `scripts/11_compare_generator_models.py` scoring thresholds. See `docs/SCORING_CALIBRATION.md` for the full interpretation.
+Evidence file for the calibration of `scripts/12_compare_generator_models.py` scoring thresholds. See `docs/SCORING_CALIBRATION.md` for the full interpretation.
 
 > **Answer Relevance is informational only** — it is no longer part of the weighted combined score (its answer-vs-question cosine is structurally capped and penalised even gold-identical answers). Its distribution is still shown below for reference. The weighted metrics are Context Relevance, Faithfulness, Answer Correctness, and Completeness.
 

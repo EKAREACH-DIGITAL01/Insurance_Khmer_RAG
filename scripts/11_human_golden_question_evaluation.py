@@ -1,8 +1,8 @@
 """
-Khmer Insurance RAG — Human Answer Evaluation UI
--------------------------------------------------
-Launch:  python scripts/14_human_answer_evaluation.py
-         (runs Streamlit on port 8502, separate from the chatbot on 8501)
+Khmer Insurance RAG — Human Golden Question Evaluation UI
+---------------------------------------------------------
+Launch:  python scripts/11_human_golden_question_evaluation.py
+         (runs Streamlit on port 8503, separate from the chatbot on 8501)
 """
 
 import html
@@ -30,7 +30,7 @@ if os.environ.get(_LAUNCHED_KEY) != "1":
             "run",
             str(Path(__file__).resolve()),
             "--server.port",
-            "8502",
+            "8503",
             "--server.headless",
             "true",
             "--client.toolbarMode",
@@ -43,7 +43,7 @@ if os.environ.get(_LAUNCHED_KEY) != "1":
     import webbrowser
 
     time.sleep(2.5)
-    webbrowser.open("http://localhost:8502")
+    webbrowser.open("http://localhost:8503")
     try:
         proc.wait()
     except KeyboardInterrupt:
@@ -56,7 +56,9 @@ from streamlit.components.v1 import html as st_html
 # ----------------------------------------------------------------------------
 # Config
 # ----------------------------------------------------------------------------
-DB_PATH = Path("reports/human_answer_evaluation/human_answer_evaluation.db")
+DB_PATH = Path(
+    "reports/human_golden_question_evaluation/human_golden_question_evaluation.db"
+)
 
 # Full results file: contains all 400 questions (100 human-created + 300 AI-created)
 JSONL_PATH = Path(
@@ -65,80 +67,109 @@ JSONL_PATH = Path(
     "generated_answer_results_full.jsonl"
 )
 
+# Gold question sets — the source of truth for each question's retrieval
+# `context` (the full source chunk) and `expected_answer` (the target answer).
+# Keyed by question_id and merged onto the loaded rows below.
+GOLD_GLOB = "data/09_evaluation/*/gold_questions.json"
+
 # question_id format: "<category>_qid_<NNN>" e.g. "guidance_qid_026"
 # For every category, ids 001-025 are human-authored gold questions,
 # everything above that (up to the category's max) is AI-authored.
 HUMAN_QID_MAX = 25
 
+# Each metric carries its own 5-point label set (still scored 1..5 by position).
 METRICS = [
     {
-        "key": "context_relevance",
-        "label": "Context Relevance",
-        "desc": "Did the retrieved context contain information relevant to the question?",
+        "key": "clarity",
+        "label": "Clarity",
+        "desc": "How clear and understandable is the question?",
+        "options": ["Very Poor", "Poor", "Average", "Good", "Excellent"],
     },
     {
-        "key": "faithfulness",
-        "label": "Faithfulness",
-        "desc": (
-            "Is the answer fully supported by the retrieved sources, "
-            "without introducing unsupported information?"
-        ),
+        "key": "relevance",
+        "label": "Relevance",
+        "desc": "How relevant is the question to insurance?",
+        "options": [
+            "Not Relevant",
+            "Slightly",
+            "Moderate",
+            "Relevant",
+            "Highly Relevant",
+        ],
     },
     {
-        "key": "answer_relevance",
-        "label": "Answer Relevance",
-        "desc": "Does the answer actually address what was asked?",
+        "key": "difficulty",
+        "label": "Difficulty",
+        "desc": "Is the question appropriate for the RAG system?",
+        "options": [
+            "Too Easy/Hard",
+            "Poor Level",
+            "Adequate",
+            "Good Level",
+            "Perfect Level",
+        ],
     },
     {
-        "key": "answer_correctness",
-        "label": "Answer Correctness",
-        "desc": "How accurately does the answer match the expected answer?",
+        "key": "answer_quality",
+        "label": "Answer Quality",
+        "desc": "How good is the target answer?",
+        "options": ["Very Poor", "Poor", "Adequate", "Good", "Excellent"],
     },
     {
-        "key": "completeness",
-        "label": "Completeness",
-        "desc": "Is the answer complete and covering all required points without being cut off?",
+        "key": "uniqueness",
+        "label": "Uniqueness",
+        "desc": "How unique is this question?",
+        "options": [
+            "Very Redundant",
+            "Redundant",
+            "Somewhat Unique",
+            "Unique",
+            "Very Unique",
+        ],
     },
 ]
 
-HALLUCINATION_KEY = "hallucination"
-CHIP_OPTS = ["Poor", "Fair", "Good", "Very Good", "Excellent"]
-CHIP_REVERSE = {label: i + 1 for i, label in enumerate(CHIP_OPTS)}
-HALLUC_OPTS = ["Yes", "No"]
-HALLUC_MAP = {"Yes": 1, "No": 0}
-MAX_TOTAL = len(METRICS) * 5  # 25 — hallucination stored separately
+MAX_TOTAL = len(METRICS) * 5  # 25
 
-NAME_COL_WIDTH = 1.6  # shared ratio for name cell vs radio cell
-
-# Evaluation modes offered on the login screen.
-EVAL_MODES = [
-    {
-        "key": "human",
-        "label": "Human-Created",
-        "sub": "100 questions",
-        "desc": "Evaluate only the 100 gold questions written manually by humans.",
-        "filter": "human",
-    },
-    {
-        "key": "ai",
-        "label": "AI-Created",
-        "sub": "300 questions",
-        "desc": "Evaluate only the 300 gold questions generated by AI.",
-        "filter": "ai",
-    },
-    {
-        "key": "all",
-        "label": "All Questions",
-        "sub": "400 questions",
-        "desc": "Evaluate the full combined set — human-created and AI-created.",
-        "filter": "all",
-    },
-]
-MODE_BY_KEY = {m["key"]: m for m in EVAL_MODES}
+# Each evaluator is assigned a random subset of this many questions, drawn once
+# from the full 400-question gold set and persisted in the assignments table.
+QUESTIONS_PER_EVALUATOR = 50
 
 # ----------------------------------------------------------------------------
 # Question id parsing
 # ----------------------------------------------------------------------------
+
+
+def collapse_blank_lines(text: str) -> str:
+    """
+    Normalise the ragged whitespace in gold `context` / `expected_answer`
+    text for display. Source chunks come from OCR'd PDFs and carry a mix of
+    single '\\n' and runs of blank lines between list items, which render as
+    uneven gaps under CSS `white-space: pre-wrap`. This strips each line's
+    trailing whitespace and collapses any run of one-or-more blank lines to a
+    single line break, so every list item sits on its own line with no blank
+    line between. Content is otherwise untouched (no word joining).
+    """
+    # Keep only non-blank lines (trailing whitespace stripped); a single '\n'
+    # join then puts each item on its own line with no blank line between.
+    lines = [ln.rstrip() for ln in text.split("\n") if ln.strip()]
+    return "\n".join(lines)
+
+
+def humanize_time_ago(ts: int) -> str:
+    """Turn a unix timestamp into 'just now' / 'N minutes ago' / 'N hours ago'
+    / 'N days ago' for the target-answer edit log."""
+    delta = int(time.time()) - int(ts)
+    if delta < 45:
+        return "just now"
+    if delta < 3600:
+        n = max(1, delta // 60)
+        return f"{n} minute{'s' if n != 1 else ''} ago"
+    if delta < 86400:
+        n = delta // 3600
+        return f"{n} hour{'s' if n != 1 else ''} ago"
+    n = delta // 86400
+    return f"{n} day{'s' if n != 1 else ''} ago"
 
 
 def parse_question_id(qid: str):
@@ -184,7 +215,6 @@ def init_db():
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             name       TEXT NOT NULL,
             session_id TEXT NOT NULL,
-            eval_mode  TEXT NOT NULL DEFAULT 'all',
             created_at INTEGER NOT NULL
         );
         CREATE TABLE IF NOT EXISTS assignments (
@@ -195,27 +225,40 @@ def init_db():
             FOREIGN KEY (evaluator_id) REFERENCES evaluators(id)
         );
         CREATE TABLE IF NOT EXISTS responses (
-            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-            evaluator_id       INTEGER NOT NULL,
-            question_id        TEXT NOT NULL,
-            context_relevance  INTEGER,
-            faithfulness       INTEGER,
-            answer_relevance   INTEGER,
-            answer_correctness INTEGER,
-            completeness       INTEGER,
-            hallucination      INTEGER,
-            total_score        INTEGER,
-            comment            TEXT,
-            submitted_at       INTEGER NOT NULL,
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            evaluator_id   INTEGER NOT NULL,
+            question_id    TEXT NOT NULL,
+            clarity        INTEGER,
+            relevance      INTEGER,
+            difficulty     INTEGER,
+            answer_quality INTEGER,
+            uniqueness     INTEGER,
+            total_score    INTEGER,
+            comment        TEXT,
+            submitted_at   INTEGER NOT NULL,
             UNIQUE (evaluator_id, question_id),
             FOREIGN KEY (evaluator_id) REFERENCES evaluators(id)
         );
+        -- Shared, global edits to a question's target answer. One row per edit
+        -- (full history kept for the activity log); the current target answer
+        -- for a question is the most recent row, falling back to the gold
+        -- expected_answer when there are no edits.
+        CREATE TABLE IF NOT EXISTS target_edits (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            question_id    TEXT NOT NULL,
+            evaluator_id   INTEGER NOT NULL,
+            evaluator_name TEXT NOT NULL,
+            new_answer     TEXT NOT NULL,
+            edited_at      INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_target_edits_qid
+            ON target_edits (question_id, edited_at DESC);
     """)
     # --- lightweight migrations for older DBs ---
     resp_cols = {
         row[1] for row in conn.execute("PRAGMA table_info(responses)").fetchall()
     }
-    for col in ("completeness", "hallucination"):
+    for col in ("clarity", "relevance", "difficulty", "answer_quality", "uniqueness"):
         if col not in resp_cols:
             conn.execute(f"ALTER TABLE responses ADD COLUMN {col} INTEGER")
     if "question_id" not in resp_cols:
@@ -228,10 +271,6 @@ def init_db():
     }
     if "session_id" not in eval_cols:
         conn.execute("ALTER TABLE evaluators ADD COLUMN session_id TEXT")
-    if "eval_mode" not in eval_cols:
-        conn.execute(
-            "ALTER TABLE evaluators ADD COLUMN eval_mode TEXT NOT NULL DEFAULT 'all'"
-        )
 
     assign_cols = {
         row[1] for row in conn.execute("PRAGMA table_info(assignments)").fetchall()
@@ -243,13 +282,12 @@ def init_db():
     conn.close()
 
 
-def get_or_create_evaluator(name, eval_mode):
+def get_or_create_evaluator(name):
     """
     Resume support: an evaluator is identified by NAME ALONE (case-insensitive).
-    Ratings are keyed by (evaluator_id, question_id), and question_ids are global
-    across modes, so a single name owns one shared set of ratings — whatever mode
-    they pick is just a view filter. Switching modes never loses or duplicates
-    work. Returns (evaluator_id, session_id, resumed).
+    Ratings are keyed by (evaluator_id, question_id), so a single name owns one
+    fixed set of randomly-assigned questions. Returns (evaluator_id, session_id,
+    resumed).
     """
     conn = get_db()
     row = conn.execute(
@@ -264,8 +302,8 @@ def get_or_create_evaluator(name, eval_mode):
         return eid, sid, True
     session_id = f"{int(time.time())}_{random.randint(1000, 9999)}"
     cur = conn.execute(
-        "INSERT INTO evaluators (name, session_id, eval_mode, created_at) VALUES (?, ?, ?, ?)",
-        (name, session_id, eval_mode, int(time.time())),
+        "INSERT INTO evaluators (name, session_id, created_at) VALUES (?, ?, ?)",
+        (name, session_id, int(time.time())),
     )
     eid = cur.lastrowid
     conn.commit()
@@ -273,12 +311,13 @@ def get_or_create_evaluator(name, eval_mode):
     return eid, session_id, False
 
 
-def get_or_create_assignment(evaluator_id, mode_questions):
+def get_or_create_assignment(evaluator_id, all_question_ids):
     """
-    mode_questions: the already-filtered list of question dicts for this
-    evaluator's chosen mode (human / ai / all), in display order.
-    Assignment is keyed by question_id so subsets never collide with the
-    full 400-question id space.
+    all_question_ids: the full list of available question_ids (all 400 gold
+    questions). On first login a random subset of QUESTIONS_PER_EVALUATOR is
+    drawn for this evaluator and persisted; on resume the same stored subset is
+    returned. Assignment is keyed by question_id so each evaluator gets their
+    own fixed random slice of the full id space.
     """
     conn = get_db()
     rows = conn.execute(
@@ -288,7 +327,8 @@ def get_or_create_assignment(evaluator_id, mode_questions):
     if rows:
         assignment = [r["question_id"] for r in rows]
     else:
-        assignment = [q["question_id"] for q in mode_questions]
+        k = min(QUESTIONS_PER_EVALUATOR, len(all_question_ids))
+        assignment = random.sample(list(all_question_ids), k)
         for pos, qid in enumerate(assignment):
             conn.execute(
                 "INSERT INTO assignments (evaluator_id, question_id, position) VALUES (?, ?, ?)",
@@ -302,8 +342,8 @@ def get_or_create_assignment(evaluator_id, mode_questions):
 def get_responses(evaluator_id):
     conn = get_db()
     rows = conn.execute(
-        "SELECT question_id, context_relevance, faithfulness, answer_relevance, "
-        "answer_correctness, completeness, hallucination, total_score, comment "
+        "SELECT question_id, clarity, relevance, difficulty, "
+        "answer_quality, uniqueness, total_score, comment "
         "FROM responses WHERE evaluator_id = ?",
         (evaluator_id,),
     ).fetchall()
@@ -311,37 +351,94 @@ def get_responses(evaluator_id):
     return {r["question_id"]: dict(r) for r in rows}
 
 
-def save_response(evaluator_id, question_id, scores, hallucination_flag, comment=""):
+def save_response(evaluator_id, question_id, scores, comment=""):
     total = sum(scores.values())
     conn = get_db()
     conn.execute(
         """INSERT INTO responses
-           (evaluator_id, question_id, context_relevance, faithfulness, answer_relevance,
-            answer_correctness, completeness, hallucination, total_score, comment, submitted_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           (evaluator_id, question_id, clarity, relevance, difficulty,
+            answer_quality, uniqueness, total_score, comment, submitted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(evaluator_id, question_id) DO UPDATE SET
-               context_relevance=excluded.context_relevance,
-               faithfulness=excluded.faithfulness,
-               answer_relevance=excluded.answer_relevance,
-               answer_correctness=excluded.answer_correctness,
-               completeness=excluded.completeness,
-               hallucination=excluded.hallucination,
+               clarity=excluded.clarity,
+               relevance=excluded.relevance,
+               difficulty=excluded.difficulty,
+               answer_quality=excluded.answer_quality,
+               uniqueness=excluded.uniqueness,
                total_score=excluded.total_score,
                comment=excluded.comment,
                submitted_at=excluded.submitted_at""",
         (
             evaluator_id,
             question_id,
-            scores["context_relevance"],
-            scores["faithfulness"],
-            scores["answer_relevance"],
-            scores["answer_correctness"],
-            scores["completeness"],
-            hallucination_flag,
+            scores["clarity"],
+            scores["relevance"],
+            scores["difficulty"],
+            scores["answer_quality"],
+            scores["uniqueness"],
             total,
             comment.strip(),
             int(time.time()),
         ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def load_gold():
+    """
+    Loads the gold question sets, keyed by question_id, exposing the two
+    fields the UI renders: `context` (the full source chunk the answer was
+    drawn from) and `expected_answer` (the target answer). These are the
+    source of truth — the JSONL is used only to enumerate the questions.
+    """
+    gold = {}
+    from pathlib import Path as _P
+    from glob import glob
+
+    for path in sorted(glob(GOLD_GLOB)):
+        try:
+            entries = json.loads(_P(path).read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        for e in entries:
+            qid = e.get("question_id")
+            if qid:
+                gold[qid] = e
+    return gold
+
+
+def get_target_override(question_id):
+    """Most recent shared edit for this question's target answer, or None."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT new_answer, evaluator_name, edited_at FROM target_edits "
+        "WHERE question_id = ? ORDER BY edited_at DESC, id DESC LIMIT 1",
+        (question_id,),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_target_history(question_id, limit=10):
+    """Recent target-answer edits for this question (newest first)."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT evaluator_name, edited_at FROM target_edits "
+        "WHERE question_id = ? ORDER BY edited_at DESC, id DESC LIMIT ?",
+        (question_id, limit),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def save_target_edit(question_id, evaluator_id, evaluator_name, new_answer):
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO target_edits "
+        "(question_id, evaluator_id, evaluator_name, new_answer, edited_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (question_id, evaluator_id, evaluator_name, new_answer, int(time.time())),
     )
     conn.commit()
     conn.close()
@@ -353,11 +450,15 @@ def load_questions():
     Loads every line from the full results JSONL and annotates each
     question dict with derived `category` (from question_id, falling back
     to the stored `category` field) and `source` ('human' | 'ai').
+    Each row's `context` and `expected_answer` are overlaid from the gold
+    question set (`GOLD_GLOB`) so the UI always shows the authoritative
+    source chunk and target answer, not whatever the generator run stored.
     Returned as a dict keyed by question_id for O(1) lookup, plus the
     list preserves file order for stable default sorting.
     """
     if not JSONL_PATH.exists():
         return {}, []
+    gold = load_gold()
     by_id = {}
     order = []
     with open(JSONL_PATH, "r", encoding="utf-8") as f:
@@ -375,16 +476,13 @@ def load_questions():
             cat_from_id, source = parse_question_id(qid)
             row["category"] = row.get("category") or cat_from_id
             row["source"] = source
+            g = gold.get(qid)
+            if g:
+                row["context"] = g.get("context", "")
+                row["expected_answer"] = g.get("expected_answer", "")
             by_id[qid] = row
             order.append(qid)
     return by_id, order
-
-
-def get_mode_questions(mode_filter, by_id, order):
-    """Returns the list of question dicts for a given mode filter, in stable file order."""
-    if mode_filter == "all":
-        return [by_id[qid] for qid in order]
-    return [by_id[qid] for qid in order if by_id[qid]["source"] == mode_filter]
 
 
 # ----------------------------------------------------------------------------
@@ -683,7 +781,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 
 /* ── Comment / feedback box ──────────────────────────────────────────── */
-.ev-comment-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--stone-light); margin: 14px 0 6px 0; }
+.ev-comment-label { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--stone-light); margin: 14px 0 6px 0; }
 [data-testid="stTextArea"] textarea {
     background: var(--parchment-soft) !important;
     border: 1px solid var(--brass-soft) !important;
@@ -706,6 +804,37 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     line-height: 1.7;
     white-space: pre-wrap;
     min-height: 42px;
+}
+
+/* ── Target-answer edit log (replaces the old comment box) ───────────── */
+.ev-log-list {
+    list-style: none; margin: 6px 0 0 0;
+    background: var(--parchment-soft);
+    border: 1px solid var(--brass-soft);
+    border-radius: 8px;
+    padding: 2px 12px;
+}
+.ev-log-item {
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+    color: var(--stone-light); padding: 4px 0;
+    border-bottom: 1px solid var(--brass-soft);
+}
+.ev-log-item:last-child { border-bottom: none; }
+.ev-log-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--indigo); flex-shrink: 0; }
+.ev-log-when { color: var(--lacquer); font-weight: 600; }
+.ev-log-who  { color: var(--indigo); font-weight: 600; }
+.ev-log-empty {
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 11px;
+    color: var(--stone-light); font-style: italic;
+    margin-top: 6px; padding: 6px 0;
+}
+.ev-target-edited-flag {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9.5px;
+    letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;
+    color: var(--indigo); background: var(--indigo-mist);
+    border: 1px solid rgba(59,76,140,0.25); border-radius: 99px;
+    padding: 1px 8px; margin-left: 6px;
 }
 
 /* ── Inline progress label: "Question X of Y" on the left, done-count/name
@@ -785,7 +914,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 }
 
 /* ── Answer panes ─────────────────────────────────────────────────── */
-.ev-answer-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.ev-answer-label { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
 .ev-answer-label.expected  { color: var(--signal); }
 .ev-answer-label.generated { color: var(--lacquer); }
 .ev-answer-label .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -1039,6 +1168,50 @@ SLIDER_FILL_JS = """
 """
 
 # ----------------------------------------------------------------------------
+# Target-answer textarea auto-grow JS
+# ----------------------------------------------------------------------------
+# Streamlit's text_area has a fixed pixel height (and would show an inner
+# scrollbar for long answers). This runs in a 0-height same-origin component
+# iframe, reaches into the parent document, and continuously sizes the target
+# editor's <textarea> to its exact content height — so the whole answer shows
+# with no empty gap below and no inner scroll, growing live as the user types.
+# The surrounding Streamlit wrappers (which carry the fixed height) are set to
+# auto so they don't clip or leave a gap.
+TARGET_AUTOGROW_JS = """
+<script>
+(function () {
+    const pdoc = window.parent.document;
+    if (window.parent.__targetGrowTimer) {
+        clearInterval(window.parent.__targetGrowTimer);
+    }
+    function grow() {
+        const box = pdoc.querySelector('.st-key-target_editor_box');
+        if (!box) return;
+        const ta = box.querySelector('textarea');
+        if (!ta) return;
+        // measure natural content height
+        ta.style.setProperty('height', 'auto', 'important');
+        const h = ta.scrollHeight;
+        ta.style.setProperty('height', h + 'px', 'important');
+        ta.style.setProperty('overflow-y', 'hidden', 'important');
+        ta.style.setProperty('resize', 'none', 'important');
+        // release fixed height on the wrappers Streamlit sized, so the pane
+        // hugs the textarea with no gap.
+        let p = ta.parentElement, hops = 0;
+        while (p && hops < 5 && !p.classList.contains('st-key-target_editor_box')) {
+            p.style.setProperty('height', 'auto', 'important');
+            p.style.setProperty('max-height', 'none', 'important');
+            p = p.parentElement;
+            hops++;
+        }
+    }
+    window.parent.__targetGrowTimer = setInterval(grow, 60);
+    grow();
+})();
+</script>
+"""
+
+# ----------------------------------------------------------------------------
 # Pages
 # ----------------------------------------------------------------------------
 
@@ -1047,36 +1220,12 @@ def page_login():
     st.markdown(CSS, unsafe_allow_html=True)
     st.markdown(
         '<div style="text-align:center; padding-top:10vh; padding-bottom:18px;">'
-        '<div style="font-size:28px;font-weight:700;color:var(--stone);margin-bottom:8px;letter-spacing:-0.5px;">Khmer Rag Insurance Chatbot Evaluation</div>'
-        '<div style="font-size:15px;color:var(--stone-light);">Choose a mode and enter your name to begin — or to continue an evaluation you started earlier.</div>'
+        '<div style="font-size:28px;font-weight:700;color:var(--stone);margin-bottom:8px;letter-spacing:-0.5px;">Khmer Rag Insurance Golden Question Evaluation</div>'
+        f'<div style="font-size:15px;color:var(--stone-light);">Enter your name to begin — or to continue an evaluation you started earlier. '
+        f"You'll be assigned a random {QUESTIONS_PER_EVALUATOR} out of our total 400 golden questions.</div>"
         "</div>",
         unsafe_allow_html=True,
     )
-    # ── Mode radio row: "Choose mode:" label + the options all on one line ──
-    # A single native radio (mutually-exclusive by construction) replaces the
-    # old three-button toggle: it holds its own selection state, so no manual
-    # session_state bookkeeping or st.rerun() is needed on each pick.
-    radio_options = [m["key"] for m in EVAL_MODES]
-    radio_labels = ["Human-Created (100)", "AI-Created (300)", "All Questions (400)"]
-
-    # The "Choose Gold Question Mode:" caption is injected via CSS ::before on the
-    # radio's options row (see .st-key-login_mode_radio), so label + options are a
-    # single inline element that can be centred reliably (no separate markdown
-    # column to fight with). The radio widget's own key class is the one selector
-    # we know Streamlit 1.58 emits, so all styling hangs off it.
-    chosen_label = st.radio(
-        "Choose Gold Question Mode:",
-        options=radio_labels,
-        index=None,
-        horizontal=True,
-        key="login_mode_radio",
-        label_visibility="collapsed",
-    )
-    chosen_mode = (
-        radio_options[radio_labels.index(chosen_label)] if chosen_label else None
-    )
-
-    st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
 
     # ── Name input + Begin button: nested inside a single centred middle column
     #    so the pair is centred as one unit (not packed against either side). ──
@@ -1088,7 +1237,7 @@ def page_login():
             "name", placeholder="Enter your name", label_visibility="collapsed"
         )
     name_clean = name.strip()
-    can_begin = bool(name_clean) and chosen_mode is not None
+    can_begin = bool(name_clean)
     with c_btn:
         with st.container(key="begin_eval_row"):
             if st.button(
@@ -1098,22 +1247,14 @@ def page_login():
                 st.session_state.pop("session_id", None)
                 st.session_state.pop("q_pos", None)
                 st.session_state["evaluator_name"] = name_clean
-                st.session_state["eval_mode"] = chosen_mode
                 st.rerun()
 
     # ── Contextual hint: tell the user exactly what's still missing ──────────
-    if not name_clean and chosen_mode is None:
-        hint = "Choose a mode and enter your name above to continue."
-    elif not name_clean:
-        hint = "Enter your name above to continue."
-    elif chosen_mode is None:
-        hint = "Choose a mode above to continue."
-    else:
-        hint = None
-    if hint:
+    if not name_clean:
         st.markdown(
-            f'<p style="text-align:center;color:var(--stone-light);font-size:12.5px;'
-            f"font-family:'IBM Plex Mono',monospace;margin-top:2px;\">{hint}</p>",
+            '<p style="text-align:center;color:var(--stone-light);font-size:12.5px;'
+            "font-family:'IBM Plex Mono',monospace;margin-top:2px;\">"
+            "Enter your name above to continue.</p>",
             unsafe_allow_html=True,
         )
 
@@ -1122,33 +1263,23 @@ def page_login():
     # reads fuller while remaining centred — extended out to both sides.
     _, c_exp, _ = st.columns([0.5, 3, 0.5])
     with c_exp:
-        mode_lines = "".join(
-            f'<p class="login-mode-line"><span class="tag {m["key"]}">{m["label"]}</span>'
-            f'{m["desc"]}</p>'
-            for m in EVAL_MODES
-        )
         metric_lines = "".join(
             f'<p class="login-metric-line"><strong>{m["label"]}</strong> — {m["desc"]}</p>'
             for m in METRICS
-        ) + (
-            '<p class="login-metric-line"><strong>Hallucination</strong> — '
-            "Does the answer include unsupported information — fabricated facts, "
-            "incorrect references, or invented details?</p>"
         )
         st.markdown(
             f'<div class="login-explain">'
-            f"<h4>Your progress is always saved</h4>"
+            f"<h4>How the assignment works</h4>"
+            f'<p class="login-metric-line">When you begin, you are assigned a random '
+            f"<strong>{QUESTIONS_PER_EVALUATOR} questions</strong> drawn from our full set of "
+            f"<strong>400 golden questions</strong>. That same set stays yours every time you return.</p>"
+            f'<h4 class="second">Your progress is always saved</h4>'
             f'<p class="login-metric-line">Don\'t worry about losing your work — every rating is '
             f"saved the moment you submit it. You can close the browser at any time and come back "
             f"later to continue right where you left off.</p>"
             f'<p class="login-metric-line">To resume, just <strong>enter the same name</strong> — '
-            f"that's all. Your ratings are shared across all three modes, so a question you've already "
-            f"rated stays rated no matter which mode you open. "
-            f"To change mode later, simply <strong>refresh the page</strong>: that brings you back to "
-            f"this screen to choose the mode you want, and since your ratings are shared across modes, "
-            f"nothing is ever repeated or lost.</p>"
-            f'<h4 class="second">What do the 3 modes mean?</h4>'
-            f"{mode_lines}"
+            f"that's all. Your assigned questions and ratings are kept against your name, so nothing "
+            f"is ever repeated or lost.</p>"
             f'<h4 class="second">What do the rating metrics mean?</h4>'
             f"{metric_lines}"
             f'<p class="login-hint">Tip: once you start evaluating, hover over any metric '
@@ -1158,23 +1289,18 @@ def page_login():
         )
 
 
-def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id):
+def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
     st.markdown(CSS, unsafe_allow_html=True)
 
-    # The current mode is just a view: the ordered question_ids come straight
-    # from the mode's filtered set (deterministic file order). responses holds
-    # this evaluator's ratings across ALL questions, so done_count must be
-    # restricted to the questions visible in this mode.
-    assignment = [q["question_id"] for q in mode_questions]
+    # `assignment` is this evaluator's fixed random slice of question_ids,
+    # persisted at first login. responses holds their ratings for those ids.
     responses = get_responses(evaluator_id)
     total_qs = len(assignment)
     done_count = sum(1 for qid in assignment if qid in responses)
-    mode_meta = MODE_BY_KEY[eval_mode]
 
     if total_qs == 0:
         st.error(
-            f"No questions available for mode '{mode_meta['label']}'. "
-            f"Check that `{JSONL_PATH}` contains questions for this mode."
+            f"No questions assigned. Check that `{JSONL_PATH}` contains questions."
         )
         return
 
@@ -1201,21 +1327,16 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
 
     # ── Completion screen ────────────────────────────────────────────
     if done_count >= total_qs:
-        mode_responses = [responses[qid] for qid in assignment if qid in responses]
+        rated = [responses[qid] for qid in assignment if qid in responses]
         avg = (
-            sum(r["total_score"] for r in mode_responses) / len(mode_responses)
-            if mode_responses
-            else 0
+            sum(r["total_score"] for r in rated) / len(rated) if rated else 0
         )
-        halluc_count = sum(1 for r in mode_responses if r.get("hallucination") == 1)
         st.markdown(
             f'<div class="done-wrap"><div class="done-icon">✓</div>'
             f'<div class="done-title">Evaluation Complete</div>'
-            f'<div class="done-sub">Thank you, {evaluator_name}. All {total_qs} questions '
-            f'({mode_meta["label"]}) have been rated.</div>'
-            f'<div class="done-stat">{avg:.1f}<span>avg score / {MAX_TOTAL}</span></div>'
-            f"<p style=\"margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--stone-light);\">"
-            f"Hallucination flagged: {halluc_count} / {total_qs} answers</p></div>",
+            f'<div class="done-sub">Thank you, {evaluator_name}. All {total_qs} '
+            f"assigned questions have been rated.</div>"
+            f'<div class="done-stat">{avg:.1f}<span>avg score / {MAX_TOTAL}</span></div></div>',
             unsafe_allow_html=True,
         )
         return
@@ -1259,7 +1380,6 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         f'<div class="ev-top">'
         f'<div class="ev-top-left"></div>'
         f'<div class="ev-top-right">'
-        f'<span class="mode-badge {eval_mode}">{mode_meta["label"]} mode</span>'
         f'<span class="stat-chip submitted">✓ {submitted_n} submitted'
         f'<span class="chip-tip"><span class="tip-head">Submitted questions</span>{submitted_list}</span>'
         f"</span>"
@@ -1336,13 +1456,28 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
     # otherwise be parsed as markup (broken layout at best, injection at worst).
     # html.escape leaves newlines intact, so the answer blocks' white-space:
     # pre-wrap still renders multi-line lists correctly.
-    expected = html.escape(question.get("expected_answer") or "")
-    generated = question.get("generated_answer") or ""
-    gen_body = (
-        '<span class="ev-answer-blank">[ No answer was generated ]</span>'
-        if not generated.strip()
-        else html.escape(generated)
+    # Left pane ("Context") shows the full source chunk the answer was drawn
+    # from (static). The gold `context` comes from load_questions.
+    # The panes render with white-space: pre-wrap, so the source's ragged
+    # newlines (mixed single \n and runs of \n\n\n between list items) would
+    # show as uneven blank gaps. collapse_blank_lines() trims per-line
+    # trailing space and squashes any run of blank lines to a single break,
+    # so lists render compactly and evenly.
+    context = html.escape(collapse_blank_lines(question.get("context") or ""))
+    context_body = context if context else "—"
+
+    # Right pane ("Target Answer") is EDITABLE and SHARED across evaluators.
+    # The effective target is the most recent shared edit (from target_edits),
+    # falling back to the gold expected_answer when nobody has edited it yet.
+    override = get_target_override(q_idx)
+    gold_target = collapse_blank_lines(question.get("expected_answer") or "")
+    effective_target = (
+        override["new_answer"] if override else gold_target
     )
+    edited_flag = (
+        '<span class="ev-target-edited-flag">edited</span>' if override else ""
+    )
+
     st.markdown(
         f'<div class="ev-pill-row">'
         f'<span class="ev-category-pill">{category}</span>'
@@ -1354,21 +1489,45 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         f'<div class="ev-question-text">{html.escape(question["question"])}</div>',
         unsafe_allow_html=True,
     )
-    st.markdown(
-        '<div class="ev-answer-grid">'
-        "<div>"
-        '<div class="ev-answer-label expected"><span class="dot"></span>Expected Answer</div>'
-        f'<div class="ev-answer-block expected">{expected if expected else "—"}</div>'
-        "</div>"
-        "<div>"
-        '<div class="ev-answer-label generated"><span class="dot"></span>Chatbot Answer</div>'
-        f'<div class="ev-answer-block generated">{gen_body}</div>'
-        "</div>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
 
-    # ── Rating cards (6 in a row) ─────────────────────────────────────
+    # Two side-by-side columns: static Context (left), editable Target (right).
+    # Streamlit widgets can't live inside a raw-HTML grid, so real columns
+    # replace the old .ev-answer-grid markup here.
+    col_ctx, col_tgt = st.columns(2, gap="medium")
+    with col_ctx:
+        st.markdown(
+            '<div class="ev-answer-label expected"><span class="dot"></span>Context</div>'
+            f'<div class="ev-answer-block expected">{context_body}</div>',
+            unsafe_allow_html=True,
+        )
+    with col_tgt:
+        st.markdown(
+            '<div class="ev-answer-label generated"><span class="dot"></span>'
+            f"Target Answer{edited_flag}"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        # Seed the editor once per question visit; keyed by question_id so the
+        # slider revisiting a question doesn't reset an in-progress edit. We do
+        # NOT reseed on every run (that would clobber typing), so a concurrent
+        # edit by someone else surfaces via the log below rather than live.
+        target_key = f"target_edit_{q_idx}"
+        if target_key not in st.session_state:
+            st.session_state[target_key] = effective_target
+        # The box auto-grows to fit its content exactly (no gap, no inner
+        # scroll) via TARGET_AUTOGROW_JS below — it grows as the evaluator
+        # types too. The height= here is just a pre-JS fallback minimum.
+        with st.container(key="target_editor_box"):
+            st.text_area(
+                "target_answer_editor",
+                key=target_key,
+                label_visibility="collapsed",
+                height=120,
+                disabled=is_submitted,
+            )
+        st_html(TARGET_AUTOGROW_JS, height=0)
+
+    # ── Rating cards (5 in a row) ─────────────────────────────────────
     current_scores: dict = {}
     all_scored = True
 
@@ -1381,30 +1540,16 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         if sk not in st.session_state:
             st.session_state[sk] = existing.get(metric["key"])
 
-    halluc_sk = f"eval_hallucination_{q_idx}"
-    if halluc_sk not in st.session_state:
-        st.session_state[halluc_sk] = existing.get(HALLUCINATION_KEY)
-
     _metric_colors = ["#1D6A9F", "#2E7D52", "#6B41A0", "#B68B4C", "#1B7A8C"]
     card_defs = [
         {
             "key": m["key"],
             "label": m["label"],
             "desc": m["desc"],
-            "options": CHIP_OPTS,
-            "is_halluc": False,
+            "options": m["options"],
             "title_color": c,
         }
         for m, c in zip(METRICS, _metric_colors)
-    ] + [
-        {
-            "key": HALLUCINATION_KEY,
-            "label": "Hallucination",
-            "desc": "Does the answer include unsupported information — fabricated facts, incorrect references, or invented details?",
-            "options": HALLUC_OPTS,
-            "is_halluc": True,
-            "title_color": "#9C2B1F",
-        }
     ]
 
     # Per-card theming: key class sits ON stVerticalBlockBorderWrapper, so
@@ -1466,7 +1611,7 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
     st.markdown(_card_css, unsafe_allow_html=True)
 
     with st.container(key="metric_cards_row"):
-        cols = st.columns(6, gap="small")
+        cols = st.columns(5, gap="small")
         for col, card in zip(cols, card_defs):
             with col:
                 with st.container(border=True, key=f"card_{card['key']}"):
@@ -1476,13 +1621,9 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
                         f"</p>",
                         unsafe_allow_html=True,
                     )
-                    sk = (
-                        halluc_sk
-                        if card["is_halluc"]
-                        else f"eval_{card['key']}_{q_idx}"
-                    )
+                    sk = f"eval_{card['key']}_{q_idx}"
                     for i, opt in enumerate(card["options"]):
-                        val = HALLUC_MAP[opt] if card["is_halluc"] else (i + 1)
+                        val = i + 1
                         is_sel = st.session_state.get(sk) == val
                         if is_submitted:
                             # Locked view: render as a disabled button so the
@@ -1512,33 +1653,27 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
         if val is None:
             all_scored = False
 
-    hallucination_flag = st.session_state.get(halluc_sk)
-    if hallucination_flag is None:
-        all_scored = False
-
-    # ── Free-text comment (optional) ──────────────────────────────────
-    comment_key = f"comment_{q_idx}"
-    if comment_key not in st.session_state:
-        st.session_state[comment_key] = existing.get("comment") or ""
-
+    # ── Target-answer edit log (shared, replaces the old comment box) ──────
+    # Shows who last changed this question's target answer and how long ago,
+    # so evaluators see each other's curation activity.
     st.markdown(
-        '<div class="ev-comment-label">Comment / feedback (optional)</div>',
+        '<div class="ev-comment-label">Target answer edit history</div>',
         unsafe_allow_html=True,
     )
-    if is_submitted:
-        saved_comment = existing.get("comment") or ""
-        comment_html = html.escape(saved_comment) if saved_comment else "— no comment left —"
-        st.markdown(
-            f'<div class="ev-comment-view">{comment_html}</div>',
-            unsafe_allow_html=True,
+    history = get_target_history(q_idx)
+    if history:
+        items = "".join(
+            f'<li class="ev-log-item"><span class="ev-log-dot"></span>'
+            f'Edited <span class="ev-log-when">{humanize_time_ago(h["edited_at"])}</span> '
+            f'by <span class="ev-log-who">{html.escape(h["evaluator_name"])}</span></li>'
+            for h in history
         )
+        st.markdown(f'<ul class="ev-log-list">{items}</ul>', unsafe_allow_html=True)
     else:
-        st.text_area(
-            "comment",
-            key=comment_key,
-            placeholder="Anything you'd like to note about this answer…",
-            label_visibility="collapsed",
-            height=80,
+        st.markdown(
+            '<div class="ev-log-empty">No edits yet — the target answer above is the '
+            "original golden answer. Edit and save it to start a history.</div>",
+            unsafe_allow_html=True,
         )
 
     # ── Footer: score bar + submit (or locked notice) ──────────────────
@@ -1577,14 +1712,22 @@ def page_evaluate(evaluator_id, evaluator_name, eval_mode, mode_questions, by_id
                 final_scores = {
                     k: v for k, v in current_scores.items() if v is not None
                 }
-                comment_text = st.session_state.get(comment_key, "")
+                # Comment field was replaced by the shared target-answer editor;
+                # responses.comment is retained in the schema but no longer used.
                 save_response(
                     evaluator_id,
                     q_idx,
                     final_scores,
-                    hallucination_flag,
-                    comment_text,
+                    "",
                 )
+                # Persist any target-answer edit as part of the same submit —
+                # there's no separate save button. Only writes when the text
+                # actually changed from the current effective target.
+                edited_target = st.session_state.get(target_key, "").strip()
+                if edited_target and edited_target != effective_target.strip():
+                    save_target_edit(
+                        q_idx, evaluator_id, evaluator_name, edited_target
+                    )
                 # Advance to the next unanswered question after this one in
                 # assignment order; wrap to the first unanswered overall if
                 # none remain after the current position (out-of-order rating
@@ -1628,26 +1771,26 @@ def main():
     by_id, order = load_questions()
     if not by_id:
         st.markdown(CSS, unsafe_allow_html=True)
-        st.error(f"No questions found at `{JSONL_PATH}`. Run scripts/11 first.")
+        st.error(f"No questions found at `{JSONL_PATH}`. Run scripts/12 first.")
         return
 
-    if "evaluator_name" not in st.session_state or "eval_mode" not in st.session_state:
+    if "evaluator_name" not in st.session_state:
         page_login()
         return
 
     name = st.session_state["evaluator_name"]
-    eval_mode = st.session_state["eval_mode"]
-    mode_filter = MODE_BY_KEY[eval_mode]["filter"]
-    mode_questions = get_mode_questions(mode_filter, by_id, order)
 
     if "evaluator_id" not in st.session_state:
-        eid, sid, resumed = get_or_create_evaluator(name, eval_mode)
+        eid, sid, resumed = get_or_create_evaluator(name)
         st.session_state["evaluator_id"] = eid
         st.session_state["session_id"] = sid
         if resumed:
             st.toast(f"Welcome back, {name} — resuming your saved session.", icon="👋")
     evaluator_id = st.session_state["evaluator_id"]
-    page_evaluate(evaluator_id, name, eval_mode, mode_questions, by_id)
+
+    # Draw (or resume) this evaluator's fixed random slice of the full 400.
+    assignment = get_or_create_assignment(evaluator_id, order)
+    page_evaluate(evaluator_id, name, assignment, by_id)
 
 
 if __name__ == "__main__":
