@@ -32,8 +32,11 @@ models/generator/*
 models/retriever/*
 !models/retriever/.gitkeep
 
-# Locally generated human-evaluation database
+# Locally generated human-evaluation databases (incl. WAL sidecar files)
 reports/human_answer_evaluation/*.db
+reports/human_answer_evaluation/*.db-*
+reports/human_golden_question_evaluation/*.db
+reports/human_golden_question_evaluation/*.db-*
 
 # Python
 __pycache__/

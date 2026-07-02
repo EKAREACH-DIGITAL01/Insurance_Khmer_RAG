@@ -67,6 +67,11 @@ JSONL_PATH = Path(
     "generated_answer_results_full.jsonl"
 )
 
+# Gold question sets — the source of truth for each question's retrieval
+# `context` (the full source chunk) and `expected_answer` (the target answer).
+# Keyed by question_id and merged onto the loaded rows below.
+GOLD_GLOB = "data/09_evaluation/*/gold_questions.json"
+
 # question_id format: "<category>_qid_<NNN>" e.g. "guidance_qid_026"
 # For every category, ids 001-025 are human-authored gold questions,
 # everything above that (up to the category's max) is AI-authored.
@@ -133,6 +138,22 @@ QUESTIONS_PER_EVALUATOR = 50
 # ----------------------------------------------------------------------------
 # Question id parsing
 # ----------------------------------------------------------------------------
+
+
+def collapse_blank_lines(text: str) -> str:
+    """
+    Normalise the ragged whitespace in gold `context` / `expected_answer`
+    text for display. Source chunks come from OCR'd PDFs and carry a mix of
+    single '\\n' and runs of blank lines between list items, which render as
+    uneven gaps under CSS `white-space: pre-wrap`. This strips each line's
+    trailing whitespace and collapses any run of one-or-more blank lines to a
+    single line break, so every list item sits on its own line with no blank
+    line between. Content is otherwise untouched (no word joining).
+    """
+    # Keep only non-blank lines (trailing whitespace stripped); a single '\n'
+    # join then puts each item on its own line with no blank line between.
+    lines = [ln.rstrip() for ln in text.split("\n") if ln.strip()]
+    return "\n".join(lines)
 
 
 def parse_question_id(qid: str):
@@ -334,17 +355,44 @@ def save_response(evaluator_id, question_id, scores, comment=""):
     conn.close()
 
 
+def load_gold():
+    """
+    Loads the gold question sets, keyed by question_id, exposing the two
+    fields the UI renders: `context` (the full source chunk the answer was
+    drawn from) and `expected_answer` (the target answer). These are the
+    source of truth — the JSONL is used only to enumerate the questions.
+    """
+    gold = {}
+    from pathlib import Path as _P
+    from glob import glob
+
+    for path in sorted(glob(GOLD_GLOB)):
+        try:
+            entries = json.loads(_P(path).read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        for e in entries:
+            qid = e.get("question_id")
+            if qid:
+                gold[qid] = e
+    return gold
+
+
 @st.cache_data
 def load_questions():
     """
     Loads every line from the full results JSONL and annotates each
     question dict with derived `category` (from question_id, falling back
     to the stored `category` field) and `source` ('human' | 'ai').
+    Each row's `context` and `expected_answer` are overlaid from the gold
+    question set (`GOLD_GLOB`) so the UI always shows the authoritative
+    source chunk and target answer, not whatever the generator run stored.
     Returned as a dict keyed by question_id for O(1) lookup, plus the
     list preserves file order for stable default sorting.
     """
     if not JSONL_PATH.exists():
         return {}, []
+    gold = load_gold()
     by_id = {}
     order = []
     with open(JSONL_PATH, "r", encoding="utf-8") as f:
@@ -362,6 +410,10 @@ def load_questions():
             cat_from_id, source = parse_question_id(qid)
             row["category"] = row.get("category") or cat_from_id
             row["source"] = source
+            g = gold.get(qid)
+            if g:
+                row["context"] = g.get("context", "")
+                row["expected_answer"] = g.get("expected_answer", "")
             by_id[qid] = row
             order.append(qid)
     return by_id, order
@@ -1263,10 +1315,17 @@ def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
     # otherwise be parsed as markup (broken layout at best, injection at worst).
     # html.escape leaves newlines intact, so the answer blocks' white-space:
     # pre-wrap still renders multi-line lists correctly.
-    # Both columns currently show the same expected answer: the left is the
-    # "Context Answer", the right is the "Target Answer". Identical for now.
-    expected = html.escape(question.get("expected_answer") or "")
-    context_body = expected if expected else "—"
+    # Left pane ("Context") shows the full source chunk the answer was drawn
+    # from; right pane ("Target Answer") shows the expected/target answer.
+    # Both come from the gold question set (merged in load_questions).
+    # The panes render with white-space: pre-wrap, so the source's ragged
+    # newlines (mixed single \n and runs of \n\n\n between list items) would
+    # show as uneven blank gaps. collapse_blank_lines() trims per-line
+    # trailing space and squashes any run of blank lines to a single break,
+    # so lists render compactly and evenly.
+    context = html.escape(collapse_blank_lines(question.get("context") or ""))
+    expected = html.escape(collapse_blank_lines(question.get("expected_answer") or ""))
+    context_body = context if context else "—"
     target_body = expected if expected else "—"
     st.markdown(
         f'<div class="ev-pill-row">'
@@ -1282,7 +1341,7 @@ def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
     st.markdown(
         '<div class="ev-answer-grid">'
         "<div>"
-        '<div class="ev-answer-label expected"><span class="dot"></span>Context Answer</div>'
+        '<div class="ev-answer-label expected"><span class="dot"></span>Context</div>'
         f'<div class="ev-answer-block expected">{context_body}</div>'
         "</div>"
         "<div>"
