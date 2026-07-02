@@ -1,0 +1,222 @@
+<svg width="1800" height="1470" viewBox="0 0 1800 1470" xmlns="http://www.w3.org/2000/svg" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 z" fill="#6B6358"/>
+    </marker>
+    <marker id="arrL" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 z" fill="#9C2B1F"/>
+    </marker>
+    <style>
+      .bandlabel{font-size:14px;font-weight:700;letter-spacing:2.5px;}
+      .sub{font-size:12.5px;fill:#6B6358;}
+      .box{fill:#FFFFFF;stroke:#C9BFA6;stroke-width:1.5;}
+      .num{font-size:11px;font-weight:700;fill:#B68B4C;font-family:'Courier New',monospace;letter-spacing:0.5px;}
+      .tagA{font-size:10.5px;font-weight:700;fill:#3B4C8C;font-family:'Courier New',monospace;letter-spacing:0.5px;}
+      .tagH{font-size:10.5px;font-weight:700;fill:#2E7D52;font-family:'Courier New',monospace;letter-spacing:0.5px;}
+      .ctitle{font-size:16px;font-weight:700;fill:#15201C;}
+      .stitle{font-size:12.5px;font-weight:700;fill:#15201C;}
+      .body{font-size:11.5px;fill:#4A4437;}
+      .path{font-size:11.5px;font-weight:600;fill:#9C2B1F;font-family:'Courier New',monospace;}
+      .edge{fill:none;stroke:#6B6358;stroke-width:2;}
+      .edgeL{fill:none;stroke:#9C2B1F;stroke-width:2;stroke-dasharray:6 4;}
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1800" height="1470" fill="#F5F0E4"/>
+
+  <!-- Title -->
+  <text x="60" y="52" font-size="30" font-weight="800" fill="#15201C">Khmer Insurance RAG Chatbot — Development Flow</text>
+  <text x="60" y="80" font-size="14.5" fill="#6B6358">From raw regulatory PDFs to a fully-local, source-cited Khmer RAG assistant  ·  build pipeline (01–08) → evaluation &amp; reporting (09–19) → live chatbot</text>
+
+  <!-- ============================ STAGE A ============================ -->
+  <rect x="40" y="104" width="1720" height="298" rx="16" fill="#FFFFFF" stroke="#3B4C8C" stroke-width="1.5"/>
+  <rect x="40" y="104" width="8" height="298" rx="4" fill="#3B4C8C"/>
+  <text x="66" y="134" class="bandlabel" fill="#3B4C8C">STAGE A · DATA-BUILD PIPELINE</text>
+  <text x="66" y="154" class="sub">scripts 01–08 — raw sources become clean chunks, embeddings and the gold test set. Run once, or whenever the corpus changes.</text>
+
+  <!-- 8 step boxes -->
+  <g>
+    <!-- x_i = 66 + i*212, w=190, y=174 h=58 -->
+    <rect x="66"   y="174" width="190" height="58" rx="9" class="box"/><text x="80" y="196" class="num">01</text><text x="80" y="216" class="stitle">PDF → PNG</text>
+    <rect x="278"  y="174" width="190" height="58" rx="9" class="box"/><text x="292" y="196" class="num">02</text><text x="292" y="216" class="stitle">OCR text · Gemini</text>
+    <rect x="490"  y="174" width="190" height="58" rx="9" class="box"/><text x="504" y="196" class="num">03</text><text x="504" y="216" class="stitle">Clean pages</text>
+    <rect x="702"  y="174" width="190" height="58" rx="9" class="box"/><text x="716" y="196" class="num">04</text><text x="716" y="216" class="stitle">Merge → docs</text>
+    <rect x="914"  y="174" width="190" height="58" rx="9" class="box"/><text x="928" y="196" class="num">05</text><text x="928" y="216" class="stitle">Clean docs</text>
+    <rect x="1126" y="174" width="190" height="58" rx="9" class="box"/><text x="1140" y="196" class="num">06</text><text x="1140" y="216" class="stitle">Chunk · clause-aware</text>
+    <rect x="1338" y="174" width="190" height="58" rx="9" class="box"/><text x="1352" y="196" class="num">07</text><text x="1352" y="216" class="stitle">Merge chunks</text>
+    <rect x="1550" y="174" width="190" height="58" rx="9" class="box"/><text x="1564" y="196" class="num">08</text><text x="1564" y="216" class="stitle">Embed · BGE-M3</text>
+    <!-- arrows between -->
+    <path class="edge" d="M256,203 L276,203" marker-end="url(#arr)"/>
+    <path class="edge" d="M468,203 L488,203" marker-end="url(#arr)"/>
+    <path class="edge" d="M680,203 L700,203" marker-end="url(#arr)"/>
+    <path class="edge" d="M892,203 L912,203" marker-end="url(#arr)"/>
+    <path class="edge" d="M1104,203 L1124,203" marker-end="url(#arr)"/>
+    <path class="edge" d="M1316,203 L1336,203" marker-end="url(#arr)"/>
+    <path class="edge" d="M1528,203 L1548,203" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- output artifacts -->
+  <g>
+    <rect x="66"   y="300" width="540" height="80" rx="10" fill="#EEF0F7" stroke="#3B4C8C" stroke-width="1.5"/>
+    <text x="82" y="323" class="num" fill="#3B4C8C">vector_db/</text>
+    <text x="82" y="345" class="stitle" font-size="14">3 FAISS indices + metadata</text>
+    <text x="82" y="366" class="body">candidates: BGE-M3 (production) · multilingual-e5-large · MiniLM-L12</text>
+
+    <rect x="636"  y="300" width="540" height="80" rx="10" fill="#FBF3E9" stroke="#B68B4C" stroke-width="1.5"/>
+    <text x="652" y="323" class="num">data/08_merged_chunked_documents/</text>
+    <text x="652" y="345" class="stitle" font-size="14">Chunk knowledge base</text>
+    <text x="652" y="366" class="body">clause-aware Khmer chunks, merged per category</text>
+
+    <rect x="1206" y="300" width="534" height="80" rx="10" fill="#FBF3E9" stroke="#B68B4C" stroke-width="1.5"/>
+    <text x="1222" y="323" class="num">data/09_evaluation/</text>
+    <text x="1222" y="345" class="stitle" font-size="14">Gold Q&amp;A set · shared yardstick</text>
+    <text x="1222" y="366" class="body">400 Qs = 100 human + 300 AI · 4 categories (guidance/law/prakas/sub-decree)</text>
+
+    <!-- step8 -> vector_db ; step7 -> chunk KB ; chunk KB -> gold set (orthogonal elbows) -->
+    <path class="edge" d="M1645,232 L1645,260 L336,260 L336,298" marker-end="url(#arr)"/>
+    <path class="edge" d="M1433,232 L1433,276 L906,276 L906,298" marker-end="url(#arr)"/>
+    <path class="edge" d="M1176,340 L1204,340" marker-end="url(#arr)"/>
+    <text x="1181" y="333" class="body" font-size="10">built from</text>
+  </g>
+
+  <!-- link A -> B -->
+  <path class="edge" d="M900,382 L900,424" marker-end="url(#arr)"/>
+  <text x="912" y="410" class="sub">indices + gold set feed evaluation</text>
+
+  <!-- ============================ STAGE B ============================ -->
+  <rect x="40" y="428" width="1720" height="632" rx="16" fill="#FFFFFF" stroke="#9C2B1F" stroke-width="1.5"/>
+  <rect x="40" y="428" width="8" height="632" rx="4" fill="#9C2B1F"/>
+  <text x="66" y="458" class="bandlabel" fill="#9C2B1F">STAGE B · EVALUATION &amp; REPORTING</text>
+  <text x="66" y="478" class="sub">scripts 09–19 — pick each component, validate the test set, verify the safety gates. Every evaluation writes one JSON + Markdown report to reports/.</text>
+
+  <!-- Row 1 -->
+  <!-- 09 -->
+  <rect x="66" y="498" width="540" height="150" rx="11" class="box"/>
+  <text x="82" y="522" class="num">09</text><text x="150" y="522" class="tagA">AUTOMATED · RETRIEVAL</text>
+  <text x="82" y="546" class="ctitle">Embedding model comparison</text>
+  <text x="82" y="568" class="body">in: 3 FAISS indices (BGE-M3 · e5-large · MiniLM) + gold set</text>
+  <text x="82" y="588" class="body">Hit@K · Recall@K · MRR · File-Hit  (K = 1…10, per category)</text>
+  <text x="82" y="608" class="body">dense-only — a score gap = the embedding model alone</text>
+  <text x="82" y="634" class="path">→ embedding_model_comparison/   ·   picks BGE-M3</text>
+
+  <!-- 10 -->
+  <rect x="636" y="498" width="540" height="150" rx="11" class="box"/>
+  <text x="652" y="522" class="num">10</text><text x="720" y="522" class="tagA">AUTOMATED · RETRIEVAL</text>
+  <text x="652" y="546" class="ctitle">Retrieval mode comparison</text>
+  <text x="652" y="568" class="body">in: BGE-M3 index + gold set</text>
+  <text x="652" y="588" class="body">Dense  ·  BM25 (Khmer 3-gram)  ·  Hybrid RRF (k = 60)</text>
+  <text x="652" y="608" class="body">same Hit / Recall / MRR / File-Hit family as 09</text>
+  <text x="652" y="634" class="path">→ retrieval_mode_comparison/   ·   picks Hybrid</text>
+
+  <!-- 11-12 -->
+  <rect x="1206" y="498" width="534" height="150" rx="11" class="box"/>
+  <text x="1222" y="522" class="num">11 → 12</text><text x="1316" y="522" class="tagH">HUMAN · STREAMLIT + SQLITE</text>
+  <text x="1222" y="546" class="ctitle">Golden-question evaluation</text>
+  <text x="1222" y="568" class="body">in: gold set (400 Qs) — 50 per evaluator, coverage-aware</text>
+  <text x="1222" y="588" class="body">Clarity·Relevance·Difficulty·Answer Quality·Uniqueness (1–5)</text>
+  <text x="1222" y="608" class="body">legal experts curate/trim the set + fix target answers</text>
+  <text x="1222" y="634" class="path">→ human_golden_question_evaluation/</text>
+
+  <!-- Row 2 -->
+  <!-- 13-15 -->
+  <rect x="66" y="672" width="540" height="150" rx="11" class="box"/>
+  <text x="82" y="696" class="num">13 → 14 → 15</text><text x="210" y="696" class="tagA">AUTOMATED · PROXY RAGAS (NO LLM JUDGE)</text>
+  <text x="82" y="720" class="ctitle">Generator model comparison</text>
+  <text x="82" y="742" class="body">in: 100 human gold Qs × 4 LLMs (SeaLLM·Qwen3.5·Sailor2·Llama-3.1)</text>
+  <text x="82" y="762" class="body">CtxRel .20 · Faith .25 · AnsCorr .25 · AnsRel .15 · Complete .15</text>
+  <text x="82" y="782" class="body">14 diagnoses the score spread · 15 rescores from disk</text>
+  <text x="82" y="808" class="path">→ generator_model_comparison/   ·   picks SeaLLM</text>
+
+  <!-- 16-17 -->
+  <rect x="636" y="672" width="540" height="150" rx="11" class="box"/>
+  <text x="652" y="696" class="num">16 → 17</text><text x="746" y="696" class="tagH">HUMAN · STREAMLIT + SQLITE</text>
+  <text x="652" y="720" class="ctitle">Human answer evaluation</text>
+  <text x="652" y="742" class="body">in: winner's generated answers — 50 per evaluator, coverage-aware</text>
+  <text x="652" y="762" class="body">RAGAS 5 metrics (1–5)  +  Hallucination Yes/No (kept separate)</text>
+  <text x="652" y="782" class="body">reports inter-annotator agreement (avg pairwise |diff|)</text>
+  <text x="652" y="808" class="path">→ human_answer_evaluation/  +  hallucination_report</text>
+
+  <!-- 18 -->
+  <rect x="1206" y="672" width="534" height="150" rx="11" class="box"/>
+  <text x="1222" y="696" class="num">18</text><text x="1290" y="696" class="tagA">AUTOMATED · ADVERSARIAL</text>
+  <text x="1222" y="720" class="ctitle">Safety-gate evaluation</text>
+  <text x="1222" y="742" class="body">in: data/10_adversarial — 4 refuse/answer categories</text>
+  <text x="1222" y="762" class="body">Gate 1 Khmer/length/scope · Gate 2 FAISS 0.49 · Gate 3 refusal</text>
+  <text x="1222" y="782" class="body">confusion matrix: True/False × Refuse/Answer (TR·FA·TA·FR)</text>
+  <text x="1222" y="808" class="path">→ safety_gate_evaluation/  (+ results.jsonl)</text>
+
+  <!-- feedback loop 11-12 -> gold set -->
+  <path class="edgeL" d="M1620,498 C1620,440 1473,420 1473,382" marker-end="url(#arrL)"/>
+  <text x="1490" y="470" class="path" font-size="11">curated / trimmed set ↺</text>
+
+  <!-- reports bus -->
+  <rect x="66" y="846" width="1674" height="50" rx="10" fill="#FBF3E9" stroke="#B68B4C" stroke-width="1.5"/>
+  <text x="82" y="876" class="stitle" font-size="14">reports/ — one JSON + Markdown report per evaluation</text>
+  <text x="1724" y="876" text-anchor="end" class="body">winner of 13 → its answers scored by 16/17 · winner also drives the 18 replay</text>
+
+  <!-- arrows bottom row -> bus -->
+  <path class="edge" d="M336,822 L336,844" marker-end="url(#arr)"/>
+  <path class="edge" d="M906,822 L906,844" marker-end="url(#arr)"/>
+  <path class="edge" d="M1473,822 L1473,844" marker-end="url(#arr)"/>
+
+  <!-- data card -->
+  <rect x="400" y="924" width="1000" height="116" rx="12" fill="#F3EAF0" stroke="#9C2B1F" stroke-width="2"/>
+  <text x="420" y="950" class="num" fill="#9C2B1F">19 · ROLL-UP</text>
+  <text x="420" y="974" class="ctitle">Data card</text>
+  <text x="420" y="996" class="body">reads: corpus metadata · chunk KB · gold set · adversarial set</text>
+  <text x="420" y="1016" class="body">+ reports from 09 · 10 · 13 · 17 · 18  ·  vector_db model info</text>
+  <text x="900" y="1030" class="path">→ reports/data_card/   (data_card.json + data_card.md)</text>
+  <path class="edge" d="M900,896 L900,922" marker-end="url(#arr)"/>
+
+  <!-- link B -> C -->
+  <path class="edge" d="M900,1060 L900,1092" marker-end="url(#arr)"/>
+
+  <!-- ============================ STAGE C ============================ -->
+  <rect x="40" y="1096" width="1720" height="250" rx="16" fill="#FFFFFF" stroke="#2E7D52" stroke-width="1.5"/>
+  <rect x="40" y="1096" width="8" height="250" rx="4" fill="#2E7D52"/>
+  <text x="66" y="1126" class="bandlabel" fill="#2E7D52">STAGE C · LIVE CHATBOT</text>
+  <text x="66" y="1146" class="sub">start_chatbot.py → app.py — fully local; reuses the selected BGE-M3 index (Stage A) and SeaLLM winner (Stage B). The three safety gates sit inline on this path.</text>
+
+  <!-- 8 live boxes: x_i = 66 + i*212, w=190, y=1170 h=96 -->
+  <g>
+    <rect x="66"   y="1170" width="190" height="96" rx="9" class="box"/>
+    <text x="80" y="1194" class="stitle">User question</text><text x="80" y="1214" class="body" font-size="10.5">Khmer input</text>
+
+    <rect x="278"  y="1170" width="190" height="96" rx="9" fill="#FFFFFF" stroke="#2E7D52" stroke-width="1.5"/>
+    <text x="292" y="1190" class="num" fill="#2E7D52">GATE 1</text><text x="292" y="1210" class="stitle">Input gate</text>
+    <text x="292" y="1229" class="body" font-size="10.5">Khmer script ·</text><text x="292" y="1244" class="body" font-size="10.5">min length · scope regex</text>
+
+    <rect x="490"  y="1170" width="190" height="96" rx="9" class="box"/>
+    <text x="504" y="1194" class="stitle">Embed</text><text x="504" y="1214" class="body" font-size="10.5">BGE-M3 query vector</text>
+
+    <rect x="702"  y="1170" width="190" height="96" rx="9" class="box"/>
+    <text x="716" y="1194" class="stitle">Retrieve</text><text x="716" y="1214" class="body" font-size="10.5">Hybrid FAISS + BM25</text><text x="716" y="1229" class="body" font-size="10.5">/ RRF</text>
+
+    <rect x="914"  y="1170" width="190" height="96" rx="9" fill="#FFFFFF" stroke="#2E7D52" stroke-width="1.5"/>
+    <text x="928" y="1190" class="num" fill="#2E7D52">GATE 2</text><text x="928" y="1210" class="stitle">Score gate</text>
+    <text x="928" y="1229" class="body" font-size="10.5">FAISS &lt; 0.49</text><text x="928" y="1244" class="body" font-size="10.5">→ refuse, redirect</text>
+
+    <rect x="1126" y="1170" width="190" height="96" rx="9" class="box"/>
+    <text x="1140" y="1194" class="stitle">Build context</text><text x="1140" y="1214" class="body" font-size="10.5">top chunks + system</text><text x="1140" y="1229" class="body" font-size="10.5">prompt + disclaimer</text>
+
+    <rect x="1338" y="1170" width="190" height="96" rx="9" class="box"/>
+    <text x="1352" y="1194" class="stitle">Generate</text><text x="1352" y="1214" class="body" font-size="10.5">SeaLLM · llama-server</text><text x="1352" y="1229" class="body" font-size="10.5">temp 0.2 · streamed</text>
+
+    <rect x="1550" y="1170" width="190" height="96" rx="9" fill="#E9F2EC" stroke="#2E7D52" stroke-width="1.5"/>
+    <text x="1564" y="1190" class="num" fill="#2E7D52">GATE 3 → ANSWER</text><text x="1564" y="1210" class="stitle">Answer</text>
+    <text x="1564" y="1229" class="body" font-size="10.5">refusal check ·</text><text x="1564" y="1244" class="body" font-size="10.5">citations + disclaimer</text>
+
+    <path class="edge" d="M256,1218 L276,1218" marker-end="url(#arr)"/>
+    <path class="edge" d="M468,1218 L488,1218" marker-end="url(#arr)"/>
+    <path class="edge" d="M680,1218 L700,1218" marker-end="url(#arr)"/>
+    <path class="edge" d="M892,1218 L912,1218" marker-end="url(#arr)"/>
+    <path class="edge" d="M1104,1218 L1124,1218" marker-end="url(#arr)"/>
+    <path class="edge" d="M1316,1218 L1336,1218" marker-end="url(#arr)"/>
+    <path class="edge" d="M1528,1218 L1548,1218" marker-end="url(#arr)"/>
+  </g>
+  <text x="66" y="1310" class="body" font-size="11">Green boxes = the three safety gates evaluated by script 18. Gate 1 is deterministic (zero cost) · Gate 2 costs one embed + search · Gate 3 costs a full generation.</text>
+
+  <!-- footer legend -->
+  <text x="66" y="1392" class="body" font-size="12"><tspan font-weight="700" fill="#3B4C8C">AUTOMATED</tspan> evaluations use deterministic + embedding proxies, no LLM judge.  <tspan font-weight="700" fill="#2E7D52">HUMAN</tspan> evaluations use a Streamlit UI on SQLite, giving each evaluator a coverage-aware 50-question slice (first 8 evaluators cover all 400).</text>
+  <text x="66" y="1414" class="body" font-size="12"><tspan font-weight="700" fill="#9C2B1F">Dashed line</tspan> = feedback loop: the 400-question gold set is curated and trimmed by evaluation 11–12 before it is trusted by every downstream evaluation.</text>
+</svg>

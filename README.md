@@ -71,7 +71,7 @@ happen at chat time.
 
 ## Architecture
 
-![Khmer Insurance Law Assistant — development flow: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–19), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/Development%20Flow.png)
+![Khmer Insurance Law Assistant — development flow: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–19), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/development_flow.png)
 
 The diagram above reads in three stages:
 
@@ -126,7 +126,8 @@ Khmer-Rag-Chatbot/
 ├── requirements.txt
 │
 ├── assets/
-│   ├── Development Flow.png
+│   ├── development_flow.svg          # editable source for the diagram below
+│   ├── development_flow.png          # rendered from the .svg
 │   ├── favicon.png
 │   └── logo.png
 │
