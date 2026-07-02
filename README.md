@@ -50,16 +50,18 @@ happen at chat time.
   (`scripts/11_human_golden_question_evaluation.py`) has humans score the
   gold questions themselves (clarity, relevance, difficulty, answer quality,
   uniqueness) to validate the test set, independent of the live chatbot.
+  `scripts/12_human_golden_question_evaluation_report.py` rolls those scores
+  and target-answer corrections into a report with per-question curation flags.
 - **Generator model comparison** — four quantized LLMs are scored with a
-  RAGAS-style 5-metric LLM-judge by `scripts/12_compare_generator_models.py`,
+  RAGAS-style 5-metric LLM-judge by `scripts/13_compare_generator_models.py`,
   saved to `reports/generator_model_comparison/`.
 - **Human answer evaluation** — a Streamlit rating UI
-  (`scripts/15_human_answer_evaluation.py`) collects human scores, merged into
+  (`scripts/16_human_answer_evaluation.py`) collects human scores, merged into
   a report (plus a separate hallucination report) by
-  `scripts/16_human_answer_evaluation_report.py`.
+  `scripts/17_human_answer_evaluation_report.py`.
 - **Safety-gate evaluation** — the adversarial test set is replayed through
-  all three gates by `scripts/17_evaluate_safety_gates.py`.
-- **Data card** — `scripts/18_generate_data_card.py` rolls up the whole
+  all three gates by `scripts/18_evaluate_safety_gates.py`.
+- **Data card** — `scripts/19_generate_data_card.py` rolls up the whole
   pipeline into one JSON + Markdown card.
 
 ---
@@ -201,14 +203,15 @@ Khmer-Rag-Chatbot/
 │   ├── 08_generate_embeddings.py
 │   ├── 09_compare_embedding_models.py
 │   ├── 10_compare_retrieval_modes.py
-│   ├── 12_compare_generator_models.py
 │   ├── 11_human_golden_question_evaluation.py
-│   ├── 13_diagnose_generator_scores.py
-│   ├── 14_rescore_generator_scores.py
-│   ├── 15_human_answer_evaluation.py
-│   ├── 16_human_answer_evaluation_report.py
-│   ├── 17_evaluate_safety_gates.py
-│   └── 18_generate_data_card.py
+│   ├── 12_human_golden_question_evaluation_report.py
+│   ├── 13_compare_generator_models.py
+│   ├── 14_diagnose_generator_scores.py
+│   ├── 15_rescore_generator_scores.py
+│   ├── 16_human_answer_evaluation.py
+│   ├── 17_human_answer_evaluation_report.py
+│   ├── 18_evaluate_safety_gates.py
+│   └── 19_generate_data_card.py
 │
 └── vector_db/
     ├── BAAI-BGE-M3/                 # Production index (default)
@@ -353,24 +356,25 @@ python scripts/10_compare_retrieval_modes.py
 
 # Golden-question evaluation — Streamlit UI to rate the gold questions themselves
 # (validates the test set; independent of the generator/chatbot)
-python scripts/11_human_golden_question_evaluation.py
+python scripts/11_human_golden_question_evaluation.py   # collect scores + corrections
+python scripts/12_human_golden_question_evaluation_report.py  # aggregate + curation flags
 
 # Generator model comparison (requires llama-server; LLM-judge scoring)
-python scripts/12_compare_generator_models.py
-# optional follow-ups: 13 diagnoses, 14 rescores the generator scores
+python scripts/13_compare_generator_models.py
+# optional follow-ups: 14 diagnoses, 15 rescores the generator scores
 
 # Human answer evaluation — Streamlit rating UI on the winning model
-python scripts/15_human_answer_evaluation.py          # collect scores
-python scripts/16_human_answer_evaluation_report.py   # merge into a report
+python scripts/16_human_answer_evaluation.py          # collect scores
+python scripts/17_human_answer_evaluation_report.py   # merge into a report
 
 # Safety-gate evaluation against the adversarial set (requires llama-server)
-python scripts/17_evaluate_safety_gates.py
+python scripts/18_evaluate_safety_gates.py
 
 # Data card — rolls up every artifact above into one card
-python scripts/18_generate_data_card.py
+python scripts/19_generate_data_card.py
 ```
 
-`scripts/16_human_answer_evaluation_report.py` also writes a **separate
+`scripts/17_human_answer_evaluation_report.py` also writes a **separate
 hallucination report** (`reports/human_answer_evaluation/hallucination_report.{json,md}`)
 driven by the human Yes/No hallucination flag — the mandatory pre-demo
 review gate (Internship Proposal §11).
@@ -500,7 +504,7 @@ against `data/10_adversarial/` before trusting it.
 - `expected_chunks` is used by `09_compare_embedding_models.py` and
   `10_compare_retrieval_modes.py` to measure whether the retriever surfaces
   the right source material.
-- `expected_answer` is used by `12_compare_generator_models.py` to score the
+- `expected_answer` is used by `13_compare_generator_models.py` to score the
   generated answers — questions without this field are skipped.
 
 ---

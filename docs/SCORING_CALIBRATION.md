@@ -1,7 +1,7 @@
 # Generator Evaluation: Scoring Calibration Notes
 
 This document explains the 1–5 scoring of each automated proxy metric in
-`scripts/12_compare_generator_models.py` — where the thresholds and the metric
+`scripts/13_compare_generator_models.py` — where the thresholds and the metric
 *logic* came from, why they're set where they are, and their limitations. Keep
 it alongside that script.
 
@@ -12,17 +12,17 @@ This is **Stage 1** of a two-stage generator evaluation:
    human and no LLM judge. Pick one winner. The expensive part is *generating*
    the answers once; re-scoring them is free (see Rescore workflow below).
 2. **Stage 2 — human RAGAS.** Only the Stage-1 winner goes to
-   `scripts/15_human_answer_evaluation.py`, where a person scores the answers
+   `scripts/16_human_answer_evaluation.py`, where a person scores the answers
    on the UI. That is where true *answer relevance* and human-grade judgement
    live — so Stage 1 deliberately does **not** try to reproduce them.
 
 Companion tools:
-- **`scripts/13_diagnose_generator_scores.py`** — runs every
+- **`scripts/14_diagnose_generator_scores.py`** — runs every
   percentile/distribution check referenced below against the live
   `reports/generator_model_comparison/<model>/generated_answer_results.jsonl`
   files and writes `generator_score_diagnostics.{json,md}`.
-- **`scripts/14_rescore_generator_scores.py`** — thin wrapper that delegates to
-  `scripts/12 --rescore` (the canonical rescorer).
+- **`scripts/15_rescore_generator_scores.py`** — thin wrapper that delegates to
+  `scripts/13 --rescore` (the canonical rescorer).
 
 Re-run the diagnostics any time the corpus, embedding model, or generator
 lineup changes — every number here is a snapshot against THIS corpus's real
@@ -36,9 +36,9 @@ The answers are generated once (the slow, ~hours-long part). Every scoring
 change after that is applied **without regenerating** anything:
 
 ```bash
-# 1. edit a metric function in scripts/12_compare_generator_models.py
-python scripts/12_compare_generator_models.py --rescore   # re-judge from disk
-python scripts/13_diagnose_generator_scores.py            # refresh diagnostics
+# 1. edit a metric function in scripts/13_compare_generator_models.py
+python scripts/13_compare_generator_models.py --rescore   # re-judge from disk
+python scripts/14_diagnose_generator_scores.py            # refresh diagnostics
 ```
 
 `--rescore` reloads each model's JSONL, **rebuilds each answer's retrieval
@@ -291,7 +291,7 @@ Combined-score sanity (discrimination, not collapse): SeaLLM mean 4.96 (89/100
 - `scripts/09_compare_embedding_models.py` confirmed BGE-M3 (Hit@5 ≈ 0.97) is
   the retriever, so Context Relevance isn't being dragged down by a weak one.
 - `scripts/10_compare_retrieval_modes.py` confirmed hybrid retrieval
-  (Recall@5 ≈ 0.99) underneath `scripts/12`, which is why Context Relevance
+  (Recall@5 ≈ 0.99) underneath `scripts/13`, which is why Context Relevance
   clusters tightly at 1 and 5.
 
 ---
@@ -305,7 +305,7 @@ Combined-score sanity (discrimination, not collapse): SeaLLM mean 4.96 (89/100
 | Revision B | Faithfulness: Arabic/Khmer digit + Khmer number-word normalisation; list-ordinal (incl. leading-bullet) exclusion. |
 | Revision C | Completeness: removed the over-length ceiling (verbosity ≠ incompleteness); decoration-aware `ends_with_sentence_final()`. |
 | Revision D | Faithfulness no-numbers 4 → **5** (no number = nothing to fabricate). Restored the cleanest model (SeaLLM) to a clear #1. |
-| Tooling    | `scripts/12 --rescore` is the canonical rescorer (recomputes from text + rebuilt context). `scripts/14` delegates to it. `scripts/13` model lineup fixed (Sailor2 replaces the retired Gemma slot). |
+| Tooling    | `scripts/13 --rescore` is the canonical rescorer (recomputes from text + rebuilt context). `scripts/15` delegates to it. `scripts/14` model lineup fixed (Sailor2 replaces the retired Gemma slot). |
 
 ---
 
@@ -313,10 +313,10 @@ Combined-score sanity (discrimination, not collapse): SeaLLM mean 4.96 (89/100
 
 **These thresholds are empirically derived from real data, not yet validated
 against human judgement.** That is exactly what Stage 2 is for:
-`scripts/15_human_answer_evaluation.py` has a person score the winning model's
+`scripts/16_human_answer_evaluation.py` has a person score the winning model's
 answers by hand. If the human scores broadly agree with this proxy, the proxy
 can be trusted for faster iteration later; if they disagree systematically,
-come back here and to `scripts/13_diagnose_generator_scores.py` and recalibrate.
+come back here and to `scripts/14_diagnose_generator_scores.py` and recalibrate.
 The fixes in this revision were all made by reading the actual generated vs.
 expected answers in the JSONL — the metrics now agree with what a reader sees,
 which is the precondition for the Stage-2 human check to confirm.

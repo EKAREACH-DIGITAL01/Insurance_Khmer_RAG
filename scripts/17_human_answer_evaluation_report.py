@@ -11,7 +11,7 @@ from tabulate import tabulate
 # ----------------------------------------------------------------------------
 # RAG Human Evaluation Report
 # ----------------------------------------------------------------------------
-# PURPOSE: read the human scores collected by scripts/15 (the Streamlit eval UI)
+# PURPOSE: read the human scores collected by scripts/16 (the Streamlit eval UI)
 # from SQLite and merge them into ONE unified human-verified RAGAS report, plus
 # a completely SEPARATE hallucination report.
 #
@@ -21,20 +21,20 @@ from tabulate import tabulate
 # its own standalone report (hallucination_report.{json,md}). The unified RAGAS
 # report only carries a short pointer to it.
 #
-# Schema this matches (scripts/15, current):
+# Schema this matches (scripts/16, current):
 #   evaluators(id, name, session_id, eval_mode, created_at)
 #   responses (id, evaluator_id, question_id, context_relevance, faithfulness,
 #              answer_relevance, answer_correctness, completeness, hallucination,
 #              total_score, comment, submitted_at)
 #   -- responses are keyed by (evaluator_id, question_id); question_id is the
 #      global TEXT id (e.g. "guidance_qid_001"), NOT a positional index.
-#   -- the assignments table is unused by scripts/15, so coverage is derived
+#   -- the assignments table is unused by scripts/16, so coverage is derived
 #      from each evaluator's eval_mode instead.
 #
 # Inputs
-#   reports/human_answer_evaluation/human_answer_evaluation.db          (scripts/15)
+#   reports/human_answer_evaluation/human_answer_evaluation.db          (scripts/16)
 #   reports/generator_model_comparison/<winner>/generated_answer_results_full.jsonl
-#       -- the SAME 400-question file scripts/15 serves answers from (scripts/12),
+#       -- the SAME 400-question file scripts/16 serves answers from (scripts/13),
 #          which also carries the automated proxy scores for the human-vs-proxy
 #          comparison.
 #
@@ -46,7 +46,7 @@ from tabulate import tabulate
 DB_PATH = Path("reports/human_answer_evaluation/human_answer_evaluation.db")
 REPORTS_DIR = Path("reports/human_answer_evaluation")
 
-# Must match scripts/15 JSONL_PATH exactly so question_ids line up.
+# Must match scripts/16 JSONL_PATH exactly so question_ids line up.
 JSONL_PATH = Path(
     "reports/generator_model_comparison/"
     "SeaLLMs-v3-7B-Chat-Q4_K_M/"
@@ -57,7 +57,7 @@ PROXY_LABEL = "SeaLLM v3 7B"
 # question_id format: "<category>_qid_<NNN>"; ids 001-025 are human-authored.
 HUMAN_QID_MAX = 25
 
-# The five RAGAS-style metrics (scripts/15 collects these on a 1-5 chip scale).
+# The five RAGAS-style metrics (scripts/16 collects these on a 1-5 chip scale).
 # Hallucination is intentionally NOT in this list — it is a separate Yes/No flag.
 METRICS = [
     "context_relevance",
@@ -123,7 +123,7 @@ def get_db():
     if not DB_PATH.exists():
         raise FileNotFoundError(
             f"Database not found at {DB_PATH}.\n"
-            "Run scripts/15_human_answer_evaluation.py first and collect scores."
+            "Run scripts/16_human_answer_evaluation.py first and collect scores."
         )
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -166,7 +166,7 @@ def load_evaluators():
 
 
 # ----------------------------------------------------------------------------
-# Load questions + automated proxy scores from the scripts/12 JSONL
+# Load questions + automated proxy scores from the scripts/13 JSONL
 # ----------------------------------------------------------------------------
 
 def _iter_jsonl(path):
@@ -186,7 +186,7 @@ def load_questions():
 
     by_id      : {question_id: entry} where entry carries question text,
                  expected/generated answers, derived category/source, and the
-                 automated proxy `scores`/`combined` from scripts/12.
+                 automated proxy `scores`/`combined` from scripts/13.
     order      : question_ids in file order.
     mode_sizes : {'human': n, 'ai': n, 'all': n} question counts per mode.
     """
@@ -338,7 +338,7 @@ def inter_annotator_from_responses(responses):
 def human_vs_proxy(q_stats, by_id):
     """Macro-avg human vs automated proxy score per RAGAS metric, over the
     questions that have both a human rating and a proxy score. The proxy scores
-    come from the same scripts/12 JSONL (note: the proxy's answer_relevance is
+    come from the same scripts/13 JSONL (note: the proxy's answer_relevance is
     computed but UNWEIGHTED in stage 1 — it is still shown here for comparison)."""
     by_metric = {m: {"human": [], "proxy": []} for m in METRICS}
 
@@ -458,7 +458,7 @@ def print_report(ctx):
             ["Total responses submitted",   ctx["total_responses"]],
             ["Questions rated (>=1 eval)",  ctx["total_questions_rated"]],
             ["Questions rated by >1 eval",  ctx["iaa_multi_count"]],
-            ["Proxy model (scripts/12)",    ctx["proxy_label"] or "not found"],
+            ["Proxy model (scripts/13)",    ctx["proxy_label"] or "not found"],
         ],
         tablefmt="grid",
     ))
@@ -624,7 +624,7 @@ def write_unified_report(ctx):
     md = [
         "# RAG Human Evaluation Report\n\n",
         f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n",
-        f"**Proxy model (scripts/12):** {ctx['proxy_label'] or 'not found'}  \n",
+        f"**Proxy model (scripts/13):** {ctx['proxy_label'] or 'not found'}  \n",
         f"**Evaluators:** {len(ctx['eval_stats'])}  \n",
         f"**Responses:** {ctx['total_responses']}  \n",
         f"**Questions rated:** {ctx['total_questions_rated']} "
@@ -669,7 +669,7 @@ def write_unified_report(ctx):
 
     if ctx["human_proxy_macro"]:
         md.append("## Human vs Automated Proxy Scores\n\n")
-        md.append("Diff = Human − Proxy (positive = humans rated higher than the scripts/12 judge). "
+        md.append("Diff = Human − Proxy (positive = humans rated higher than the scripts/13 judge). "
                   "Proxy `answer_relevance` is computed but unweighted in stage 1.\n\n")
         hp_rows = []
         for m in METRICS:
@@ -725,7 +725,7 @@ def write_hallucination_report(hr, proxy_label):
     payload = {
         "generated_at":        int(time.time()),
         "proxy_model":         proxy_label,
-        "source":              "human evaluator hallucination flag (scripts/15)",
+        "source":              "human evaluator hallucination flag (scripts/16)",
         "independent_of_ragas": True,
         "total_answers_rated": hr["total_answers_rated"],
         "answers_with_flag":   hr["answers_with_flag"],
@@ -743,7 +743,7 @@ def write_hallucination_report(hr, proxy_label):
         "# Hallucination Report\n\n",
         f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n",
         "Driven solely by the **human evaluator hallucination flag** collected in "
-        "scripts/15 — a direct Yes/No judgement, independent of the five RAGAS "
+        "scripts/16 — a direct Yes/No judgement, independent of the five RAGAS "
         "metrics (it is never averaged into them).\n\n",
         "- **confirmed** — a majority of the evaluators who rated the answer flagged it\n",
         "- **disputed** — at least one, but not a majority, flagged it\n\n",
@@ -817,12 +817,12 @@ def main():
 
     if not responses:
         print("No responses found in the database yet.")
-        print("Run scripts/15_human_answer_evaluation.py and collect scores first.")
+        print("Run scripts/16_human_answer_evaluation.py and collect scores first.")
         return
 
     print(f"  {len(responses)} responses from {len(evaluators)} evaluators.")
 
-    print("Loading questions + proxy scores from the scripts/12 JSONL...")
+    print("Loading questions + proxy scores from the scripts/13 JSONL...")
     by_id, order, mode_sizes = load_questions()
     if not by_id:
         print(f"  Warning: no JSONL found at {JSONL_PATH} -- question text/proxy "

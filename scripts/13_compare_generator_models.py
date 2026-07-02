@@ -40,7 +40,7 @@ from sentence_transformers import SentenceTransformer
 # PURPOSE: rank all installed generator models against each other on the full
 # gold question set (25 questions × 4 categories = 100 questions per model)
 # using five automated proxy metrics. The winning model is then used for the
-# human-scored RAGAS evaluation in scripts/15_human_answer_evaluation.py.
+# human-scored RAGAS evaluation in scripts/16_human_answer_evaluation.py.
 #
 # METRICS (all automated, no LLM judge):
 #
@@ -245,7 +245,7 @@ MIN_QUESTION_LENGTH    = 8      # shorter questions are treated as degenerate in
 # job -- "does this actually answer the question" -- is done far better by
 # answer_correctness (semantic match to the verbatim gold answer) here, and by
 # the real RAGAS/human relevance judgement in the Stage-2 human eval
-# (scripts/15). We STILL compute answer_relevance_similarity into `detail` for
+# (scripts/16). We STILL compute answer_relevance_similarity into `detail` for
 # traceability; it just carries no weight. Its 0.15 was folded into
 # answer_correctness (the gold answer is the strongest Stage-1 signal we have).
 WEIGHTS = {
@@ -2149,7 +2149,7 @@ def print_final_comparison(summaries):
             )
 
     print(f"\n  {BOLD}RECOMMENDATION: {ranked[0]['label']}{RESET}")
-    print(f"  → Use this model for human-scored evaluation in scripts/15_human_answer_evaluation.py")
+    print(f"  → Use this model for human-scored evaluation in scripts/16_human_answer_evaluation.py")
 
 
 def write_final_report(summaries):
@@ -2182,7 +2182,7 @@ def write_final_report(summaries):
             "averages). weighted_combined is normalised by the sum of weights "
             "that had values -- None is reserved for genuinely uncomputable "
             "metrics (missing expected_answer), not for blank generated answers. "
-            "Run scripts/15_human_answer_evaluation.py on the winning model "
+            "Run scripts/16_human_answer_evaluation.py on the winning model "
             "for human-verified RAGAS scores."
         ),
     }
@@ -2266,7 +2266,7 @@ def write_final_report(summaries):
     md_lines.append(f"\n**Recommendation: {ranked[0]['label']}**\n\n")
     md_lines.append(
         f"Use this model for human-scored evaluation in "
-        f"`scripts/15_human_answer_evaluation.py`.\n"
+        f"`scripts/16_human_answer_evaluation.py`.\n"
     )
 
     md_path = REPORTS_DIR / "generator_model_comparison.md"
@@ -2368,12 +2368,12 @@ def rescore_all(chunks, embedding_model):
     if not all_summaries:
         raise SystemExit(
             "No existing result files found to rescore. Run the full generation "
-            "first (python scripts/12_compare_generator_models.py)."
+            "first (python scripts/13_compare_generator_models.py)."
         )
 
     print_final_comparison(all_summaries)
     write_final_report(all_summaries)
-    print("\nRescore complete. Re-run scripts/13_diagnose_generator_scores.py "
+    print("\nRescore complete. Re-run scripts/14_diagnose_generator_scores.py "
           "to refresh the diagnostics.")
 
 

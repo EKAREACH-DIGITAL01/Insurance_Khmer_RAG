@@ -341,12 +341,12 @@ MAX_USED_SOURCES = 3
 # while leaving normal legal-term reuse (which only repeats a handful of times)
 # largely untouched -- unlike presence_penalty, which flatly penalizes ANY
 # reused token and would distort Khmer legal vocabulary. MUST stay identical to
-# scripts/12_compare_generator_models.py so eval and production generate the
+# scripts/13_compare_generator_models.py so eval and production generate the
 # same way. 0.3 is conservative; raise toward 0.6-0.8 if loops still appear.
 GEN_FREQUENCY_PENALTY = 0.3
 
 # --- Dynamic output-token cap (production) ----------------------------------
-# The eval (scripts/12) sizes the output cap to each gold answer's token length.
+# The eval (scripts/13) sizes the output cap to each gold answer's token length.
 # Production has NO expected answer -- the client can ask anything -- so we use
 # the runtime signal that IS available: the retrieved context. The answer is
 # grounded in (and faithfully bounded by) the chunks we retrieved, so we size
@@ -369,7 +369,7 @@ SERVER_OUTPUT_HARD_CAP = SERVER_CTX_SIZE - 9000  # ~7384 tokens
 # "does not match the expected peg-native format" when the model samples an
 # output it can't reconcile. It's stochastic, so we re-roll -- but only while
 # NOTHING has been streamed to the UI yet (once tokens are on screen we can't
-# cleanly restart). Kept in sync with scripts/12_compare_generator_models.py.
+# cleanly restart). Kept in sync with scripts/13_compare_generator_models.py.
 GEN_MAX_RETRIES   = 3
 GEN_RETRY_BACKOFF = 2.0
 
@@ -1200,7 +1200,7 @@ def choose_max_tokens_live(context_results, prompt_tokens=None):
     SERVER_OUTPUT_HARD_CAP] and, when prompt_tokens is known, further tightened
     so prompt + output stays within the server context window (a hard guard
     against slow context-shifting). Falls back to the floor if tokenization is
-    unavailable. Mirrors scripts/12's choose_max_tokens, but keyed off the
+    unavailable. Mirrors scripts/13's choose_max_tokens, but keyed off the
     retrieved chunks instead of a gold answer."""
     chunk_tokens = []
     for _score, chunk in context_results:
@@ -1472,7 +1472,7 @@ def build_context(results):
 # so the base prompt the other models see stays byte-for-byte unchanged. Keyed
 # on a case-insensitive "sailor" substring so it matches both the eval label
 # ("Sailor2-L 8B") and the app's model id ("Sailor2-L-8B-Chat-Q4_K_M.gguf"). Must
-# stay identical to scripts/12_compare_generator_models.py.
+# stay identical to scripts/13_compare_generator_models.py.
 SAILOR_STYLE_RULES = """
 - Do NOT add a title or heading, do NOT use bold or any markdown formatting, and do NOT cite the source document's name, article/provision number, or any date (for example, do NOT write "(មាត្រា ១)", "(2023-10-17)", or "(តាម គោលការណ៍ណែនាំ...)"). Answer in plain Khmer prose, or a plain numbered/dashed list, exactly as the source presents it.
 - Do NOT write any closing word or tag such as "(ចប់)", "(បញ្ចប់)", or a trailing "៕". End only with ។ on the final sentence.

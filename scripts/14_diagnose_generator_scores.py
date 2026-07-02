@@ -7,7 +7,7 @@ from pathlib import Path
 # Generator Evaluation Diagnostics
 # ============================================================================
 # Permanent home for the diagnostic checks used to calibrate
-# scripts/12_compare_generator_models.py's scoring thresholds (see
+# scripts/13_compare_generator_models.py's scoring thresholds (see
 # docs/SCORING_CALIBRATION.md for the full writeup of what each check
 # found and why it mattered). Re-run this any time the calibration needs
 # re-checking -- e.g. after adding new gold questions, swapping in a
@@ -22,8 +22,8 @@ from pathlib import Path
 #   reports/generator_model_comparison/generator_score_diagnostics.md
 #
 # USAGE:
-#   python scripts/13_diagnose_generator_scores.py              # all checks
-#   python scripts/13_diagnose_generator_scores.py --check NAME # one check
+#   python scripts/14_diagnose_generator_scores.py              # all checks
+#   python scripts/14_diagnose_generator_scores.py --check NAME # one check
 #
 # Available check names: faithfulness, completeness, context_relevance,
 #                        answer_correctness, answer_relevance, blank_answers,
@@ -52,8 +52,8 @@ MODEL_LABELS = {
 SEPARATOR_WIDTH = 100
 SEPARATOR = "=" * SEPARATOR_WIDTH
 
-# Must match scripts/12_compare_generator_models.py exactly. answer_relevance
-# is no longer weighted (see scripts/12 for the rationale) -- its similarity is
+# Must match scripts/13_compare_generator_models.py exactly. answer_relevance
+# is no longer weighted (see scripts/13 for the rationale) -- its similarity is
 # still reported below as an INFORMATIONAL diagnostic, but it is excluded from
 # the weighted score distributions / per-category averages here.
 WEIGHTS = {
@@ -287,7 +287,7 @@ def check_similarity_metric(detail_field, label_text, note):
             continue
         label = MODEL_LABELS[model_dir]
         # Include blank-answer entries: their similarity was set to 0.0
-        # by scripts/10 (or scripts/14 rescore). Filter only genuinely
+        # by scripts/10 (or scripts/15 rescore). Filter only genuinely
         # missing values (None = no expected_answer in gold set).
         sims = [
             e["detail"][detail_field]
@@ -445,7 +445,7 @@ def write_reports(all_results):
     lines = []
     lines.append("# Generator Score Diagnostics\n\n")
     lines.append(
-        "Evidence file for the calibration of `scripts/12_compare_generator_models.py` "
+        "Evidence file for the calibration of `scripts/13_compare_generator_models.py` "
         "scoring thresholds. See `docs/SCORING_CALIBRATION.md` for the full interpretation.\n\n"
     )
     lines.append(

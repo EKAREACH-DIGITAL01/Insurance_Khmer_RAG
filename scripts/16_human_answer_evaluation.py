@@ -1,7 +1,7 @@
 """
 Khmer Insurance RAG — Human Answer Evaluation UI
 -------------------------------------------------
-Launch:  python scripts/15_human_answer_evaluation.py
+Launch:  python scripts/16_human_answer_evaluation.py
          (runs Streamlit on port 8502, separate from the chatbot on 8501)
 """
 
@@ -1628,7 +1628,7 @@ def main():
     by_id, order = load_questions()
     if not by_id:
         st.markdown(CSS, unsafe_allow_html=True)
-        st.error(f"No questions found at `{JSONL_PATH}`. Run scripts/12 first.")
+        st.error(f"No questions found at `{JSONL_PATH}`. Run scripts/13 first.")
         return
 
     if "evaluator_name" not in st.session_state or "eval_mode" not in st.session_state:
