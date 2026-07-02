@@ -60,16 +60,11 @@ DB_PATH = Path(
     "reports/human_golden_question_evaluation/human_golden_question_evaluation.db"
 )
 
-# Full results file: contains all 400 questions (100 human-created + 300 AI-created)
-JSONL_PATH = Path(
-    "reports/generator_model_comparison/"
-    "SeaLLMs-v3-7B-Chat-Q4_K_M/"
-    "generated_answer_results_full.jsonl"
-)
-
-# Gold question sets — the source of truth for each question's retrieval
-# `context` (the full source chunk) and `expected_answer` (the target answer).
-# Keyed by question_id and merged onto the loaded rows below.
+# Gold question sets — the SINGLE source of truth for this UI. Each entry
+# carries everything the evaluator sees: the `question` text, its retrieval
+# `context` (the full source chunk), and the `expected_answer` (the target
+# answer). Question quality is judged entirely from these; the generator's
+# produced answers are irrelevant here, so this UI reads nothing else.
 GOLD_GLOB = "data/09_evaluation/*/gold_questions.json"
 
 # question_id format: "<category>_qid_<NNN>" e.g. "guidance_qid_026"
@@ -387,10 +382,10 @@ def save_response(evaluator_id, question_id, scores, comment=""):
 
 def load_gold():
     """
-    Loads the gold question sets, keyed by question_id, exposing the two
-    fields the UI renders: `context` (the full source chunk the answer was
-    drawn from) and `expected_answer` (the target answer). These are the
-    source of truth — the JSONL is used only to enumerate the questions.
+    Loads the gold question sets, keyed by question_id. Each entry is the
+    complete authoritative record for a question: its `question` text, the
+    retrieval `context` (the full source chunk), and the `expected_answer`
+    (target answer). This is the only input the UI reads.
     """
     gold = {}
     from pathlib import Path as _P
@@ -447,41 +442,26 @@ def save_target_edit(question_id, evaluator_id, evaluator_name, new_answer):
 @st.cache_data
 def load_questions():
     """
-    Loads every line from the full results JSONL and annotates each
-    question dict with derived `category` (from question_id, falling back
-    to the stored `category` field) and `source` ('human' | 'ai').
-    Each row's `context` and `expected_answer` are overlaid from the gold
-    question set (`GOLD_GLOB`) so the UI always shows the authoritative
-    source chunk and target answer, not whatever the generator run stored.
-    Returned as a dict keyed by question_id for O(1) lookup, plus the
-    list preserves file order for stable default sorting.
+    Loads every gold question from `GOLD_GLOB` and annotates each with a
+    derived `category` (from the question_id, falling back to a stored
+    `category` field) and `source` ('human' | 'ai'). The gold entry already
+    carries `question`, `context`, and `expected_answer`, so no other input
+    is needed. Returned as a dict keyed by question_id for O(1) lookup, plus
+    a list that preserves file order for stable default sorting.
     """
-    if not JSONL_PATH.exists():
-        return {}, []
     gold = load_gold()
     by_id = {}
     order = []
-    with open(JSONL_PATH, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            qid = row.get("question_id")
-            if not qid:
-                continue
-            cat_from_id, source = parse_question_id(qid)
-            row["category"] = row.get("category") or cat_from_id
-            row["source"] = source
-            g = gold.get(qid)
-            if g:
-                row["context"] = g.get("context", "")
-                row["expected_answer"] = g.get("expected_answer", "")
-            by_id[qid] = row
-            order.append(qid)
+    for qid, g in gold.items():
+        cat_from_id, source = parse_question_id(qid)
+        row = dict(g)
+        row["question_id"] = qid
+        row["category"] = g.get("category") or cat_from_id
+        row["source"] = source
+        row["context"] = g.get("context", "")
+        row["expected_answer"] = g.get("expected_answer", "")
+        by_id[qid] = row
+        order.append(qid)
     return by_id, order
 
 
@@ -1300,7 +1280,7 @@ def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
 
     if total_qs == 0:
         st.error(
-            f"No questions assigned. Check that `{JSONL_PATH}` contains questions."
+            f"No questions assigned. Check that `{GOLD_GLOB}` contains questions."
         )
         return
 
@@ -1771,7 +1751,7 @@ def main():
     by_id, order = load_questions()
     if not by_id:
         st.markdown(CSS, unsafe_allow_html=True)
-        st.error(f"No questions found at `{JSONL_PATH}`. Run scripts/13 first.")
+        st.error(f"No gold questions found at `{GOLD_GLOB}`.")
         return
 
     if "evaluator_name" not in st.session_state:
