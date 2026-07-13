@@ -16,6 +16,7 @@ import faiss
 
 faiss.omp_set_num_threads(1)
 
+import base64
 import html
 import json
 import queue
@@ -430,9 +431,22 @@ PHASE_LABELS = {
     "completed": ("<b>Completed</b>"),
 }
 
-SEAL_SVG = """<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="18" fill="none" stroke="#B68B4C" stroke-width="1.1"/><circle cx="20" cy="20" r="12" fill="none" stroke="#B68B4C" stroke-width="1.1"/><g stroke="#B68B4C" stroke-width="1.1"><line x1="20" y1="2" x2="20" y2="8"/><line x1="20" y1="32" x2="20" y2="38"/><line x1="2" y1="20" x2="8" y2="20"/><line x1="32" y1="20" x2="38" y2="20"/><line x1="7.5" y1="7.5" x2="11.5" y2="11.5"/><line x1="28.5" y1="28.5" x2="32.5" y2="32.5"/><line x1="7.5" y1="32.5" x2="11.5" y2="28.5"/><line x1="28.5" y1="11.5" x2="32.5" y2="7.5"/></g><circle cx="20" cy="20" r="3" fill="#B68B4C"/></svg>"""
+CHATBOT_NAME = "ជំនួយការធានារ៉ាប់រងកម្ពុជា"
+CHATBOT_SUBTITLE = "Cambodia Insurance Assistant"
+IRC_LOGO_PATH = os.path.join(_APP_DIR, "assets", "logo.png")
+FAVICON_PATH = os.path.join(_APP_DIR, "assets", "favicon.png")
 
-favicon = Image.open("assets/favicon.png")
+
+def image_data_uri(path, mime_type):
+    with open(path, "rb") as image_file:
+        encoded = base64.b64encode(image_file.read()).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
+
+
+IRC_LOGO_DATA_URI = image_data_uri(IRC_LOGO_PATH, "image/png")
+IRC_LOGO_HTML = f'<img class="kc-logo" src="{IRC_LOGO_DATA_URI}" alt="IRC logo" />'
+
+favicon = Image.open(FAVICON_PATH)
 
 # ----------------------------------------------------------------------------
 # Session state
@@ -458,7 +472,7 @@ st.session_state.setdefault("pipeline_state", None)
 IS_DIAGNOSTICS = st.session_state["view"] == "diagnostics"
 
 st.set_page_config(
-    page_title="Khmer Insurance Law Assistant",
+    page_title=CHATBOT_NAME,
     page_icon=favicon,
     layout="wide" if IS_DIAGNOSTICS else "centered",
     initial_sidebar_state="collapsed",
@@ -487,19 +501,23 @@ CSS = f"""
 @import url('https://fonts.googleapis.com/css2?family=Moul&family=Hanuman:wght@300;400;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root {{
-  --ink: #15201C;
-  --ink-soft: #1D2B25;
-  --ink-line: #2C3D34;
-  --parchment: #EDE6D6;
-  --parchment-soft: #F5F0E4;
-  --lacquer: #9C2B1F;
-  --lacquer-deep: #7A2118;
-  --lacquer-mist: rgba(156,43,31,0.08);
-  --brass: #B68B4C;
-  --brass-soft: #D8BD8B;
-  --stone: #3A352B;
-  --mist: #9DB6AB;
-  --signal: #6FBF8B;
+  --ink: #0E2F20;
+  --ink-soft: #123D2A;
+  --ink-line: #246344;
+  --parchment: #F7FAF8;
+  --parchment-soft: #FFFFFF;
+  --irc-primary: #02913F;
+  --irc-secondary: #5AA87B;
+  --irc-gold: #B19F50;
+  --irc-white: #F9FAF9;
+  --lacquer: var(--irc-primary);
+  --lacquer-deep: #006F31;
+  --lacquer-mist: rgba(2,145,63,0.10);
+  --brass: var(--irc-gold);
+  --brass-soft: rgba(177,159,80,0.34);
+  --stone: #163326;
+  --mist: #A9B9AF;
+  --signal: var(--irc-secondary);
   --danger: #C0524A;
 }}
 
@@ -524,13 +542,22 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-welcome-lockup {{
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 20px;
   text-align: left;
+  max-width: calc(100vw - 40px);
 }}
-.kc-welcome-lockup svg {{
+.kc-logo {{
   display: block;
   flex-shrink: 0;
-  transform: translateY(4px);
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 50%;
+}}
+.kc-welcome-lockup .kc-logo {{
+  width: 64px;
+  height: 64px;
 }}
 .kc-eyebrow {{
   font-family: 'IBM Plex Mono', monospace;
@@ -546,7 +573,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   color: var(--lacquer) !important;
   margin: 17px 0 0 0 !important;
   line-height: 1.3 !important;
-  white-space: nowrap;
+  white-space: normal;
 }}
 .kc-subtitle {{
   font-family: 'IBM Plex Sans', sans-serif;
@@ -568,7 +595,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   margin-top: 10px;
 }}
 .kc-dot {{ width: 7px; height: 7px; border-radius: 50%; display: inline-block; }}
-.kc-dot-on {{ background: var(--signal); box-shadow: 0 0 0 3px rgba(111,191,139,0.25); }}
+.kc-dot-on {{ background: var(--signal); box-shadow: 0 0 0 3px rgba(90,168,123,0.25); }}
 .kc-dot-off {{ background: var(--danger); box-shadow: 0 0 0 3px rgba(192,82,74,0.25); }}
 
 /* welcome-only input: in-flow under the title, NOT pinned. Arrow is laid out
@@ -678,10 +705,11 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   background: var(--parchment);
   border-bottom: 1px solid var(--brass-soft);
 }}
-.kc-topbar-title {{ font-family: 'Moul', serif; font-size: 15px; color: var(--lacquer); }}
+.kc-topbar .kc-logo {{ width: 40px; height: 40px; }}
+.kc-topbar-title {{ font-family: 'Moul', serif; font-size: 15px; line-height: 1.35; color: var(--lacquer); }}
 .kc-topbar-sub {{ font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--brass); opacity: 0.85; }}
 
-.kc-thread {{ padding-top: 64px; padding-bottom: 96px; }}
+.kc-thread {{ padding-top: 82px; padding-bottom: 96px; }}
 
 .kc-msg-user-row {{ display: flex; justify-content: flex-end; margin: 18px 0 6px 0; }}
 .kc-msg-user {{
@@ -941,7 +969,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   background: var(--brass);
   margin-left: -30px;
   margin-right: 14px;
-  box-shadow: 0 0 0 4px var(--ink), 0 0 8px rgba(182, 139, 76, 0.45);
+  box-shadow: 0 0 0 4px var(--ink), 0 0 8px rgba(177, 159, 80, 0.45);
 }}
 
 .kc-console-block {{
@@ -1092,7 +1120,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 [data-testid="stExpander"] details[open] summary,
 [data-testid="stExpander"] summary[aria-expanded="true"],
 [data-testid="stExpander"] [aria-expanded="true"] summary {{
-  background-color: rgba(182,139,76,0.1) !important;
+  background-color: rgba(177,159,80,0.12) !important;
   color: var(--brass) !important;
 }}
 [data-testid="stExpander"] summary svg {{ fill: var(--brass) !important; }}
@@ -1103,6 +1131,28 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 
 @media (prefers-reduced-motion: reduce) {{
   * {{ animation: none !important; transition: none !important; }}
+}}
+
+@media (max-width: 560px) {{
+  .kc-welcome-lockup {{
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }}
+  .kc-title-big {{
+    font-size: 24px !important;
+    text-align: center;
+  }}
+  .kc-topbar {{
+    align-items: flex-start;
+    padding: 10px 14px;
+  }}
+  .kc-topbar-title {{
+    font-size: 13px;
+  }}
+  .kc-thread {{
+    padding-top: 96px;
+  }}
 }}
 </style>
 """
@@ -2000,10 +2050,10 @@ def render_full_header(model_name):
         f'<div class="kc-welcome-wrap">'
         f'<div class="kc-eyebrow">RAG &middot; Insurance Law Corpus</div>'
         f'<div class="kc-welcome-lockup">'
-        f"{SEAL_SVG}"
-        f'<div class="kc-title-big">ជំនួយការច្បាប់ធានារ៉ាប់រង</div>'
+        f"{IRC_LOGO_HTML}"
+        f'<div class="kc-title-big">{CHATBOT_NAME}</div>'
         f"</div>"
-        f'<div class="kc-subtitle">Khmer Insurance Law Assistant</div>'
+        f'<div class="kc-subtitle">{CHATBOT_SUBTITLE}</div>'
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -2030,10 +2080,10 @@ def render_welcome_form():
 
 def render_compact_topbar(model_name):
     st.markdown(
-        f'<div class="kc-topbar">{SEAL_SVG}'
+        f'<div class="kc-topbar">{IRC_LOGO_HTML}'
         f"<div>"
-        f'<div class="kc-topbar-title">ជំនួយការច្បាប់ធានារ៉ាប់រង</div>'
-        f'<div class="kc-topbar-sub">Khmer Insurance Law Assistant</div>'
+        f'<div class="kc-topbar-title">{CHATBOT_NAME}</div>'
+        f'<div class="kc-topbar-sub">{CHATBOT_SUBTITLE}</div>'
         f"</div>"
         f"</div>",
         unsafe_allow_html=True,
@@ -2680,49 +2730,33 @@ def console_block(title, rows):
 
 
 def render_provenance_badge(has_faiss, has_bm25):
-    """A small circular badge, deliberately styled like the app's own
-    SEAL_SVG header mark, showing which retrieval engine(s) actually
-    surfaced this chunk. The mapping is a literal nod to the physical
-    seals (ត្រា) stamped on real Cambodian legal documents -- here, a
-    chunk gets "stamped" by FAISS (semantic), by BM25 (lexical), or by
-    both, and when both rankers agree the ring AND the center dot split
-    half brass / half lacquer -- a literal half-and-half blend of the
-    two engines' colors, not a third unrelated color standing in for
-    "agreement".
-
-    Built as a faint outer ring plus a bolder inner colored ring (rather
-    than one thin ring), echoing SEAL_SVG's own concentric-ring
-    construction and giving the badge enough visual weight to still read
-    clearly at the ~13-18px size it's shown at in the legend.
-
-    Colors are hardcoded hex (not CSS var()) to match the existing
-    SEAL_SVG constant's own pattern, since SVG presentation attributes
-    don't reliably resolve custom properties across browsers."""
-    BRASS, LACQUER = "#B68B4C", "#9C2B1F"
+    """A small circular badge showing which retrieval engine(s) surfaced
+    this chunk. The mapping is a nod to physical seals (ត្រា) stamped on
+    Cambodian legal documents: a chunk gets "stamped" by FAISS, by BM25,
+    or by both. When both rankers agree, the ring and center dot split
+    between the IRC gold and green."""
+    GOLD, GREEN = "#B19F50", "#02913F"
     OUTER_RING = "#3A4A41"  # quiet neutral ring, independent of provenance color
 
     if has_faiss and has_bm25:
         inner = (
-            f'<path d="M 3 10 A 7 7 0 0 1 17 10" fill="none" stroke="{BRASS}" '
+            f'<path d="M 3 10 A 7 7 0 0 1 17 10" fill="none" stroke="{GOLD}" '
             'stroke-width="2.1" stroke-linecap="round"/>'
-            f'<path d="M 3 10 A 7 7 0 0 0 17 10" fill="none" stroke="{LACQUER}" '
+            f'<path d="M 3 10 A 7 7 0 0 0 17 10" fill="none" stroke="{GREEN}" '
             'stroke-width="2.1" stroke-linecap="round"/>'
         )
-        # Center dot split the same way as the ring (top brass, bottom
-        # lacquer) -- two filled half-discs sharing a flat diameter edge,
-        # not a single solid color, so "both" reads as a literal half-and-
-        # half blend of the two engines rather than a third, unrelated
-        # color.
+        # Center dot split the same way as the ring so "both" reads as a
+        # literal half-and-half blend of the two engines.
         dot = (
-            f'<path d="M 7.2 10 A 2.8 2.8 0 0 1 12.8 10 Z" fill="{BRASS}"/>'
-            f'<path d="M 7.2 10 A 2.8 2.8 0 0 0 12.8 10 Z" fill="{LACQUER}"/>'
+            f'<path d="M 7.2 10 A 2.8 2.8 0 0 1 12.8 10 Z" fill="{GOLD}"/>'
+            f'<path d="M 7.2 10 A 2.8 2.8 0 0 0 12.8 10 Z" fill="{GREEN}"/>'
         )
     elif has_faiss:
-        inner = f'<circle cx="10" cy="10" r="7" fill="none" stroke="{BRASS}" stroke-width="2.1"/>'
-        dot = f'<circle cx="10" cy="10" r="2.8" fill="{BRASS}"/>'
+        inner = f'<circle cx="10" cy="10" r="7" fill="none" stroke="{GOLD}" stroke-width="2.1"/>'
+        dot = f'<circle cx="10" cy="10" r="2.8" fill="{GOLD}"/>'
     elif has_bm25:
-        inner = f'<circle cx="10" cy="10" r="7" fill="none" stroke="{LACQUER}" stroke-width="2.1"/>'
-        dot = f'<circle cx="10" cy="10" r="2.8" fill="{LACQUER}"/>'
+        inner = f'<circle cx="10" cy="10" r="7" fill="none" stroke="{GREEN}" stroke-width="2.1"/>'
+        dot = f'<circle cx="10" cy="10" r="2.8" fill="{GREEN}"/>'
     else:
         inner, dot = "", ""
 
