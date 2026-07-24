@@ -92,6 +92,46 @@ This matters more for the report than for the README, so it is stated plainly:
 | `conversation_persistence.png` | Write-through from session state to SQLite |
 | `answer_provenance_chain.png` | Answer → cited document → source PDF → diagnostics |
 
+**Extra report figures** — added for a long-form (~100 page) report, where the
+sets above leave stretches of text with no figure at all:
+
+| File | Job |
+|---|---|
+| `ocr_and_cleaning_pipeline.png` | The six data stages between a scanned page and a clean document |
+| `gold_question_lifecycle.png` | How one test question is authored, validated, corrected, and used |
+| `llm_judge_rubric.png` | Five scored dimensions, plus the hallucination flag held outside the score |
+| `request_sequence.png` | The same request as a sequence across processes, not boxes |
+| `data_model.png` | What is stored per conversation and per message |
+| `scope_boundary.png` | In-domain and answerable vs. in-domain but not permitted |
+| `deployment_topology.png` | The two local processes, their ports, and who may reach them |
+
+---
+
+## Where each figure goes
+
+A ~100-page report wants roughly one figure every two to three pages. The full
+set is **39 images** — 20 generated diagrams, 8 screenshots, 11 plotted charts —
+and this is where each earns its place.
+
+| Report chapter | Figures |
+|---|---|
+| Introduction / problem | `scope_boundary`, `khmer_retrieval_problem` |
+| Background & related work | `hybrid_retrieval_rrf` |
+| Corpus construction | `corpus_provenance`, `ocr_and_cleaning_pipeline`, `chunking_strategy`, `fig_corpus_distribution`, `fig_chunk_size_distribution` |
+| System design | `architecture_overview`, `chat_request_path`, `request_sequence`, `context_assembly`, `local_first_deployment`, `deployment_topology` |
+| Implementation | `app_shell_anatomy`, `conversation_persistence`, `data_model`, `answer_provenance_chain`, screenshots |
+| Safety design | `safety_gate_ladder` |
+| Evaluation method | `evaluation_framework`, `gold_question_lifecycle`, `llm_judge_rubric` |
+| Results — retrieval | `fig_embedding_comparison`, `fig_embedding_space`, `fig_retrieval_mode` |
+| Results — generation | `fig_generator_scores`, `fig_hallucination_rate`, `fig_latency_breakdown` |
+| Results — safety | `fig_safety_confusion`, `fig_gate_attribution`, `screenshot_refusal`, `screenshot_low_confidence` |
+| Results — test-set validity | `fig_human_eval` |
+
+**The README takes six of these, not all 39**: the four README-set diagrams,
+plus `screenshot_welcome` and `screenshot_answer`. A README is a landing page —
+results belong in its existing tables, and a reader who wants the full argument
+follows it to the report.
+
 ---
 
 ## README set
@@ -548,6 +588,234 @@ This matters more for the report than for the README, so it is stated plainly:
 
 ---
 
+---
+
+## Extra report figures
+
+These exist because a 100-page report has long stretches — corpus building,
+evaluation method, implementation — that the sets above leave without a single
+figure.
+
+### 14. `ocr_and_cleaning_pipeline.png`
+
+> Design a diagram showing how a scanned legal document becomes clean machine
+> text. You choose the style; I'm describing the logic. This figure is about
+> what goes *wrong* at each stage and what fixes it.
+>
+> Six stages, in order, each with a defect it removes:
+>
+> 1. **The starting material is bad.** Scanned Cambodian legal PDFs: photographed
+>    or faxed pages, skewed, speckled, sometimes stamped or handwritten-annotated.
+> 2. **Page rendering.** Each PDF page becomes an image, one file per page.
+> 3. **Optical character recognition.** A vision-capable model reads the Khmer
+>    script off each page image. Show that this is the one stage that leaves the
+>    machine, and that it happens once during the build rather than at question
+>    time.
+> 4. **Page-level cleaning.** Removes what belongs to the *page* rather than the
+>    *text*: running headers, footers, page numbers, and stray marks. These would
+>    otherwise appear mid-sentence once pages are joined.
+> 5. **Stitching.** Cleaned pages are joined back into whole documents, repairing
+>    sentences and provisions that were split across a page break — a provision
+>    broken by pagination must come back together before it can be chunked as
+>    one unit.
+> 6. **Document-level cleaning.** Normalisation that only makes sense once the
+>    whole document is visible: expanding abbreviations, unifying spacing, and
+>    reconciling numbering.
+>
+> The idea to convey: the cleaning happens at two different scopes for a reason
+> — some defects are only visible per page, others only once the document is
+> whole — and doing them in the wrong order would either miss defects or destroy
+> real content. Leave empty label space for the script filenames and the folder
+> each stage writes to.
+
+---
+
+### 15. `gold_question_lifecycle.png`
+
+> Design a diagram following one test question through its life, from written to
+> used as evidence. You choose the style; I'm describing the logic.
+>
+> The argument: an evaluation is only as trustworthy as the question set it
+> measures against, so the question set itself is treated as something to be
+> validated rather than assumed.
+>
+> The life of one question:
+>
+> 1. **Authored**, paired with two things: which passages *should* be retrieved
+>    to answer it, and what the correct answer *is*. Show that the set has two
+>    origins — a smaller human-written portion and a larger model-drafted
+>    portion — and that the distinction is tracked, because the human-written
+>    subset is what the generation comparison is run on.
+> 2. **Rated by people.** Multiple evaluators score it on clarity, relevance,
+>    difficulty, answer quality, and uniqueness. Some questions are rated by more
+>    than one person; that overlapping subset is the only part where agreement
+>    between evaluators can be measured, and it is smaller than the whole set.
+> 3. **Corrected.** Where evaluators disagreed with the recorded target answer,
+>    the target is fixed. Show this correction flowing *back into* the question
+>    set.
+> 4. **Flagged or kept.** Questions with problems are marked for curation rather
+>    than silently dropped.
+> 5. **Used**, finally, as the shared measuring stick for the retrieval and
+>    generation comparisons.
+>
+> The point of the figure is the loop at step 3: the yardstick is adjusted before
+> it measures anything. Leave empty space for the counts.
+
+---
+
+### 16. `llm_judge_rubric.png`
+
+> Design a diagram explaining how generated answers are scored by a language
+> model acting as a judge. You choose the style; I'm describing the logic.
+>
+> One answer goes in. The judge sees three things: the original question, the
+> passages the system retrieved, and the answer produced from them. It never
+> sees which system produced the answer — the comparison is blind.
+>
+> It returns **five quality scores**, each measuring something different:
+> whether the retrieved passages were relevant to the question; whether the
+> answer is faithful to those passages; whether the answer is factually correct;
+> whether it actually addresses what was asked; and whether it is complete.
+> These five are combined into one weighted score.
+>
+> Separately, it returns a **hallucination flag** — a binary judgment of whether
+> the answer asserts something the passages do not support.
+>
+> The single most important thing this diagram must convey: **the hallucination
+> flag is deliberately kept out of the combined score.** Draw it on a separate
+> track that does not merge into the total. The reason is that averaging it away
+> would let a model with a high fabrication rate hide behind otherwise fluent,
+> well-structured answers — and in a legal-information setting a fabricated
+> provision is a different category of failure from a merely incomplete answer,
+> not a smaller amount of the same failure.
+>
+> Leave empty space for the five dimension names, their weights, and the score
+> range.
+
+---
+
+### 17. `request_sequence.png`
+
+> Design a sequence diagram — actors as columns, time flowing downward, messages
+> as arrows between them — for a single question answered by a locally-hosted
+> RAG chatbot. You choose the visual style; I'm describing the interaction.
+>
+> Five columns: the **user**, the **web interface**, the **retrieval layer**, the
+> **local inference server**, and the **local conversation store**.
+>
+> The sequence:
+>
+> 1. User submits a Khmer question to the interface.
+> 2. The interface immediately records that a new conversation has begun in the
+>    store — before any answer exists — and shows the question on screen.
+> 3. The interface asks the retrieval layer for relevant passages. Show the two
+>    parallel searches and their fusion happening *inside* that column.
+> 4. The retrieval layer returns ranked passages, and the interface checks the
+>    best score against a threshold before continuing.
+> 5. The interface sends an assembled prompt to the inference server and receives
+>    the answer **as a stream of tokens**, not a single reply — draw this as
+>    repeated arrows over time, with the interface redrawing after each one.
+> 6. Show that the user can interrupt this stream, and that an interrupted answer
+>    is still recorded rather than discarded.
+> 7. When the stream ends, the interface writes the finished message to the store
+>    and renders the sources and controls beneath it.
+>
+> Two things worth making visible: the store is written to twice, at the
+> beginning and the end; and every column except the user is a local process, so
+> no arrow in the whole diagram leaves the machine.
+
+---
+
+### 18. `data_model.png`
+
+> Design an entity-relationship diagram for the small local database behind a
+> chat application's history. You choose the style; I'm describing the structure.
+>
+> Two entities:
+>
+> - A **conversation**: an identifier, a human-readable title derived from its
+>   opening question, when it was created, and when it was last used. The
+>   last-used time is what orders the sidebar, and renaming deliberately does
+>   *not* update it — annotate that, since it is a behavioural decision encoded
+>   in the schema.
+> - A **message**: an identifier, the conversation it belongs to, its position in
+>   that conversation, and a single stored payload.
+>
+> One conversation holds many messages; deleting a conversation deletes its
+> messages with it.
+>
+> Then expand the payload, because it is the interesting part: it is not just
+> the question and answer text. It carries the sources cited, the full ranked
+> retrieval result with each passage's scores, the timings of every pipeline
+> stage, and the flags describing how the answer ended — normal, low confidence,
+> interrupted, refused, or errored. Show that storing the whole record, rather
+> than just what is displayed, is what allows the per-answer diagnostics view to
+> still work on a conversation reopened weeks later.
+>
+> Leave empty space for the table and column names.
+
+---
+
+### 19. `scope_boundary.png`
+
+> Design a diagram that classifies questions a legal-information assistant might
+> receive, according to whether it is willing to answer them. You choose the
+> style; I'm describing the logic. This figure is about a policy decision, not a
+> technical mechanism.
+>
+> Do not draw a simple in/out circle. The classification has three regions, and
+> the middle one is the entire point:
+>
+> 1. **Off-topic.** Nothing to do with insurance law. Declined because the system
+>    has no relevant material.
+> 2. **On-topic and answerable.** Questions about what the regulations say — what
+>    a provision requires, what a term means, what a procedure is, what a deadline
+>    is. These are answered, with citations.
+> 3. **On-topic but not permitted.** Questions squarely about insurance that the
+>    system still declines: which company or product someone should choose, what
+>    a policy will cost them, what they personally should do about their own
+>    situation, and any calculation of an individual's money. Show these as
+>    *inside* the subject area but outside what the system will answer.
+>
+> The reason for region 3 must be legible: these are the questions where being
+> confidently wrong causes real financial harm to a specific person, and where
+> answering would amount to unlicensed advice. The system explains what it cannot
+> do and redirects to a licensed agent or the regulator.
+>
+> Convey that region 3 is a deliberate refusal, not a limitation — the system
+> could produce fluent text for these questions and chooses not to.
+
+---
+
+### 20. `deployment_topology.png`
+
+> Design a deployment diagram showing the processes that make up a locally-run AI
+> application and how they talk to each other. You choose the style; I'm
+> describing the structure.
+>
+> On one machine, two long-running processes:
+>
+> - A **web application server** hosting the user interface, which the user
+>   reaches in a browser. It also serves the corpus PDFs as static files.
+> - An **inference server** holding the quantized language model in memory,
+>   bound to the loopback interface only, reachable through an
+>   OpenAI-compatible HTTP interface.
+>
+> The web application talks to the inference server over local HTTP. The browser
+> talks only to the web application.
+>
+> Alongside them, on-disk resources the web application reads: the vector index,
+> the passage metadata, the embedding model weights, the source PDFs, and the
+> conversation database.
+>
+> Two properties to make visible: the inference server binds to loopback rather
+> than all interfaces, so nothing else on the network can reach an
+> unauthenticated inference endpoint; and the launcher checks whether the
+> inference port is already in use before starting, so a stale server cannot be
+> left serving a different model than the one the app believes is loaded.
+>
+> Leave empty label space for process names and port numbers.
+
 ## Screenshots (capture these)
 
 These belong in both the README and the report, and must be **real captures of
@@ -590,6 +858,9 @@ plotting script rather than to generate a picture.
 | `fig_gate_attribution.png` | Which gate stopped each refused question | same file |
 | `fig_human_eval.png` | Mean score per dimension, with inter-evaluator agreement shown alongside | `reports/human_golden_question_evaluation/human_golden_question_evaluation_report.json` |
 | `fig_corpus_distribution.png` | Documents vs. chunks per category, on twin axes | `reports/data_card/data_card.json` |
+| `fig_chunk_size_distribution.png` | Chunk-length histogram per category, showing the long tail | `reports/data_card/data_card.json` |
+| `fig_latency_breakdown.png` | Stacked stage timings for one answer: embed, search, fuse, build, first token, decode | a captured diagnostics payload from `chat_history.db` |
+| `fig_embedding_space.png` | 2-D projection of the **actual** chunk embeddings, one panel per candidate model | recompute from `vector_db/<model>/` |
 
 Instruction for the agent:
 
@@ -616,6 +887,17 @@ Two things to be careful about when these are read in a report:
 - **Inter-evaluator agreement is computed over the subset of questions that
   more than one person rated**, not over all 400. State the subset size on the
   figure, or the agreement number will be read as stronger evidence than it is.
+- **`fig_embedding_space.png` is the figure that explains the headline retrieval
+  result**, so it is worth the effort: project the real stored chunk vectors
+  down to two dimensions with the same method and seed for each model, and show
+  the three panels side by side. The winning model should show visible structure
+  while the weakest one collapses into a single undifferentiated cloud — which
+  is what "cannot discriminate between Khmer legal passages" looks like. Say
+  which projection and seed were used in the caption, and never reuse one
+  model's projection for another.
+- **`fig_latency_breakdown.png` must state its hardware.** A timing chart
+  without the machine it was measured on is not reproducible, and a reader will
+  reasonably assume the fastest plausible hardware.
 
 ---
 
