@@ -479,7 +479,7 @@ By contrast, BGE-M3 produces well-spread scores (**0.6509–0.7718** for
 the same question), reflecting genuine semantic discrimination that
 enables reliable retrieval.
 
-The non-zero File Hit Rate @5 for MiniLM (0.14 macro-avg) confirms the
+The non-zero File Hit Rate @5 for MiniLM (0.16 macro-avg) confirms the
 model is not completely blind — it occasionally retrieves chunks from the
 right *document* by chance — but chunk-level precision is zero because
 random ranking within a document is not useful for RAG.
@@ -624,21 +624,29 @@ against `data/10_adversarial/` before trusting it.
 
 ## Gold Questions Schema
 
-`data/09_evaluation/*/gold_questions.json` uses the following schema:
+`data/09_evaluation/*/gold_questions.json` is a JSON array whose every entry
+uses the following schema (all five fields are present on all 400 questions):
 
 ```json
 {
+  "question_id": "guidance_qid_001",
   "question": "...",
   "expected_chunks": ["chunk_id_1", "chunk_id_2"],
+  "context": "...",
   "expected_answer": "..."
 }
 ```
 
+- `question_id` is the stable identifier — `<category>_qid_<nnn>` — that every
+  evaluation keys results by (scripts `11`–`16`).
 - `expected_chunks` is used by `09_compare_embedding_models.py` and
   `10_compare_retrieval_modes.py` to measure whether the retriever surfaces
   the right source material.
-- `expected_answer` is used by the LLM judge (see `docs/llm_judge_prompt.md`) to score the
-  generated answers — questions without this field are skipped.
+- `context` is the text of those expected chunks, shown to the human
+  evaluators in `11_human_golden_question_evaluation.py` so they can judge the
+  question against its source. It is not fed to the retriever or the model.
+- `expected_answer` is used by the LLM judge (see `docs/llm_judge_prompt.md`) to
+  score the generated answers — questions without this field are skipped.
 
 ---
 
