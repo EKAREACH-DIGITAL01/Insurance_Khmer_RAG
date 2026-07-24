@@ -21,6 +21,20 @@ from sentence_transformers import SentenceTransformer
 EMBEDDING_HF_ID = "BAAI/bge-m3"
 ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
 
+# Query-side task prefix, keyed by model. e5 models were trained with a literal
+# "query: " on searches and "passage: " on documents, and retrieval degrades
+# noticeably without it -- scripts/08 applies the document side at embed time
+# and scripts/09 + app.py apply the query side. This script's dense mode did
+# neither, so a dense-vs-hybrid comparison run on e5 would have understated
+# dense by feeding the query un-prefixed against prefixed documents. BGE-M3 (the
+# default) uses no prefix, so this is empty for it and the committed comparison
+# is unaffected.
+QUERY_PREFIX = {
+    "BAAI-BGE-M3": "",
+    "multilingual-e5-large": "query: ",
+    "MiniLM-paraphrase-multilingual-L12-v2": "",
+}.get(ACTIVE_MODEL_DIR, "")
+
 INDEX_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
 METADATA_PATH = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
 EVALUATION_ROOT = Path("data/09_evaluation")
@@ -106,7 +120,9 @@ if not gold_files:
 
 
 def retrieve_dense(question):
-    query_embedding = embedding_model.encode([question], normalize_embeddings=True)
+    query_embedding = embedding_model.encode(
+        [QUERY_PREFIX + question], normalize_embeddings=True
+    )
     query_embedding = np.asarray(query_embedding, dtype="float32")
     scores, indices = index.search(query_embedding, k=MAX_K)
     results = []

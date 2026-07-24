@@ -7,19 +7,21 @@ the resulting data is written, and what happens to that data afterwards.
 The project runs **six distinct evaluations** plus a final **data card** roll-up.
 They fall into two families:
 
-- **Automated evaluations** (scripts 09, 10, 13, 18) — deterministic or
-  embedding-based proxies, no human in the loop. Used to *select components*
-  (embedding model, retrieval mode, generator model) and to *stress-test the
-  safety gates*.
-- **Human evaluations** (scripts 11→12, 16→17) — a Streamlit rating UI backed
-  by SQLite, where people score either the **gold question set** or the
-  **winning model's answers**. Each has a companion report script that turns the
-  raw ratings into aggregate metrics.
+- **Automated evaluations** (scripts 09, 10, 13→14→15, 16, 17) — deterministic,
+  embedding-based, or LLM-judged, no human in the loop. Used to *select
+  components* (embedding model, retrieval mode, generator model) and to
+  *stress-test the safety gates*. The generated answers are scored by an LLM
+  judge (13 generates, 14 prepares the judge input, 15 aggregates), not by hand.
+- **Human evaluation** (scripts 11→12) — a Streamlit rating UI backed by SQLite,
+  where people score the **gold question set** itself (clarity, relevance,
+  difficulty, answer quality, uniqueness). Script 12 turns the raw ratings into
+  aggregate metrics and curation flags.
 
 The guiding design is a **two-stage funnel**: cheap automated proxies rank and
-narrow the field first; expensive human judgement is spent only on the single
-winning model. The gold question set itself is validated by humans (stage 11/12)
-*before* it is trusted as the yardstick for everything downstream.
+narrow the field first, and the single most expensive judgement — humans — is
+spent on validating the yardstick itself. The gold question set is validated by
+humans (stage 11/12) *before* it is trusted as the measuring stick for
+everything downstream.
 
 ---
 

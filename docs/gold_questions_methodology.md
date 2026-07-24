@@ -30,10 +30,12 @@ question↔answer shape for everything that follows.
   text. The questions were written to mirror the manual style of qid 1–25, and
   every entry was hand-verified before being committed.
 
-The deterministic slicing and validation that produced the AI-assisted half
-live in `data/09_evaluation/build_gold_questions.py`; the `SPECS` table in that
-script is the per-question record of which chunk and which slice each answer
-came from.
+The deterministic slicing and validation that produced the AI-assisted half was
+done by a one-time build script (`build_gold_questions.py`) whose `SPECS` table
+was the per-question record of which chunk and which slice each answer came
+from. That scaffolding has since been removed from the repository — the 400
+`gold_questions.json` entries under `data/09_evaluation/` are its final,
+committed output and are what everything downstream reads.
 
 ## The point (read this first)
 
@@ -123,10 +125,14 @@ before saving. You do not need to re-explain the pattern — it is all here.
    length is **80–1024** characters; if a full list would exceed 1024, pick a
    different self-contained provision rather than truncating the list.
 
-## Tooling
+## Tooling (removed build script — kept here as provenance)
 
-`data/09_evaluation/build_gold_questions.py` performs deterministic, verbatim
-slicing. Add tuples to `SPECS["<category>"]`: `(chunk_id, question, slice_mode)`.
+The AI-assisted questions were produced by `build_gold_questions.py`, a one-time
+script that is no longer in the repository (its committed output is the gold
+set). It performed deterministic, verbatim slicing: each question was a tuple in
+a `SPECS["<category>"]` table — `(chunk_id, question, slice_mode)`. This section
+records how those slices were defined, so the provenance of any committed answer
+can still be understood.
 
 - `clean()` joins PDF-wrapped lines (no space, since Khmer is continuous),
   de-hyphenates, and restores the space after a sentence-final `។`. Always slice

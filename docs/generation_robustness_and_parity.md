@@ -27,7 +27,7 @@ shared constant carries a comment saying it must stay in sync.
 
 ## 2. Retrieval determinism — embedding device pinned to CPU
 
-`app.py` loads the BGE-M3 embedding model with `device="cpu"`. Script 11
+`app.py` loads the BGE-M3 embedding model with `device="cpu"`. Script 13
 originally left the device unspecified, which on Apple Silicon auto-selects
 **MPS**. CPU and MPS produce slightly different float embeddings, enough to flip
 the FAISS top-K ordering on near-tie chunks — which changes the selected context
@@ -192,7 +192,7 @@ it can't reconcile. It is stochastic — a re-request almost always succeeds.
 
 **Fix (both files): retry.** `GEN_MAX_RETRIES = 3`, `GEN_RETRY_BACKOFF = 2.0s`.
 
-- **Script 11:** `generate_answer()` re-rolls from scratch on any transient
+- **Script 13:** `generate_answer()` re-rolls from scratch on any transient
   failure (temperature 0.2 makes each attempt sample a different, usually-valid
   trajectory). Only if all attempts fail is a hard error recorded.
 - **`app.py`:** the live path streams tokens to the screen, so it retries **only
