@@ -14,64 +14,177 @@ inclusive (1-indexed). Leave every other line byte-identical.
 Every record is self-contained: retrieved_context holds the actual chunk text
 the system retrieved, so you never need to look up a chunk id anywhere.
 
-For each record in range, fill in "scores" (five integers 1-5), "combined"
-(the weighted average, rounded to 2 decimals), "hallucination" ("true" or
-"false") and "hallucination_evidence". Change nothing else -- not the question,
-the context, the answers, the timing, nor any record outside the range.
+WHAT YOU WRITE INTO EACH RECORD IN RANGE
+  scores.context_relevance    integer 1-5
+  scores.faithfulness         integer 1-5
+  scores.answer_relevance     integer 1-5
+  scores.answer_correctness   integer 1-5
+  scores.completeness         integer 1-5
+  combined                    decimal, 2 places (formula below)
+  hallucination               the string "true" or "false"
+  hallucination_evidence      string (quote, or "" when false)
 
-RULES
-1. Judge generated_answer ONLY against retrieved_context and expected_answer.
+Change nothing else -- not question, retrieved_context, expected_answer,
+generated_answer, gate_reason, timing, nor any record outside the range.
+
+=============================================================================
+FORMAT RULES -- these are absolute
+=============================================================================
+1. Every metric is an INTEGER: one of 1, 2, 3, 4, 5. Never a decimal (not 4.5),
+   never a string ("4"), never null, never 0. 0 means "not yet judged" and must
+   not survive your pass.
+2. combined is the ONLY decimal field. Two decimal places.
+3. hallucination is the lowercase STRING "true" or "false". Not a JSON boolean
+   (true), not "True", not "yes"/"no".
+4. hallucination_evidence is "" when hallucination is "false", and a verbatim
+   quote from generated_answer when it is "true".
+5. Score every record in range. If an answer is empty, it still gets integers
+   (see EDGE CASES) -- never skip a record and never leave a 0.
+
+=============================================================================
+HOW TO JUDGE -- read before scoring
+=============================================================================
+A. Judge generated_answer ONLY against retrieved_context and expected_answer.
    Do NOT use your own knowledge of Cambodian law. An answer that is true in
-   the real world but unsupported by the provided material is NOT faithful.
-2. The text is Khmer. Do not penalise Khmer script, Khmer numerals (០-៩), or
-   legal phrasing that reads oddly in English.
-3. A shorter answer is not automatically worse. Judge substance, not length.
-4. If generated_answer is empty or a refusal, score answer_correctness and
-   completeness 1.
-5. Score each metric independently. Do not let one weak metric drag the rest.
+   the real world but unsupported by the provided material is NOT faithful and
+   must be scored as such. This is the single most important rule.
+B. The text is Khmer. Do not penalise Khmer script, Khmer numerals (០-៩), or
+   legal phrasing that reads oddly in English. Judge the substance.
+C. A shorter answer is not automatically worse. A longer one is not better.
+D. Score each metric INDEPENDENTLY. A weak retrieval does not force a low
+   answer_correctness, and vice versa.
+E. When genuinely torn between two levels, choose the LOWER. In a legal domain
+   an overstated score is more harmful than an understated one.
 
-METRICS -- integer 1 to 5 (1 = very poor, 5 = excellent)
+=============================================================================
+METRIC RUBRICS -- integer 1-5
+=============================================================================
 
-context_relevance   Did retrieved_context contain what was needed to answer
-                    the question? Scores RETRIEVAL, not the answer.
-                    5 = everything needed is present; 3 = key detail missing;
-                    1 = off-topic context.
+context_relevance -- did retrieval supply what was needed?
+  Scores the RETRIEVED CONTEXT, not the answer. An excellent answer built on
+  poor context still scores low here.
+  5  Context contains everything needed to answer fully; the relevant
+     provision or passage is present and complete.
+  4  Everything essential is present; some minor supporting detail is missing
+     or the relevant passage sits among unrelated chunks.
+  3  Partially sufficient -- the topic is covered but a key element needed to
+     answer the question is absent.
+  2  Only tangentially related; the question could not be answered properly
+     from this context alone.
+  1  Off-topic. Nothing in the context bears on the question.
 
-faithfulness        Is every factual claim in generated_answer supported by
-                    retrieved_context? Fabricated articles, numbers, dates,
-                    obligations or procedures are the failure mode.
-                    5 = fully grounded; 3 = one unsupported claim;
-                    1 = substantially fabricated.
+faithfulness -- is every claim grounded in the context?
+  The failure mode is fabrication: article numbers, figures, deadlines,
+  obligations, institutions or procedures not present in retrieved_context.
+  5  Every factual claim traces to the context. Nothing invented.
+  4  Substantively grounded; one minor unsupported detail that does not change
+     the meaning.
+  3  Mostly grounded, but one clear unsupported factual claim.
+  2  Several unsupported claims, or one fabricated legal specific (an article
+     number, a figure, a deadline) presented as fact.
+  1  Substantially fabricated, or contradicts the context outright.
+  NOTE: an answer that correctly says the context does not cover something is
+  FAITHFUL (5), not unfaithful.
 
-answer_relevance    Does it address what was actually asked?
-                    5 = directly; 3 = partly / answers a related question;
-                    1 = does not address it.
+answer_relevance -- does it address what was asked?
+  5  Directly answers the question asked.
+  4  Answers it, with some padding or a digression that does not mislead.
+  3  Partly answers it, or answers a related-but-different question.
+  2  Mostly talks around the subject without addressing the question.
+  1  Does not address the question at all.
 
-answer_correctness  Does it match expected_answer in substance? Wording may
-                    differ freely. 5 = same substance; 3 = notable omission or
-                    error; 1 = contradicts expected_answer.
+answer_correctness -- does it match expected_answer in substance?
+  Wording may differ freely. You are comparing MEANING, not phrasing.
+  5  Same substance as expected_answer. Paraphrase is fine.
+  4  Correct, with a small omission or an immaterial imprecision.
+  3  Partially correct: a substantive element is missing or one detail is
+     wrong, but the thrust is right.
+  2  Largely incorrect; only a fragment overlaps the expected answer.
+  1  Contradicts expected_answer, or is unrelated to it.
 
-completeness        Does it cover the full expected answer and finish properly
-                    (not cut off mid-sentence)? 5 = complete; 3 = a required
-                    element missing; 1 = truncated or fragmentary.
+completeness -- is it whole and properly finished?
+  5  Covers the full expected answer and ends as a finished statement.
+  4  Covers the substance; one secondary element missing.
+  3  A required element of the expected answer is missing.
+  2  Only a fragment of what was expected.
+  1  Truncated mid-sentence, or so short as to be unusable.
+  NOTE: completeness is about COVERAGE and CLOSURE, not length. A complete
+  two-sentence answer scores 5.
 
-combined = context_relevance*0.20 + faithfulness*0.25
-         + answer_correctness*0.25 + answer_relevance*0.15
-         + completeness*0.15
+=============================================================================
+COMBINED
+=============================================================================
+combined = context_relevance    * 0.20
+         + faithfulness         * 0.25
+         + answer_correctness   * 0.25
+         + answer_relevance     * 0.15
+         + completeness         * 0.15
 
+The five weights sum to 1.00. Round to 2 decimal places.
+
+Worked example -- context_relevance 5, faithfulness 4, answer_relevance 4,
+answer_correctness 5, completeness 4:
+
+    5 * 0.20  = 1.00   (context_relevance)
+    4 * 0.25  = 1.00   (faithfulness)
+    5 * 0.25  = 1.25   (answer_correctness)
+    4 * 0.15  = 0.60   (answer_relevance)
+    4 * 0.15  = 0.60   (completeness)
+                -----
+    combined  = 4.45
+
+=============================================================================
 HALLUCINATION -- judged SEPARATELY, never folded into scores or combined
-  "true"  if generated_answer asserts ANY specific fact -- an article number,
-          figure, deadline, obligation, institution or procedure -- that does
-          not appear in retrieved_context.
-  "false" otherwise. Vague but grounded prose is NOT a hallucination.
-          Being merely incomplete is NOT a hallucination.
+=============================================================================
+Decide with this test, in order:
 
-  hallucination_evidence
-          If "true", quote the exact fabricated span from generated_answer --
-          verbatim, no paraphrase, so it can be checked against the context.
-          If "false", use "".
+  1. Does generated_answer assert a SPECIFIC fact -- an article or provision
+     number, a figure, a percentage, a deadline, a monetary amount, a named
+     institution, or a concrete procedural step?
+        No  -> "false".
+  2. Does that specific fact appear in retrieved_context?
+        Yes -> "false".
+        No  -> "true", and quote the fabricated span verbatim into
+               hallucination_evidence.
 
+NOT hallucinations:
+  - Vague but grounded prose.
+  - An incomplete answer (that is completeness, not fabrication).
+  - Correct paraphrase or restructuring of the context.
+  - Saying the context does not contain the answer.
+  - Khmer numerals where the context spells the same number in words, or the
+     reverse -- ៣ and បី are the same number.
+
+IS a hallucination:
+  - Citing មាត្រា/ប្រការ N when N does not appear in the context.
+  - Any deadline, figure or amount absent from the context.
+  - Attributing a duty or power to an institution the context does not name.
+  - A fact that is true of Cambodian law generally but is NOT in this context.
+
+CONSISTENCY: hallucination and faithfulness measure the same thing from
+different angles. If you set hallucination "true", faithfulness should
+normally be 3 or below. If you find yourself writing faithfulness 5 with
+hallucination "true", re-read the context -- one of the two is wrong.
+
+=============================================================================
+EDGE CASES
+=============================================================================
+- Empty generated_answer: answer_correctness 1, completeness 1,
+  answer_relevance 1, faithfulness 5 (nothing was claimed, so nothing was
+  fabricated), context_relevance judged normally, hallucination "false".
+- A refusal ("this is outside the scope..."): answer_correctness 1,
+  completeness 1, faithfulness 5, hallucination "false". Judge
+  answer_relevance and context_relevance on their own terms -- a correct
+  refusal to an out-of-scope question can still score well on context.
+- expected_answer missing or empty: score answer_correctness 3 and say so in
+  no other field; judge everything else normally.
+- The answer quotes a provision verbatim from the context: that is ideal, not
+  padding. Score it on substance like any other answer.
+
+=============================================================================
 OUTPUT
+=============================================================================
 Rewrite {{FILE}} in place with the scored lines updated. Keep it valid JSONL:
 one record per line, same line order, same record count, UTF-8, Khmer text
-unescaped. Do not reformat or pretty-print. Do not touch any other file.
+unescaped (not \uXXXX). Do not reformat or pretty-print. Do not touch any
+other file. Report how many records you scored when you finish.
