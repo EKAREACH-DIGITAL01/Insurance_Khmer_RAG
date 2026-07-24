@@ -31,7 +31,7 @@ winning model. The gold question set itself is validated by humans (stage 11/12)
 | 2 | Retrieval Mode Comparison | `10` | Automated (retrieval) | Dense vs BM25 vs Hybrid → **Hybrid (RRF)** | `reports/retrieval_mode_comparison/` |
 | 3 | Human Golden-Question Evaluation | `11` → `12` | Human | Validates **quality of the gold set** | `reports/human_golden_question_evaluation/` |
 | 4 | Answer Generation | `13` | Automated (generation only) | Produces every model's answers | `reports/generated_answers/` |
-| 5 | LLM-as-Judge Scoring | `16` → LLM judge | LLM (RAGAS + hallucination) | Ranks the models, picks the generator | `reports/llm_judge_evaluation/` |
+| 5 | LLM-as-Judge Scoring | `16` → LLM judge | LLM (RAGAS + hallucination) | Ranks the models, picks the generator | `reports/generated_answers/` (scored in place) |
 | 6 | Safety Gate Evaluation | `18` | Automated (adversarial) | Confirms the safety gates hold | `reports/safety_gate_evaluation/` |
 | — | **Data Card** | `19` | Roll-up | One card summarising everything | `reports/data_card/` |
 
@@ -204,8 +204,10 @@ substance of a legal answer needs a reader, not a regex.
 **Preparation — `scripts/16_prepare_llm_judge_input.py`.** The answer JSONL
 stores only `context_chunk_ids`, and a single answer's context routinely spans
 more than one category file. This script resolves those ids against
-`data/08_merged_chunked_documents/` and writes one self-contained file per model
-to `reports/llm_judge_evaluation/input/`, so the judge never has to join files.
+`data/08_merged_chunked_documents/` into a `retrieved_context` field, resets the
+five metrics to `0` and adds `hallucination: ""` (both meaning *not yet
+judged*). Each model's JSONL is then fully self-contained — the judge reads and
+rewrites that one file and never has to join anything.
 
 **Judging.** The rubric, batching strategy and strict-JSON output contract are
 in `docs/llm_judge_prompt.md`. Scope: 4 models × 100 questions = **400
@@ -274,7 +276,7 @@ document**, written as both machine-readable JSON and human-readable Markdown.
 - `data/10_adversarial/*_questions.json` — safety evaluation sets
 - `reports/embedding_model_comparison/*.json` — evaluation 1
 - `reports/retrieval_mode_comparison/*.json` — evaluation 2
-- `reports/llm_judge_evaluation/*.json` — evaluation 5
+- `reports/generated_answers/<model>/*.jsonl` — evaluation 5 (judge scores)
 - `reports/safety_gate_evaluation/*.json` — evaluation 6
 - `vector_db/*/embedding_model_info.json` — embedding metadata
 
@@ -298,8 +300,8 @@ data/09_evaluation/  (gold set, 400 Qs)      data/10_adversarial/ (safety set)
         │        └─► reports/human_golden_question_evaluation/   (curate gold set ↺)
         │
         ├─► 13 generate answers ─► reports/generated_answers/<model>/*.jsonl
-        │        └─► 16 prepare judge input ─► LLM judge (RAGAS + hallucination)
-        │                 └─► reports/llm_judge_evaluation/
+        │        └─► 16 inline context + reset scores
+        │                 └─► LLM judge scores each JSONL in place
         │
         └─► 18 safety gates ─► reports/safety_gate_evaluation/
                                           │

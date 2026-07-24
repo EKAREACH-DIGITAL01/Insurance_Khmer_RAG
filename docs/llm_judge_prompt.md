@@ -1,133 +1,151 @@
-# LLM-as-judge prompt (RAGAS) — Khmer insurance law RAG
+# LLM-as-judge prompt (RAGAS + hallucination)
 
-Judges the generated answers from `scripts/13_generate_model_answers.py`
-using an LLM instead of the deterministic proxies. Input files come from
-`scripts/16_prepare_llm_judge_input.py`.
+Scores the answers produced by `scripts/13_generate_model_answers.py`.
 
-- **Scope:** 4 models × 100 human-authored gold questions = **400 judgements**.
-- **Batching:** 10 records per run → 10 runs per model, 40 runs total.
-- **Judge must differ from the model being judged** (never let SeaLLM judge
+Each model has **one self-contained JSONL** at
+`reports/generated_answers/<model>/generated_answer_results.jsonl`. Every record
+already carries the question, the retrieved context text, the gold answer and
+the generated answer — the judge never needs another file.
+
+Run `scripts/16_prepare_llm_judge_input.py` once first. It resolves the chunk
+ids into `retrieved_context`, resets the metrics to 0 and adds
+`hallucination: ""`. **0 and `""` mean "not yet judged."**
+
+- **Scope:** 4 models × 100 questions = **400 records.**
+- **The judge must not be the model being judged** (never let SeaLLM judge
   SeaLLM) — self-preference bias.
 
 ---
 
-## Run it
+## Record shape
 
-```bash
-codex exec --skip-git-repo-check - < docs/llm_judge_prompt_filled.txt
+```json
+{
+  "question_id": "guidance_qid_001",
+  "question": "...",
+  "retrieved_context": [{"chunk_id": "guidance_01_chunk_1", "text": "..."}],
+  "expected_answer": "...",
+  "generated_answer": "...",
+  "scores": {
+    "context_relevance": 0,
+    "faithfulness": 0,
+    "answer_relevance": 0,
+    "answer_correctness": 0,
+    "completeness": 0
+  },
+  "combined": 0,
+  "hallucination": ""
+}
 ```
 
-Or paste the prompt below into an interactive `codex` session, substituting
-`{{FILE}}`, `{{START}}`, `{{END}}`.
+The judge fills in `scores`, `combined` and `hallucination`. Everything else is
+read-only.
 
 ---
 
 ## The prompt
 
+Substitute `{{FILE}}`, `{{START}}`, `{{END}}`.
+
 ```
-You are an impartial evaluator for a Khmer-language RAG system that answers
-questions about Cambodian insurance law. You are scoring the RETRIEVAL and the
-GENERATED ANSWER, not the law itself.
+You are an impartial evaluator for a Khmer-language RAG system answering
+questions about Cambodian insurance law.
 
-INPUT
-Read the file: {{FILE}}
-It is a JSON array. Score ONLY records at index {{START}} through {{END}}
-inclusive. Do not score any other record.
+FILE: {{FILE}}
+It is JSONL, one record per line. Score ONLY lines {{START}} to {{END}}
+inclusive (1-indexed). Leave every other line byte-identical.
 
-Each record has:
-  question_id        stable id — echo it back exactly
-  question           the user's question, in Khmer
-  retrieved_context  the chunks the system retrieved (chunk_id + text)
-  expected_answer    the human-curated ground-truth answer
-  generated_answer   what the model produced — THIS is what you are scoring
+For each record in range, fill in "scores" (five integers 1-5), "combined"
+(the weighted average, rounded to 2 decimals) and "hallucination" ("true" or
+"false"). Change nothing else -- not the question, the context, the answers,
+the timing, nor any record outside the range.
 
 RULES
-1. Judge the generated_answer ONLY against retrieved_context and
-   expected_answer. Do NOT use your own knowledge of Cambodian law, and do not
-   reward an answer for being correct in the real world if it is not supported
-   by the material provided.
-2. The text is Khmer. Do not penalise an answer for being in Khmer, for Khmer
-   numerals (០-៩), or for legal phrasing that reads unusual in English.
+1. Judge generated_answer ONLY against retrieved_context and expected_answer.
+   Do NOT use your own knowledge of Cambodian law. An answer that is true in
+   the real world but unsupported by the provided material is NOT faithful.
+2. The text is Khmer. Do not penalise Khmer script, Khmer numerals (០-៩), or
+   legal phrasing that reads oddly in English.
 3. A shorter answer is not automatically worse. Judge substance, not length.
-4. If the generated_answer is a refusal or is empty, score Answer Correctness
-   and Completeness 1, and say so in the note.
-5. Score independently per metric. Do not let one weak metric drag the others.
+4. If generated_answer is empty or a refusal, score answer_correctness and
+   completeness 1.
+5. Score each metric independently. Do not let one weak metric drag the rest.
 
-METRICS — integer 1 to 5, where 1 = very poor and 5 = excellent
+METRICS -- integer 1 to 5 (1 = very poor, 5 = excellent)
 
-context_relevance   Did retrieved_context actually contain what was needed to
-                    answer the question? This scores RETRIEVAL, not the answer.
-                    5 = everything needed is present; 3 = partially present,
-                    key detail missing; 1 = context is off-topic.
+context_relevance   Did retrieved_context contain what was needed to answer
+                    the question? Scores RETRIEVAL, not the answer.
+                    5 = everything needed is present; 3 = key detail missing;
+                    1 = off-topic context.
 
 faithfulness        Is every factual claim in generated_answer supported by
                     retrieved_context? Fabricated articles, numbers, dates,
                     obligations or procedures are the failure mode.
-                    5 = fully grounded; 3 = mostly grounded, one unsupported
-                    claim; 1 = substantially fabricated.
+                    5 = fully grounded; 3 = one unsupported claim;
+                    1 = substantially fabricated.
 
-answer_relevance    Does generated_answer actually address what was asked?
-                    5 = directly answers it; 3 = partly, or answers a related
-                    question; 1 = does not address the question.
+answer_relevance    Does it address what was actually asked?
+                    5 = directly; 3 = partly / answers a related question;
+                    1 = does not address it.
 
-answer_correctness  How well does generated_answer match expected_answer in
-                    substance? Wording may differ freely.
-                    5 = same substance; 3 = partially correct, notable omission
-                    or error; 1 = contradicts expected_answer.
+answer_correctness  Does it match expected_answer in substance? Wording may
+                    differ freely. 5 = same substance; 3 = notable omission or
+                    error; 1 = contradicts expected_answer.
 
 completeness        Does it cover the full expected answer and finish properly
-                    (not cut off mid-sentence)?
-                    5 = complete; 3 = a required element missing; 1 = truncated
-                    or fragmentary.
+                    (not cut off mid-sentence)? 5 = complete; 3 = a required
+                    element missing; 1 = truncated or fragmentary.
 
-HALLUCINATION — judged SEPARATELY, never averaged into the scores above
-  hallucination         "yes" or "no". "yes" if generated_answer asserts ANY
-                        specific fact — an article number, figure, deadline,
-                        obligation, institution or procedure — that does not
-                        appear in retrieved_context. Prose that is vague but
-                        grounded is NOT a hallucination. Being merely incomplete
-                        is NOT a hallucination.
-  hallucination_evidence  If "yes", quote the exact fabricated span from
-                        generated_answer. If "no", use "".
+combined = context_relevance*0.20 + faithfulness*0.25
+         + answer_correctness*0.25 + answer_relevance*0.15
+         + completeness*0.15
+
+HALLUCINATION -- judged SEPARATELY, never folded into scores or combined
+  "true"  if generated_answer asserts ANY specific fact -- an article number,
+          figure, deadline, obligation, institution or procedure -- that does
+          not appear in retrieved_context.
+  "false" otherwise. Vague but grounded prose is NOT a hallucination.
+          Being merely incomplete is NOT a hallucination.
 
 OUTPUT
-Return ONLY a JSON array, no prose before or after, no markdown fence.
-One object per scored record, in input order:
-
-[
-  {
-    "question_id": "guidance_qid_001",
-    "context_relevance": 4,
-    "faithfulness": 5,
-    "answer_relevance": 4,
-    "answer_correctness": 3,
-    "completeness": 4,
-    "hallucination": "no",
-    "hallucination_evidence": "",
-    "note": "one sentence justifying the lowest score given"
-  }
-]
-
-Write the array to: reports/llm_judge_evaluation/raw/{{MODEL}}_{{START}}_{{END}}.json
-Do not modify any other file. Do not run any script.
+Rewrite {{FILE}} in place with the scored lines updated. Keep it valid JSONL:
+one record per line, same line order, same record count, UTF-8, Khmer text
+unescaped. Do not reformat or pretty-print. Do not touch any other file.
 ```
 
 ---
 
-## After all 40 runs
+## After each batch — verify before continuing
 
-Merge `reports/llm_judge_evaluation/raw/*.json`, then:
+The failure mode that matters is silent truncation: a batch that looks scored
+but where later records were never actually read.
 
-- Weight the five metrics: context_relevance .20, faithfulness .25,
-  answer_correctness .25, answer_relevance .15, completeness .15.
-- Report the hallucination count separately, never folded into the combined
-  score.
-- Rank the four models by weighted combined score. **This ranking is what
-  selects the shipped generator** — the deterministic proxy scorer that
-  previously made that call has been removed.
+```bash
+python - <<'EOF'
+import json
+p = "reports/generated_answers/<model>/generated_answer_results.jsonl"
+rs = [json.loads(l) for l in open(p, encoding="utf-8")]
+print("records :", len(rs))                                    # must stay 100
+print("unscored:", sum(1 for r in rs if r["combined"] == 0))
+print("halluc  :", sum(1 for r in rs if r["hallucination"] == "true"))
+bad = [r["question_id"] for r in rs
+       if any(v and not 1 <= v <= 5 for v in r["scores"].values())]
+print("out of range:", bad)
+EOF
+```
+
+Record count must never change. Any score outside 1–5 means the judge drifted.
+
+---
+
+## When all 400 are scored
+
+Rank the four models by mean `combined`. **This ranking selects the shipped
+generator** — the deterministic proxy scorer that previously made that call has
+been removed. Report the hallucination rate separately, never folded in.
 
 ## Validating the judge
 
 An LLM judge on Khmer legal text is not reliable by default. Hand-score ~30
 answers yourself and report your agreement with the judge on that sample.
-Without it, the result is "an LLM said so"; with it, it is a measured method.
+Without it the result is "an LLM said so"; with it, it is a measured method.

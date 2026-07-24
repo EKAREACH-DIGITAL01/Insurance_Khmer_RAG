@@ -56,10 +56,11 @@ happen at chat time.
   quantized LLMs over the 100 human-authored gold questions and stores each
   answer to `reports/generated_answers/`. It generates only; it does not score.
 - **LLM-as-judge scoring** — every answer is scored on the five RAGAS metrics
-  **plus a separate hallucination judgement** by an LLM judge.
-  `scripts/16_prepare_llm_judge_input.py` builds the self-contained input and
-  the rubric lives in `docs/llm_judge_prompt.md`. This ranking selects the
-  shipped generator.
+  **plus a separate hallucination flag** by an LLM judge, written back into the
+  same JSONL. `scripts/16_prepare_llm_judge_input.py` makes each file
+  self-contained (resolves the chunk ids to text, resets the metrics to 0); the
+  rubric is `docs/llm_judge_prompt.md`. This ranking selects the shipped
+  generator.
 - **Safety-gate evaluation** — the adversarial test set is replayed through
   all three gates by `scripts/18_evaluate_safety_gates.py`.
 - **Data card** — `scripts/19_generate_data_card.py` rolls up the whole
@@ -166,14 +167,11 @@ Khmer-Rag-Chatbot/
 │   ├── retrieval_mode_comparison/
 │   │   ├── retrieval_mode_comparison.json
 │   │   └── retrieval_mode_comparison.md
-│   ├── generated_answers/
-│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M/   # generated_answer_results.jsonl
+│   ├── generated_answers/               # one self-contained JSONL per model,
+│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M/   # scored in place by the LLM judge
 │   │   ├── Qwen3.5-9B-Q4_K_M/
 │   │   ├── Sailor2-8B-Chat-Q4_K_M/
 │   │   └── Llama-3.1-8B-Instruct-Q4_K_M/
-│   ├── llm_judge_evaluation/
-│   │   ├── input/                       # gitignored, rebuilt by script 16
-│   │   └── raw/                         # per-batch judge output
 │   ├── safety_gate_evaluation/
 │   │   └── safety_gate_evaluation.{json,md}
 │   └── data_card/
@@ -360,8 +358,8 @@ python scripts/12_human_golden_question_evaluation_report.py  # aggregate + cura
 python scripts/13_generate_model_answers.py
 
 # LLM-as-judge scoring (RAGAS + hallucination) — no llama-server needed
-python scripts/16_prepare_llm_judge_input.py   # build self-contained judge input
-# then follow docs/llm_judge_prompt.md to run the judge over the 400 answers
+python scripts/16_prepare_llm_judge_input.py   # inline the context, reset scores to 0
+# then follow docs/llm_judge_prompt.md — the judge scores each JSONL in place
 
 # Safety-gate evaluation against the adversarial set (requires llama-server)
 python scripts/18_evaluate_safety_gates.py
