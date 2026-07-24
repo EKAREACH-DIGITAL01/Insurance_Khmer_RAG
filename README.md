@@ -7,8 +7,8 @@ guidance documents.
 
 Built with a local embedding model (BGE-M3), a local FAISS vector index,
 hybrid retrieval (FAISS + BM25, Reciprocal Rank Fusion), and a local
-quantized generator LLM (choice of SeaLLM v3 7B, Qwen 3.5 9B, Gemma 4 E4B,
-or Llama 3.1 8B Instruct) served via `llama.cpp` — no external API calls
+quantized generator LLM (choice of SeaLLM v3 7B, Qwen 3.5 9B, Sailor2-L 8B
+Chat, or Llama 3.1 8B Instruct) served via `llama.cpp` — no external API calls
 happen at chat time.
 
 ---
@@ -182,6 +182,7 @@ Khmer-Rag-Chatbot/
 │   │   ├── Llama-3.1-8B-Instruct-Q4_K_M/
 │   │   └── generator_model_comparison.{json,md}   # cross-model + winner
 │   ├── safety_gate_evaluation/
+│   │   ├── safety_gate_results.jsonl        # per-question gate decisions
 │   │   └── safety_gate_evaluation.{json,md}
 │   └── data_card/
 │       └── data_card.{json,md}
@@ -240,13 +241,17 @@ Khmer-Rag-Chatbot/
   version control deliberately — OCR costs real money per page, so once
   it's done it's checked in rather than left to be re-paid-for.
 - **The intermediate pipeline stages `data/02_page_images/`,
-  `04_cleaned_pages/`, `05_merged_documents/`, `06_cleaned_documents/`, and
-  `07_chunked_documents/` are gitignored** (kept as `.gitkeep` placeholders).
-  These are fast, fully-deterministic derivatives of what *is* committed.
-- **`data/08_merged_chunked_documents/`, `09_evaluation/`, and
-  `10_adversarial/` are committed** — the embedded chunk corpus, the gold
-  questions, and the adversarial test set are all inputs the evaluation
-  scripts need.
+  `04_cleaned_pages/`, `05_merged_documents/`, `06_cleaned_documents/`,
+  `07_chunked_documents/`, and `08_merged_chunked_documents/` are
+  gitignored** (kept as `.gitkeep` placeholders). These are fast,
+  fully-deterministic derivatives of what *is* committed. Note that
+  `08_merged_chunked_documents/` is an input to
+  `08_generate_embeddings.py` and `17_generate_data_card.py`, so on a
+  fresh clone you must re-run steps `03`–`07` before either of those will
+  work — see [Rebuilding the Corpus](#rebuilding-the-corpus-optional).
+- **`data/09_evaluation/` and `10_adversarial/` are committed** — the gold
+  questions and the adversarial test set are inputs the evaluation scripts
+  need.
 - **`models/` is entirely gitignored.** Run `python install_models.py`
   on a fresh clone to download models.
 - **`vector_db/` is committed.** The FAISS indices for all three embedding
@@ -312,7 +317,7 @@ embedding comparison report):
 |---|---|---|
 | 1 | SeaLLM v3 7B Q4_K_M | 4.68 GB |
 | 2 | Qwen 3.5 9B Q4_K_M | 5.68 GB |
-| 3 | Gemma 4 E4B Q4_K_M | 4.98 GB |
+| 3 | Sailor2-L 8B Chat Q4_K_M (128K ctx) | 5.24 GB |
 | 4 | Llama 3.1 8B Instruct Q4_K_M | 4.92 GB |
 
 Embedding models are downloaded into `models/retriever/.cache/` (one copy,
