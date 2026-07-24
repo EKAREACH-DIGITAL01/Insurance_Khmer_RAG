@@ -40,6 +40,11 @@ reports/human_golden_question_evaluation/*.db-*
 # them (see publish_source_pdfs) -- rebuilt on every run, never committed
 static/
 
+# Screen-recording source for the README demo. 84 MB at 3326x2160 -- the
+# committed assets/demo.gif is generated from it, so the source itself has no
+# reason to be in git history forever.
+*.mp4
+
 # Local chat history written by the assistant's conversation rail (incl. the
 # WAL sidecar files) -- per-machine, never committed
 chat_history.db

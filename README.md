@@ -1,5 +1,7 @@
 # Khmer Insurance Law Assistant
 
+![Khmer Insurance Law Assistant demo — asking a Khmer question about insurance law, the live retrieval-and-generation progress ladder, an out-of-domain refusal, and a cited answer](assets/demo.gif)
+
 A retrieval-augmented generation (RAG) chatbot that answers questions about
 Cambodian insurance law in Khmer, grounded entirely in a curated corpus of
 laws, sub-decrees, prakas (ministerial regulations), and regulatory
@@ -100,6 +102,24 @@ The diagram above reads in three stages:
   retrieval, a score gate, context building, and streamed generation via
   `llama-server`.
 
+### One question's path through Stage C
+
+![One question's journey: the free input-rule gate, hybrid retrieval, the relevance gate, then streamed generation — with the answer always delivered and qualified rather than withheld](assets/chat_request_path.png)
+
+Both refusal points fire **before** generation, cheapest first. Nothing
+inspects or blocks a finished answer: once generation starts the answer is
+delivered, carrying a low-confidence banner when retrieval was weak and a
+permanent disclaimer in every case.
+
+### Hybrid retrieval
+
+![Semantic and lexical search run independently over the same corpus and are fused by Reciprocal Rank Fusion on rank position, so passages both methods rank highly rise to the top](assets/hybrid_retrieval_rrf.png)
+
+Khmer legal text defeats each method alone: semantic search misses exact
+statutory terminology, lexical search misses paraphrased questions. RRF scores
+each passage by its *position* in each list, so the two incomparable scoring
+systems combine fairly and agreement between them is what gets rewarded.
+
 `start_chatbot.py` is the entry point for actually *using* the assistant:
 it launches `llama-server` with SeaLLM v3 7B, waits for it to report
 healthy, patches the browser tab's title/favicon, and then launches the
@@ -147,11 +167,12 @@ Khmer-Rag-Chatbot/
 ├── static/                          # gitignored; hard links to the source PDFs,
 │   └── documents/                   # rebuilt at startup by publish_source_pdfs()
 │
-├── assets/
-│   ├── architecture_overview.png
-│   ├── chat_request_path.png
-│   ├── hybrid_retrieval_rrf.png
+├── assets/                          # 20 diagrams, regenerated from
+│   ├── architecture_overview.png     #   docs/image_generation_prompts.md
+│   ├── chat_request_path.png         #   (4 used in this README, the rest
+│   ├── hybrid_retrieval_rrf.png      #    are report figures)
 │   ├── evaluation_framework.png
+│   ├── ...
 │   ├── favicon.png
 │   ├── irc-logo-transparent.png
 │   └── logo.png
@@ -378,6 +399,18 @@ at the top of `app.py` (default: `"BAAI-BGE-M3"`). To switch to a
 different model's index, change this constant to the corresponding folder
 name and restart the app — no pipeline re-run needed since all three
 indices are already in `vector_db/`.
+
+---
+
+## Evaluation Framework
+
+![Everything measures against one validated gold set: 11 evaluators produced 550 ratings over 400 questions, and their corrections flow back into the set before the retrieval, generation and safety tracks use it](assets/evaluation_framework.png)
+
+The gold question set is the measuring stick, so it was validated before it
+measured anything. Note that the generation track is judged by a machine while
+the question set was judged by people — different kinds of evidence, carrying
+different weight. The hallucination flag is deliberately kept **out** of the
+combined quality score.
 
 ---
 

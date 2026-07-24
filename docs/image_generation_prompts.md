@@ -1,11 +1,10 @@
 # Image Generation Prompts
 
-> **Scratch file — delete once the images are generated.** This is a working
-> brief for driving an image agent, not project documentation. Nothing in the
-> repo links to it, so it can be removed without leaving a dangling reference.
-> If you keep it, keep it current: a prompt file describing a system that has
-> since changed is worse than no prompt file, because the next regeneration
-> will quietly produce diagrams of the old design.
+> **Keep this current.** It is the brief the diagrams in `assets/` were
+> generated from, so it is how they get regenerated when the system changes. A
+> prompt file describing a system that has since moved on is worse than none at
+> all, because the next regeneration will quietly produce diagrams of the old
+> design and they will look just as convincing.
 
 Prompts for the diagrams in `assets/`, for both the README and the internship
 report. Each one describes **only what must be in the figure** — the elements,
@@ -78,6 +77,24 @@ This matters more for the report than for the README, so it is stated plainly:
 - The diagram prompts below are safe to generate because they carry *structure
   and relationships*, not measured values. Any number in them is composited in
   the text pass from the repo.
+
+### Notes from the first generation run
+
+- **The agent generates the images itself.** No external image API and no API
+  key — asking for a script that calls one adds cost for something the agent
+  does directly.
+- **Regeneration is a re-roll, not an edit.** Asking for one defect to be fixed
+  re-samples the whole image, so a figure that was right in every other respect
+  can come back wrong somewhere new. Always keep the previous version and
+  compare before replacing.
+- **If a figure fails twice, stop generating it.** Two failures means the model
+  cannot get it right from a description. Replace it with an annotated
+  screenshot or draw it by hand. `app_shell_anatomy.png` reached that point: it
+  documents a real interface, and both attempts invented parts of it.
+- **The agent baked the labels into the images** rather than leaving empty
+  space for the text pass. That worked for most figures but is why a couple came
+  back with misspellings and an invented URL. If you re-run the whole set, decide
+  up front which approach you want and say so.
 
 ---
 
@@ -927,10 +944,13 @@ Two things to be careful about when these are read in a report:
 
 Wrap the diagram prompts with this when driving generation from a CLI agent:
 
-> Generate the diagrams for `assets/` using the OpenAI image API, one per
-> diagram prompt in `docs/image_generation_prompts.md` — the README set and the
-> report set only. Do **not** generate the screenshots or the results figures;
-> those are captured and plotted respectively, and the file explains why.
+> Generate the diagrams for `assets/` with your own built-in image generation,
+> one per diagram prompt in `docs/image_generation_prompts.md` — the README set,
+> the report set, and the extra report figures. Do **not** call an external
+> image API, and do not write a script that does: that would need a paid API key
+> for something you can already do directly. Do **not** generate the screenshots
+> or the results figures; those are captured and plotted respectively, and the
+> file explains why.
 >
 > Then, in a second pass, write `scripts/render_diagram_labels.py` that
 > composites the exact text labels onto each generated image using PIL.
