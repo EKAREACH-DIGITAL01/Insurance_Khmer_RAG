@@ -4,7 +4,7 @@ Compares 3 embedding models (dense-only, no hybrid/BM25) on the full gold questi
 
 ## BAAI/bge-m3
 
-Model load time (this run): 13.37s -- Corpus encode time (at build, precomputed): 103.16s
+Model load time (this run): 13.76s -- Corpus encode time (at build, precomputed): 103.16s
 
 Embedding dimension: 1024
 
@@ -46,7 +46,7 @@ Embedding dimension: 1024
 
 ## intfloat/multilingual-e5-large
 
-Model load time (this run): 15.77s -- Corpus encode time (at build, precomputed): 89.55s
+Model load time (this run): 12.57s -- Corpus encode time (at build, precomputed): 89.55s
 
 Embedding dimension: 1024
 
@@ -88,7 +88,7 @@ Embedding dimension: 1024
 
 ## paraphrase-multilingual-MiniLM-L12-v2
 
-Model load time (this run): 19.26s -- Corpus encode time (at build, precomputed): 5.38s
+Model load time (this run): 10.95s -- Corpus encode time (at build, precomputed): 5.38s
 
 Embedding dimension: 384
 

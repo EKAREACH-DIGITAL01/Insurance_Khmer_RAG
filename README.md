@@ -169,12 +169,17 @@ Khmer-Rag-Chatbot/
 │   ├── retrieval_mode_comparison/
 │   │   ├── retrieval_mode_comparison.json
 │   │   └── retrieval_mode_comparison.md
+│   ├── human_golden_question_evaluation/
+│   │   ├── human_golden_question_evaluation.db   # gitignored (local scores)
+│   │   └── human_golden_question_evaluation_report.{json,md}
 │   ├── generator_model_comparison/
-│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M/   # JSONL (judged in place) + summary
+│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M/   # answers JSONL (judged in place)
+│   │   │   ├── generated_answer_results.jsonl
+│   │   │   └── generated_answer_results_summary.{json,md}
 │   │   ├── Qwen3.5-9B-Q4_K_M/
-│   │   ├── Sailor2-8B-Chat-Q4_K_M/
+│   │   ├── Sailor2-L-8B-Chat-Q4_K_M/
 │   │   ├── Llama-3.1-8B-Instruct-Q4_K_M/
-│   │   └── generator_model_comparison.{json,md}
+│   │   └── generator_model_comparison.{json,md}   # cross-model + winner
 │   ├── safety_gate_evaluation/
 │   │   └── safety_gate_evaluation.{json,md}
 │   └── data_card/
@@ -185,7 +190,7 @@ Khmer-Rag-Chatbot/
 │   │   ├── .cache/
 │   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M.gguf
 │   │   ├── Qwen3.5-9B-Q4_K_M.gguf
-│   │   ├── Sailor2-8B-Chat-Q4_K_M.gguf
+│   │   ├── Sailor2-L-8B-Chat-Q4_K_M.gguf
 │   │   └── Llama-3.1-8B-Instruct-Q4_K_M.gguf
 │   └── retriever/
 │       ├── .cache/                  # Hugging Face cache
@@ -362,7 +367,7 @@ python scripts/12_human_golden_question_evaluation_report.py  # aggregate + cura
 python scripts/13_generate_model_answers.py
 
 # LLM-as-judge scoring (RAGAS + hallucination) — no llama-server needed
-python scripts/14_prepare_llm_judge_input.py    # inline the context, reset scores to 0
+python scripts/14_prepare_llm_judge_input.py    # score context_relevance, reset the rest to 0
 # then follow docs/llm_judge_prompt.md — the judge scores each JSONL in place
 python scripts/15_generate_comparison_report.py # summaries + winner
 
@@ -378,16 +383,16 @@ python scripts/17_generate_data_card.py
 ## Embedding Model Comparison — Key Finding
 
 `scripts/09_compare_embedding_models.py` benchmarks three multilingual
-embedding models on the full gold question set (25 questions × 4
-categories = 100 questions total, dense-only retrieval, no BM25/RRF).
+embedding models on the **full 400-question gold set** (guidance 100,
+laws 75, prakas 150, sub-decrees 75; dense-only retrieval, no BM25/RRF).
 The macro-averaged @5 results across all four document categories are:
 
 | Metric | BAAI/bge-m3 | intfloat/multilingual-e5-large | paraphrase-multilingual-MiniLM-L12-v2 |
 |---|---|---|---|
-| Hit Rate @5 | **0.9800** | 0.6600 | 0.0100 |
-| Recall @5 | **0.9600** | 0.6400 | 0.0100 |
-| MRR @5 | **0.8837** | 0.5035 | 0.0100 |
-| File Hit Rate @5 | **1.0000** | 0.9600 | 0.1400 |
+| Hit Rate @5 | **0.9658** | 0.6633 | 0.0108 |
+| Recall @5 | **0.9658** | 0.6633 | 0.0108 |
+| MRR @5 | **0.8684** | 0.5485 | 0.0072 |
+| File Hit Rate @5 | **0.9825** | 0.9142 | 0.1633 |
 
 **Why MiniLM scores near-zero on Hit Rate, Recall, and MRR:**
 MiniLM-L12-v2 (118M parameters, 384-dim embeddings) is too small and
@@ -414,6 +419,43 @@ results. Its substantially higher Hit Rate, Recall, and MRR across all
 four document categories — combined with its purpose-built multilingual
 training that explicitly covers Southeast Asian languages — make it the
 clear choice for Khmer insurance law retrieval.
+
+---
+
+## Generator Model Comparison — Key Finding
+
+`scripts/13_generate_model_answers.py` runs all four quantized generators
+over the **100 human-authored gold questions**; an LLM judge
+(Gemini 3.6 Flash, high effort) then scores each answer against its
+`expected_answer`, and `scripts/15_generate_comparison_report.py`
+aggregates the result.
+
+| Model | Combined (1–5) | Hallucinated | Truncated |
+|---|---|---|---|
+| **SeaLLM v3 7B** | **4.8815** | **5** | 0 |
+| Sailor2-L 8B | 4.7865 | 16 | 1 |
+| Llama-3.1 8B | 4.4930 | 7 | 9 |
+| Qwen3.5 9B | 4.2280 | 55 | 31 |
+
+**SeaLLM v3 7B is the shipped generator** — it leads on the weighted
+combined score *and* has the lowest hallucination rate.
+
+Two caveats worth reading alongside the table:
+
+- **Score and hallucination rate disagree in the middle.** Sailor2-L
+  outscores Llama-3.1 by 0.29 while fabricating more than twice as often.
+  Hallucination is deliberately kept out of the combined score, so the
+  ranking alone does not tell you this.
+- **Hallucination counts are an upper bound.** They are judged against the
+  gold answer rather than the retrieved context, so a detail correctly
+  taken from the source document but omitted from the gold answer still
+  counts. Verbose models — Qwen especially — are the most exposed. Each
+  flag carries the quoted span in the per-model summary, so individual
+  cases can be checked.
+
+Judge self-consistency was measured by scoring the same 100 answers twice:
+85–96% exact agreement per metric, 98–100% within ±1, and the model-level
+mean moved only 4.864 → 4.881.
 
 ---
 

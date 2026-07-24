@@ -254,7 +254,7 @@
         ]
       },
       "meta": {
-        "model_load_time": 13.365501165390015,
+        "model_load_time": 13.757179737091064,
         "build_encode_time_sec": 103.1576,
         "embedding_dim": 1024
       }
@@ -513,7 +513,7 @@
         ]
       },
       "meta": {
-        "model_load_time": 15.774421215057373,
+        "model_load_time": 12.572514057159424,
         "build_encode_time_sec": 89.5474,
         "embedding_dim": 1024
       }
@@ -772,7 +772,7 @@
         ]
       },
       "meta": {
-        "model_load_time": 19.260258197784424,
+        "model_load_time": 10.948812007904053,
         "build_encode_time_sec": 5.3758,
         "embedding_dim": 384
       }

@@ -32,29 +32,25 @@ SeaLLM instead of against the rubric.
 
 ## Running it
 
-In `codex`, paste:
+Judging was carried out with **Gemini 3.6 Flash (high effort)**, one session per
+model, all 100 records per session. In the judge session, paste:
 
 ```
-Read docs/llm_judge_prompt.txt and follow it exactly.
+Read docs/llm_judge_prompt.md and follow the prompt in "The prompt" section exactly.
+
 Substitute {{FILE}} with:
 reports/generator_model_comparison/SeaLLMs-v3-7B-Chat-Q4_K_M/generated_answer_results.jsonl
-```
 
-Then verify, every time:
-
-```bash
-python scripts/check_judge_progress.py \
-  reports/generator_model_comparison/SeaLLMs-v3-7B-Chat-Q4_K_M/generated_answer_results.jsonl
+Score all 100 records. Do not modify any file except that JSONL.
 ```
 
 Repeat in a **fresh session** for `Qwen3.5-9B-Q4_K_M`,
-`Sailor2-L-8B-Chat-Q4_K_M`, `Llama-3.1-8B-Instruct-Q4_K_M`.
+`Sailor2-L-8B-Chat-Q4_K_M` and `Llama-3.1-8B-Instruct-Q4_K_M`, then run
+`scripts/15_generate_comparison_report.py`.
 
 ---
 
 ## The prompt
-
-Kept verbatim in `docs/llm_judge_prompt.txt`.
 
 ```
 You are an impartial evaluator for a Khmer-language RAG system answering
@@ -263,33 +259,44 @@ hallucinations, and the distribution of answer_correctness.
 
 ---
 
-## After each model — verify
+## Verifying a run
+
+Judging is complete, but if any model is ever re-judged, check the file
+afterwards. Three failures actually occurred during this project and none of
+them announces itself:
+
+- **Mojibake.** A judge that rewrites the JSONL without `encoding="utf-8"`
+  turns the Khmer into byte soup. It **cannot be repaired from the file** —
+  only `git checkout` gets it back. The record count still reads 100, so a
+  count check does not catch it. This is why the prompt insists the judge edit
+  via a Python script with `ensure_ascii=False`.
+- **Silent truncation.** The judge reports success while later records were
+  never read and still hold `0`.
+- **Format drift.** Decimal metric scores, `hallucination` as a JSON boolean
+  or `"yes"`, or a flag with no evidence span.
+
+A quick check covering all three:
 
 ```bash
-python scripts/check_judge_progress.py \
-  reports/generator_model_comparison/<model>/generated_answer_results.jsonl
+python - <<'EOF'
+import json
+p = "reports/generator_model_comparison/<model>/generated_answer_results.jsonl"
+rs = [json.loads(l) for l in open(p, encoding="utf-8")]
+J = ["faithfulness", "answer_relevance", "answer_correctness", "completeness"]
+print("records :", len(rs))                                          # must be 100
+print("judged  :", sum(1 for r in rs if all(r["scores"].get(m) for m in J)))
+print("mojibake:", sum(1 for r in rs if "á" in json.dumps(r, ensure_ascii=False)))
+print("bad     :", [r["question_id"] for r in rs
+                    if any(v and not 1 <= v <= 5 for v in r["scores"].values())])
+EOF
 ```
 
-It exits non-zero and tells you what is wrong. What it checks:
-
-- **`records` is 100.** If it dropped, the judge mangled the file.
-- **`judged` is 100.** Silent truncation looks like success in the judge's
-  own summary but shows up here.
-- **Mojibake.** If the judge rewrote the file without `encoding="utf-8"`, the
-  Khmer is destroyed and *cannot be repaired from the file* — only
-  `git checkout` gets it back. A record count will not catch this; it has
-  happened once already.
-- Scores outside 1–5, non-integer scores, `hallucination` that is not
-  `"true"`/`"false"`, and flags with no evidence.
-
-If it reports a problem:
+If anything is wrong, restore and redo that model:
 
 ```bash
 git checkout reports/generator_model_comparison/<model>/generated_answer_results.jsonl
 python scripts/14_prepare_llm_judge_input.py
 ```
-
-then redo that model.
 
 ---
 
