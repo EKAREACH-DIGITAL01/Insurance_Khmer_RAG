@@ -996,6 +996,13 @@ a.kc-act, a.kc-act:hover, a.kc-act:visited {{
   color: var(--lacquer);
   opacity: 1;
 }}
+/* A chosen reaction is a SOLID icon, not just a recoloured outline. The icons
+   are drawn as strokes with `fill="none"`, so recolouring alone tinted the
+   line and left the glyph hollow -- too quiet to read as "this is selected"
+   at 18px. Filling the same shape is what makes the state obvious. */
+.kc-act-thumb.is-on svg {{
+  fill: currentColor;
+}}
 
 /* Streamlit wraps every element (markdown, button, etc.) in its own
    container that carries built-in vertical spacing, and a st.button's
