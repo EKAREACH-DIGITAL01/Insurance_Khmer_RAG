@@ -52,12 +52,14 @@ happen at chat time.
   uniqueness) to validate the test set, independent of the live chatbot.
   `scripts/12_human_golden_question_evaluation_report.py` rolls those scores
   and target-answer corrections into a report with per-question curation flags.
-- **Generator model comparison** — four quantized LLMs are scored on a
-  RAGAS-style 5-metric scorer that is **fully automated (deterministic +
-  embedding proxies, no LLM judge)** by
-  `scripts/13_compare_generator_models.py`, saved to
-  `reports/generator_model_comparison/`. The winner is the model the live
-  chatbot and the safety-gate evaluation run on.
+- **Answer generation** — `scripts/13_generate_model_answers.py` runs all four
+  quantized LLMs over the 100 human-authored gold questions and stores each
+  answer to `reports/generated_answers/`. It generates only; it does not score.
+- **LLM-as-judge scoring** — every answer is scored on the five RAGAS metrics
+  **plus a separate hallucination judgement** by an LLM judge.
+  `scripts/16_prepare_llm_judge_input.py` builds the self-contained input and
+  the rubric lives in `docs/llm_judge_prompt.md`. This ranking selects the
+  shipped generator.
 - **Safety-gate evaluation** — the adversarial test set is replayed through
   all three gates by `scripts/18_evaluate_safety_gates.py`.
 - **Data card** — `scripts/19_generate_data_card.py` rolls up the whole
@@ -75,8 +77,8 @@ The diagram above reads in three stages:
   cleaned, merged, chunked, and embedded into the FAISS indices under
   `vector_db/`. Run once, or whenever the corpus changes.
 - **Stage B — Evaluation & Reporting (`09`–`19`):** benchmarks the corpus and
-  models (embedding comparison, retrieval modes, automated generator scoring,
-  human evaluation, safety gates) and rolls everything into a data card,
+  models (embedding comparison, retrieval modes, answer generation, LLM-judge
+  scoring, human gold-set validation, safety gates) and rolls everything into a data card,
   writing JSON + Markdown to `reports/`. This is where **BGE-M3 is selected
   as the production retriever**; it does not affect the live app.
 - **Stage C — Live Chatbot (`start_chatbot.py` → `app.py`):** the fully-local
@@ -129,10 +131,11 @@ Khmer-Rag-Chatbot/
 │
 ├── docs/
 │   ├── adversarial_test_set.md
+│   ├── evaluation_methodology.md
 │   ├── generation_robustness_and_parity.md  # eval/app.py parity + generation fixes
 │   ├── gold_questions_methodology.md
-│   ├── project_proposal.md
-│   └── scoring_calibration.md
+│   ├── llm_judge_prompt.md              # RAGAS + hallucination judging rubric
+│   └── project_proposal.md
 │
 ├── data/
 │   ├── 01_source_documents/         # Raw PDFs, by category
@@ -163,13 +166,14 @@ Khmer-Rag-Chatbot/
 │   ├── retrieval_mode_comparison/
 │   │   ├── retrieval_mode_comparison.json
 │   │   └── retrieval_mode_comparison.md
-│   ├── generator_model_comparison/
-│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M/   # per-model JSONL + summaries
+│   ├── generated_answers/
+│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M/   # generated_answer_results.jsonl
 │   │   ├── Qwen3.5-9B-Q4_K_M/
 │   │   ├── Sailor2-8B-Chat-Q4_K_M/
-│   │   ├── Llama-3.1-8B-Instruct-Q4_K_M/
-│   │   ├── generator_model_comparison.{json,md}
-│   │   └── generator_score_diagnostics.{json,md}
+│   │   └── Llama-3.1-8B-Instruct-Q4_K_M/
+│   ├── llm_judge_evaluation/
+│   │   ├── input/                       # gitignored, rebuilt by script 16
+│   │   └── raw/                         # per-batch judge output
 │   ├── safety_gate_evaluation/
 │   │   └── safety_gate_evaluation.{json,md}
 │   └── data_card/
@@ -201,9 +205,8 @@ Khmer-Rag-Chatbot/
 │   ├── 10_compare_retrieval_modes.py
 │   ├── 11_human_golden_question_evaluation.py
 │   ├── 12_human_golden_question_evaluation_report.py
-│   ├── 13_compare_generator_models.py
-│   ├── 14_diagnose_generator_scores.py
-│   ├── 15_rescore_generator_scores.py
+│   ├── 13_generate_model_answers.py
+│   ├── 16_prepare_llm_judge_input.py
 │   ├── 18_evaluate_safety_gates.py
 │   └── 19_generate_data_card.py
 │
@@ -353,9 +356,12 @@ python scripts/10_compare_retrieval_modes.py
 python scripts/11_human_golden_question_evaluation.py   # collect scores + corrections
 python scripts/12_human_golden_question_evaluation_report.py  # aggregate + curation flags
 
-# Generator model comparison (requires llama-server; automated proxy scoring, no LLM judge)
-python scripts/13_compare_generator_models.py
-# optional follow-ups: 14 diagnoses, 15 rescores the generator scores
+# Answer generation for all four models (requires llama-server; ~6h, resumable)
+python scripts/13_generate_model_answers.py
+
+# LLM-as-judge scoring (RAGAS + hallucination) — no llama-server needed
+python scripts/16_prepare_llm_judge_input.py   # build self-contained judge input
+# then follow docs/llm_judge_prompt.md to run the judge over the 400 answers
 
 # Safety-gate evaluation against the adversarial set (requires llama-server)
 python scripts/18_evaluate_safety_gates.py
@@ -489,7 +495,7 @@ against `data/10_adversarial/` before trusting it.
 - `expected_chunks` is used by `09_compare_embedding_models.py` and
   `10_compare_retrieval_modes.py` to measure whether the retriever surfaces
   the right source material.
-- `expected_answer` is used by `13_compare_generator_models.py` to score the
+- `expected_answer` is used by the LLM judge (see `docs/llm_judge_prompt.md`) to score the
   generated answers — questions without this field are skipped.
 
 ---

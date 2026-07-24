@@ -21,7 +21,7 @@ from tabulate import tabulate
 #   data/10_adversarial/*_questions.json            (safety eval sets)
 #   reports/embedding_model_comparison/*.json       (script 09)
 #   reports/retrieval_mode_comparison/*.json        (script 10)
-#   reports/generator_model_comparison/*.json       (script 13)
+#   reports/llm_judge_evaluation/*.json             (LLM judge)
 #   reports/safety_gate_evaluation/*.json           (script 18)
 #   vector_db/*/embedding_model_info.json           (script 08)
 #
@@ -40,7 +40,7 @@ VECTOR_DB_DIR     = Path("vector_db")
 
 EMBEDDING_REPORT  = Path("reports/embedding_model_comparison/embedding_model_comparison.json")
 RETRIEVAL_REPORT  = Path("reports/retrieval_mode_comparison/retrieval_mode_comparison.json")
-GENERATOR_REPORT  = Path("reports/generator_model_comparison/generator_model_comparison.json")
+GENERATOR_REPORT  = Path("reports/llm_judge_evaluation/llm_judge_report.json")
 SAFETY_REPORT     = Path("reports/safety_gate_evaluation/safety_gate_evaluation.json")
 
 OUTPUT_DIR = Path("reports/data_card")
@@ -461,7 +461,7 @@ def render_markdown(card):
             md.append(f"- **Confusion:** TR={c.get('TR')}, TA={c.get('TA')}, "
                       f"FA={c.get('FA')}, FR={c.get('FR')}\n")
         md.append("\n")
-    if not (aj or hu or sg):
+    if not (aj or sg):
         md.append("_No quality evaluation reports available yet._\n\n")
 
     # --- Limitations ---

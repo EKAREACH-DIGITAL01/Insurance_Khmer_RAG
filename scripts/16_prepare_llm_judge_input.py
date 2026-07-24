@@ -13,7 +13,7 @@
 # join per record.
 #
 # INPUT
-#   reports/generator_model_comparison/<model>/generated_answer_results.jsonl
+#   reports/generated_answers/<model>/generated_answer_results.jsonl
 #   data/08_merged_chunked_documents/*.json          (chunk_id -> content)
 #
 # OUTPUT (under reports/llm_judge_evaluation/input/)
@@ -27,7 +27,7 @@ import json
 from glob import glob
 from pathlib import Path
 
-COMPARISON_DIR = Path("reports/generator_model_comparison")
+ANSWERS_DIR = Path("reports/generated_answers")
 CHUNK_GLOB = "data/08_merged_chunked_documents/*.json"
 OUTPUT_DIR = Path("reports/llm_judge_evaluation/input")
 
@@ -82,7 +82,7 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     total = 0
 
-    for model_dir in sorted(p for p in COMPARISON_DIR.iterdir() if p.is_dir()):
+    for model_dir in sorted(p for p in ANSWERS_DIR.iterdir() if p.is_dir()):
         built = build(model_dir, chunks)
         if built is None:
             continue

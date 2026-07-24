@@ -1,7 +1,7 @@
 # Generation Robustness & Eval/Production Parity
 
 This document records a set of changes made to keep the offline generator
-evaluation (`scripts/13_compare_generator_models.py`) faithful to the live
+evaluation (`scripts/13_generate_model_answers.py`) faithful to the live
 chatbot (`app.py`), and to make generation robust against the failure modes
 observed during real runs — repetition loops, silent truncation, a macOS
 segfault, and an intermittent `llama.cpp` parser error.
@@ -237,7 +237,7 @@ server for a previous model) can still hold **port 8080**. The new process then
 fails to bind, dies, and a naive readiness poll — which only checks that
 *something* answers on 8080 — would attach to the wrong server.
 
-Guards (both `start_chatbot.py` and `scripts/13_compare_generator_models.py`):
+Guards (both `start_chatbot.py` and `scripts/13_generate_model_answers.py`):
 
 1. **Free port 8080 before launching.** A helper finds whatever is listening on
    8080 and kills it (SIGTERM then SIGKILL on POSIX via `lsof`/`os.kill`;
@@ -335,7 +335,7 @@ which is Qwen2-based, do not have this issue.)
 
 ## 13. Summary of where each change lives
 
-| Change | `app.py` / `start_chatbot.py` | `scripts/13_compare_generator_models.py` |
+| Change | `app.py` / `start_chatbot.py` | `scripts/13_generate_model_answers.py` |
 |---|---|---|
 | Embedding device pinned to CPU | already had | **added** |
 | macOS OpenMP guard | already had | **added** |

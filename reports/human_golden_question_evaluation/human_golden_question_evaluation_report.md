@@ -132,7 +132,7 @@ Population std-dev per metric across the **130** questions scored by ≥2 evalua
 
 ## Target-answer corrections (captured, NOT applied)
 
-**2** target answer(s) were corrected by evaluators in the rating UI. They are **not** written back to `data/09_evaluation/*/gold_questions.json` — review these and apply the accepted ones by hand, then re-run `scripts/13_compare_generator_models.py --rescore`.
+**2** target answer(s) were corrected by evaluators in the rating UI. They are **not** written back to `data/09_evaluation/*/gold_questions.json` — review these and apply the accepted ones by hand, then re-run `scripts/13_generate_model_answers.py`.
 
 ### `guidance_qid_099`  (ai, edited by Kuysiang)
 

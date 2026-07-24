@@ -30,11 +30,12 @@ winning model. The gold question set itself is validated by humans (stage 11/12)
 | 1 | Embedding Model Comparison | `09` | Automated (retrieval) | Best embedding model → **BGE-M3** | `reports/embedding_model_comparison/` |
 | 2 | Retrieval Mode Comparison | `10` | Automated (retrieval) | Dense vs BM25 vs Hybrid → **Hybrid (RRF)** | `reports/retrieval_mode_comparison/` |
 | 3 | Human Golden-Question Evaluation | `11` → `12` | Human | Validates **quality of the gold set** | `reports/human_golden_question_evaluation/` |
-| 4 | Generator Model Comparison | `13` → `14` → `15` | Automated (proxy RAGAS) | Best generator model → **SeaLLM** | `reports/generator_model_comparison/` |
-| 5 | Safety Gate Evaluation | `18` | Automated (adversarial) | Confirms the safety gates hold | `reports/safety_gate_evaluation/` |
+| 4 | Answer Generation | `13` | Automated (generation only) | Produces every model's answers | `reports/generated_answers/` |
+| 5 | LLM-as-Judge Scoring | `16` → LLM judge | LLM (RAGAS + hallucination) | Ranks the models, picks the generator | `reports/llm_judge_evaluation/` |
+| 6 | Safety Gate Evaluation | `18` | Automated (adversarial) | Confirms the safety gates hold | `reports/safety_gate_evaluation/` |
 | — | **Data Card** | `19` | Roll-up | One card summarising everything | `reports/data_card/` |
 
-The shared yardstick for evaluations 1, 2 and 4 is the **gold question set** in
+The shared yardstick for evaluations 1, 2, 4 and 5 is the **gold question set** in
 `data/09_evaluation/<category>/gold_questions.json` — **400 questions** across four
 categories (`guidance`, `law`, `prakas`, `sub_decree`), of which **100 are
 human-authored** (question ids `001–025` per category) and **300 are AI-authored**
@@ -49,7 +50,7 @@ curation gate run by legal professionals: it **removes** weak questions and lets
 experts **rewrite target answers**, so the finalised gold set used by evaluations
 1, 2, 4 and 5 is **smaller than 400 and legally vetted**.
 
-Evaluation 5 uses a separate **adversarial set** in
+Evaluation 6 uses a separate **adversarial set** in
 `data/10_adversarial/*.json` (`question_id · question · expected_behavior`).
 
 ---
@@ -169,53 +170,61 @@ trimmed, legally-vetted set.
 
 ---
 
-## 4. Generator Model Comparison — `scripts/13` → `scripts/14` → `scripts/15`
+## 4. Answer Generation — `scripts/13_generate_model_answers.py`
 
-**Purpose.** Rank all installed generator LLMs against each other on the gold
-set and pick a single winner to carry into human evaluation. **Fully automated,
-no LLM judge and no human scoring** — deterministic and embedding-based proxies
-only. Run over the **100 human-authored gold questions** (25 × 4 categories) as
-the clean, trusted subset (the shipped model, SeaLLM, is additionally scored on
-the full set).
+**Purpose.** Run every installed generator LLM over the **100 human-authored
+gold questions** (25 × 4 categories), retrieving context exactly as `app.py`
+does, and store each generated answer. This script **does not score or rank
+anything** — it only produces the answers that stage 5 judges.
 
-**Metrics (proxy RAGAS)** — each mapped to a 1–5 score:
-
-| Metric | How it is computed | Weight |
-|--------|--------------------|--------|
-| **Context Relevance** | Exact chunk-ID overlap between `expected_chunks` and the chunks actually sent to the LLM (deterministic, not a proxy). | 0.20 |
-| **Faithfulness** | Arabic + Khmer **numeral overlap** between answer and retrieved context — catches fabricated dates, fees, article numbers, the highest-risk hallucination in a legal domain. | 0.25 |
-| **Answer Correctness** | **BGE-M3 cosine** between generated answer and `expected_answer` (mirrors RAGAS Answer Semantic Similarity). Own calibrated thresholds. | 0.25 |
-| **Answer Relevance** | BGE-M3 cosine between generated answer and the **question**. Own threshold set (structurally lower ceiling than correctness). | 0.15 |
-| **Completeness** | Ends with Khmer sentence-final punctuation (។ / ៕) **and** length ratio vs expected within a floor (truncation) and ceiling (padding). | 0.15 |
-
-Weights encode **legal-domain priorities** (fabricated numbers are actively
-harmful → faithfulness weighted high). A **blank answer is not a free pass**:
-similarity is forced to 0.0 → score 1, never excluded from the average.
-Thresholds are calibrated to this corpus's real score distribution — see
-`docs/scoring_calibration.md`.
-
-**Companion scripts.**
-- `14_diagnose_generator_scores.py` — surfaces *why* scores came out as they did
-  (distribution diagnostics), written to `generator_score_diagnostics.{json,md}`.
-- `15_rescore_generator_scores.py` — re-judges answers **from disk** (`--rescore`)
-  after a metric/threshold change, without re-generating (delegates to script 13's
-  scorer). This is what makes calibration cheap.
+**Parity.** Retrieval, prompting, gating and token limits mirror `app.py`
+exactly, so a generated answer here is the answer the live chatbot would have
+given. See `docs/generation_robustness_and_parity.md`.
 
 **Data produced.** Every generated answer is written immediately (crash-safe,
 resumable) to
-`reports/generator_model_comparison/<model>/generated_answer_results.jsonl`.
-
-**Output → `reports/generator_model_comparison/`**:
-`generator_model_comparison.{json,md}` (cross-model table) and
-`generator_score_diagnostics.{json,md}`.
-
-**What happens next.** The winning model (**SeaLLM**, `SeaLLMs-v3-7B-Chat`) is the
-generator shipped in `app.py`, and it is the model the safety-gate run
-(script 18) replays the adversarial set against.
+`reports/generated_answers/<model>/generated_answer_results.jsonl`, holding the
+question, the retrieved `context_chunk_ids`, the gold `expected_answer`, the
+`generated_answer` and timing. No scores.
 
 ---
 
-## 5. Safety Gate Evaluation — `scripts/18_evaluate_safety_gates.py`
+## 5. LLM-as-Judge Scoring — `scripts/16_prepare_llm_judge_input.py` → LLM judge
+
+**Purpose.** Score every generated answer on the five RAGAS metrics **plus a
+separate hallucination judgement**, using an LLM judge rather than deterministic
+proxies. This ranks the four models and selects the shipped generator.
+
+**Why not proxies.** The previous scorer used chunk-ID overlap, numeral overlap
+and BGE-M3 cosine similarity. Those are cheap and reproducible but shallow: the
+faithfulness proxy could only detect fabricated *numbers*, so a fluent, entirely
+invented Khmer paragraph containing no figures scored a perfect 5. Judging the
+substance of a legal answer needs a reader, not a regex.
+
+**Preparation — `scripts/16_prepare_llm_judge_input.py`.** The answer JSONL
+stores only `context_chunk_ids`, and a single answer's context routinely spans
+more than one category file. This script resolves those ids against
+`data/08_merged_chunked_documents/` and writes one self-contained file per model
+to `reports/llm_judge_evaluation/input/`, so the judge never has to join files.
+
+**Judging.** The rubric, batching strategy and strict-JSON output contract are
+in `docs/llm_judge_prompt.md`. Scope: 4 models × 100 questions = **400
+judgements**. The judge model must differ from the model being judged, to avoid
+self-preference bias.
+
+**Metrics (1–5):** Context Relevance (.20), Faithfulness (.25), Answer
+Correctness (.25), Answer Relevance (.15), Completeness (.15).
+
+**Hallucination** is judged separately — a Yes/No flag with a quoted evidence
+span — and is **never averaged into the combined score**.
+
+**Known limitation.** An LLM judge on Khmer legal text is not reliable by
+default. The judge should itself be validated against a hand-scored sample
+before its ranking is treated as measured rather than asserted.
+
+---
+
+## 6. Safety Gate Evaluation — `scripts/18_evaluate_safety_gates.py`
 
 **Purpose.** Verify that the **three layered safety gates** in `app.py` correctly
 enforce scope boundaries under creative/adversarial queries — run against the
@@ -265,8 +274,8 @@ document**, written as both machine-readable JSON and human-readable Markdown.
 - `data/10_adversarial/*_questions.json` — safety evaluation sets
 - `reports/embedding_model_comparison/*.json` — evaluation 1
 - `reports/retrieval_mode_comparison/*.json` — evaluation 2
-- `reports/generator_model_comparison/*.json` — evaluation 4
-- `reports/safety_gate_evaluation/*.json` — evaluation 5
+- `reports/llm_judge_evaluation/*.json` — evaluation 5
+- `reports/safety_gate_evaluation/*.json` — evaluation 6
 - `vector_db/*/embedding_model_info.json` — embedding metadata
 
 **Output → `reports/data_card/`**: `data_card.json` and `data_card.md`.
@@ -288,9 +297,9 @@ data/09_evaluation/  (gold set, 400 Qs)      data/10_adversarial/ (safety set)
         ├─► 11 human gold-Q UI (SQLite) ─► 12 report
         │        └─► reports/human_golden_question_evaluation/   (curate gold set ↺)
         │
-        ├─► 13 generator comparison ─► reports/generator_model_comparison/<model>/*.jsonl
-        │        ├─► 14 diagnostics    └─► generator_model_comparison.{json,md}
-        │        └─► 15 rescore (from disk)
+        ├─► 13 generate answers ─► reports/generated_answers/<model>/*.jsonl
+        │        └─► 16 prepare judge input ─► LLM judge (RAGAS + hallucination)
+        │                 └─► reports/llm_judge_evaluation/
         │
         └─► 18 safety gates ─► reports/safety_gate_evaluation/
                                           │

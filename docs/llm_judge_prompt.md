@@ -1,6 +1,6 @@
 # LLM-as-judge prompt (RAGAS) — Khmer insurance law RAG
 
-Judges the generated answers from `scripts/13_compare_generator_models.py`
+Judges the generated answers from `scripts/13_generate_model_answers.py`
 using an LLM instead of the deterministic proxies. Input files come from
 `scripts/16_prepare_llm_judge_input.py`.
 
@@ -118,16 +118,13 @@ Do not modify any other file. Do not run any script.
 
 Merge `reports/llm_judge_evaluation/raw/*.json`, then:
 
-- Weight as in script 13: context_relevance .20, faithfulness .25,
+- Weight the five metrics: context_relevance .20, faithfulness .25,
   answer_correctness .25, answer_relevance .15, completeness .15.
-  (Unlike the proxy, `answer_relevance` CAN be weighted here — the cosine
-  artefact that forced its weight to 0 does not apply to an LLM judge.)
 - Report the hallucination count separately, never folded into the combined
   score.
-- Correlate against the deterministic scores already in
-  `generated_answer_results.jsonl` — agreement validates the calibrated
-  thresholds in `docs/scoring_calibration.md`; systematic disagreement means
-  the proxy needs recalibrating.
+- Rank the four models by weighted combined score. **This ranking is what
+  selects the shipped generator** — the deterministic proxy scorer that
+  previously made that call has been removed.
 
 ## Validating the judge
 

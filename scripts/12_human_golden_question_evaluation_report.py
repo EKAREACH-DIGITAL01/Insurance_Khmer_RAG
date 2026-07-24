@@ -365,7 +365,7 @@ def render_md(rep):
                   "the rating UI. They are **not** written back to "
                   "`data/09_evaluation/*/gold_questions.json` — review these and "
                   "apply the accepted ones by hand, then re-run "
-                  "`scripts/13_compare_generator_models.py --rescore`.")
+                  "`scripts/13_generate_model_answers.py`.")
         md.append("")
         for c in corr:
             md.append(f"### `{c['question_id']}`  ({c['source']}, edited by {c['edited_by']})")

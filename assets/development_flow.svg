@@ -118,23 +118,32 @@
   <text x="1222" y="634" class="path">→ human_golden_question_evaluation/</text>
 
   <!-- Row 2 -->
-  <!-- 13-15 -->
+  <!-- 13 -->
   <rect x="66" y="672" width="540" height="150" rx="11" class="box"/>
-  <text x="82" y="696" class="num">13 → 14 → 15</text><text x="210" y="696" class="tagA">AUTOMATED · PROXY RAGAS (NO LLM JUDGE)</text>
-  <text x="82" y="720" class="ctitle">Generator model comparison</text>
+  <text x="82" y="696" class="num">13</text><text x="150" y="696" class="tagA">AUTOMATED · GENERATION ONLY</text>
+  <text x="82" y="720" class="ctitle">Answer generation</text>
   <text x="82" y="742" class="body">in: 100 human gold Qs × 4 LLMs (SeaLLM·Qwen3.5·Sailor2·Llama-3.1)</text>
-  <text x="82" y="762" class="body">CtxRel .20 · Faith .25 · AnsCorr .25 · AnsRel .15 · Complete .15</text>
-  <text x="82" y="782" class="body">14 diagnoses the score spread · 15 rescores from disk</text>
-  <text x="82" y="808" class="path">→ generator_model_comparison/   ·   picks SeaLLM</text>
+  <text x="82" y="762" class="body">retrieval + prompting + gating mirror app.py exactly (parity)</text>
+  <text x="82" y="782" class="body">stores question · context ids · gold answer · generated answer</text>
+  <text x="82" y="808" class="path">→ generated_answers/&lt;model&gt;/*.jsonl   ·   no scores</text>
+
+  <!-- 16 -> LLM judge -->
+  <rect x="636" y="672" width="540" height="150" rx="11" class="box"/>
+  <text x="652" y="696" class="num">16 → LLM judge</text><text x="782" y="696" class="tagH">LLM · RAGAS + HALLUCINATION</text>
+  <text x="652" y="720" class="ctitle">LLM-as-judge scoring</text>
+  <text x="652" y="742" class="body">16 resolves chunk ids → self-contained judge input (400 records)</text>
+  <text x="652" y="762" class="body">CtxRel .20 · Faith .25 · AnsCorr .25 · AnsRel .15 · Complete .15</text>
+  <text x="652" y="782" class="body">hallucination Yes/No + evidence — scored separately, never averaged</text>
+  <text x="652" y="808" class="path">→ llm_judge_evaluation/   ·   picks the shipped model</text>
 
   <!-- 18 -->
-  <rect x="636" y="672" width="540" height="150" rx="11" class="box"/>
-  <text x="652" y="696" class="num">18</text><text x="720" y="696" class="tagA">AUTOMATED · ADVERSARIAL</text>
-  <text x="652" y="720" class="ctitle">Safety-gate evaluation</text>
-  <text x="652" y="742" class="body">in: data/10_adversarial — 4 refuse/answer categories</text>
-  <text x="652" y="762" class="body">Gate 1 Khmer/length/scope · Gate 2 FAISS 0.49 · Gate 3 refusal</text>
-  <text x="652" y="782" class="body">confusion matrix: True/False × Refuse/Answer (TR·FA·TA·FR)</text>
-  <text x="652" y="808" class="path">→ safety_gate_evaluation/  (+ results.jsonl)</text>
+  <rect x="1206" y="672" width="534" height="150" rx="11" class="box"/>
+  <text x="1222" y="696" class="num">18</text><text x="1290" y="696" class="tagA">AUTOMATED · ADVERSARIAL</text>
+  <text x="1222" y="720" class="ctitle">Safety-gate evaluation</text>
+  <text x="1222" y="742" class="body">in: data/10_adversarial — 4 refuse/answer categories</text>
+  <text x="1222" y="762" class="body">Gate 1 Khmer/length/scope · Gate 2 FAISS 0.49 · Gate 3 refusal</text>
+  <text x="1222" y="782" class="body">confusion matrix: True/False × Refuse/Answer (TR·FA·TA·FR)</text>
+  <text x="1222" y="808" class="path">→ safety_gate_evaluation/  (+ results.jsonl)</text>
 
   <!-- feedback loop 11-12 -> gold set -->
   <path class="edgeL" d="M1620,498 C1620,440 1473,420 1473,382" marker-end="url(#arrL)"/>
@@ -143,18 +152,19 @@
   <!-- reports bus -->
   <rect x="66" y="846" width="1674" height="50" rx="10" fill="#FBF3E9" stroke="#B68B4C" stroke-width="1.5"/>
   <text x="82" y="876" class="stitle" font-size="14">reports/ — one JSON + Markdown report per evaluation</text>
-  <text x="1724" y="876" text-anchor="end" class="body">winner of 13 drives the live chatbot and the 18 adversarial replay</text>
+  <text x="1724" y="876" text-anchor="end" class="body">the LLM judge ranks the 4 models · the winner drives the live chatbot and the 18 replay</text>
 
   <!-- arrows bottom row -> bus -->
   <path class="edge" d="M336,822 L336,844" marker-end="url(#arr)"/>
   <path class="edge" d="M906,822 L906,844" marker-end="url(#arr)"/>
+  <path class="edge" d="M1473,822 L1473,844" marker-end="url(#arr)"/>
 
   <!-- data card -->
   <rect x="400" y="924" width="1000" height="116" rx="12" fill="#F3EAF0" stroke="#9C2B1F" stroke-width="2"/>
   <text x="420" y="950" class="num" fill="#9C2B1F">19 · ROLL-UP</text>
   <text x="420" y="974" class="ctitle">Data card</text>
   <text x="420" y="996" class="body">reads: corpus metadata · chunk KB · gold set · adversarial set</text>
-  <text x="420" y="1016" class="body">+ reports from 09 · 10 · 13 · 18  ·  vector_db model info</text>
+  <text x="420" y="1016" class="body">+ reports from 09 · 10 · LLM judge · 18  ·  vector_db model info</text>
   <text x="900" y="1030" class="path">→ reports/data_card/   (data_card.json + data_card.md)</text>
   <path class="edge" d="M900,896 L900,922" marker-end="url(#arr)"/>
 
@@ -207,6 +217,6 @@
   <text x="66" y="1310" class="body" font-size="11">Green boxes = the three safety gates evaluated by script 18. Gate 1 is deterministic (zero cost) · Gate 2 costs one embed + search · Gate 3 costs a full generation.</text>
 
   <!-- footer legend -->
-  <text x="66" y="1392" class="body" font-size="12"><tspan font-weight="700" fill="#3B4C8C">AUTOMATED</tspan> evaluations use deterministic + embedding proxies, no LLM judge.  <tspan font-weight="700" fill="#2E7D52">HUMAN</tspan> evaluations use a Streamlit UI on SQLite, giving each evaluator a coverage-aware 50-question slice (first 8 evaluators cover all 400).</text>
+  <text x="66" y="1392" class="body" font-size="12"><tspan font-weight="700" fill="#3B4C8C">AUTOMATED</tspan> steps are deterministic (retrieval metrics, generation, gate replay).  <tspan font-weight="700" fill="#2E7D52">LLM</tspan> scoring judges every answer on RAGAS + hallucination.  <tspan font-weight="700" fill="#2E7D52">HUMAN</tspan> evaluation validates the gold set via a Streamlit UI on SQLite (coverage-aware 50-question slices).</text>
   <text x="66" y="1414" class="body" font-size="12"><tspan font-weight="700" fill="#9C2B1F">Dashed line</tspan> = feedback loop: the 400-question gold set is curated and trimmed by evaluation 11–12 before it is trusted by every downstream evaluation.</text>
 </svg>
