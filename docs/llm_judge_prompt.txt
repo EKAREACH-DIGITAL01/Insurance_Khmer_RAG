@@ -143,9 +143,18 @@ NOT hallucinations:
   - Saying the material does not cover the question.
   - Khmer numerals where expected_answer spells the number in words, or the
     reverse -- ៣ and បី are the same number.
+  - A PROVISION LABEL on otherwise correct content. If the answer opens with
+    or includes "មាត្រា N" / "ប្រការ N" as the heading of text that does match
+    expected_answer, that is ATTRIBUTION, not fabrication -- the answer is
+    naming the provision it is quoting. Gold answers often omit the citation.
+    Do NOT flag it, and do not lower faithfulness for it.
+    Flag a provision number ONLY when the CONTENT attributed to it is absent
+    from or contradicts expected_answer.
 
 IS a hallucination:
-  - Citing មាត្រា/ប្រការ N when N is not in expected_answer.
+  - Citing មាត្រា/ប្រការ N and attributing content to it that expected_answer
+    does not support (see the attribution exception above -- a bare citation
+    on correct content is fine).
   - Any deadline, figure or amount not in expected_answer.
   - Giving a duty or power to an institution expected_answer does not name.
   - A fact that is true of Cambodian law generally but is NOT in
