@@ -201,21 +201,26 @@ faithfulness proxy could only detect fabricated *numbers*, so a fluent, entirely
 invented Khmer paragraph containing no figures scored a perfect 5. Judging the
 substance of a legal answer needs a reader, not a regex.
 
-**Preparation — `scripts/14_prepare_llm_judge_input.py`.** The answer JSONL
-stores only `context_chunk_ids`, and a single answer's context routinely spans
-more than one category file. This script resolves those ids against
-`data/08_merged_chunked_documents/` into a `retrieved_context` field, resets the
-five metrics to `0` and adds `hallucination: ""` (both meaning *not yet
-judged*). Each model's JSONL is then fully self-contained — the judge reads and
-rewrites that one file and never has to join anything.
+**Preparation — `scripts/14_prepare_llm_judge_input.py`.** Scores
+`context_relevance` deterministically as **recall of `expected_chunks` in
+`context_chunk_ids`** — an exact set comparison, so it is measured rather than
+judged. (Recall, not precision: extra retrieved chunks are cheap, a missing
+expected chunk means the answer could not have been grounded.) It then resets
+the four judged metrics to `0` and `hallucination` to `""`, both meaning *not
+yet judged*, and strips the retrieved chunk text — leaving ~1.6k chars per
+record, so one model fits comfortably in a single judging session.
 
-**Judging.** The rubric, batching strategy and strict-JSON output contract are
-in `docs/llm_judge_prompt.md`. Scope: 4 models × 100 questions = **400
-judgements**. The judge model must differ from the model being judged, to avoid
-self-preference bias.
+**Judging.** The rubric and output contract are in
+`docs/llm_judge_prompt.md`. Scope: 4 models × 100 questions = **400
+judgements**, one session per model. The judge must differ from the model being
+judged, to avoid self-preference bias, and models are never mixed in one
+session — a judge that has just read one model's answers anchors its scale
+there.
 
-**Metrics (1–5):** Context Relevance (.20), Faithfulness (.25), Answer
-Correctness (.25), Answer Relevance (.15), Completeness (.15).
+**Metrics (1–5):** Context Relevance (.20) — measured, not judged —
+plus Faithfulness (.25), Answer Correctness (.25), Answer Relevance (.15) and
+Completeness (.15), all assigned by the judge comparing `generated_answer`
+against `expected_answer`.
 
 **Hallucination** is judged separately — a Yes/No flag with a quoted evidence
 span — and is **never averaged into the combined score**.

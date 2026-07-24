@@ -33,6 +33,11 @@ from tabulate import tabulate
 
 REPORTS_DIR = Path("reports/generator_model_comparison")
 
+# context_relevance is measured deterministically by scripts/14 from the chunk
+# ids; the other four are assigned by the LLM judge.
+JUDGED_METRICS = ["faithfulness", "answer_relevance",
+                  "answer_correctness", "completeness"]
+
 METRICS = [
     ("context_relevance",  "Context Relevance"),
     ("faithfulness",       "Faithfulness"),
@@ -107,7 +112,12 @@ def weighted_combined(scores):
 
 
 def summarise(rows, label):
-    scored = [r for r in rows if any(r.get("scores", {}).values())]
+    # A record counts as judged only when the LLM has filled in all four of
+    # ITS metrics. context_relevance is pre-filled by scripts/14, so testing
+    # "any score is non-zero" would mark every record judged before the judge
+    # ever ran.
+    scored = [r for r in rows
+              if all(r.get("scores", {}).get(m) for m in JUDGED_METRICS)]
 
     scores_avg = {
         key: _avg([r["scores"].get(key) for r in scored])
@@ -309,7 +319,10 @@ def write_comparison(summaries):
 
     labels = [s["label"] for s in ranked]
     md = ["# Generator Model Comparison Report\n\n",
-          "> Scored by an **LLM judge** on the five RAGAS metrics. "
+          "> **Context Relevance** is measured deterministically by `scripts/14` "
+          "as recall of `expected_chunks` in `context_chunk_ids` — it scores "
+          "retrieval, not the answer. The other four metrics are assigned by an "
+          "**LLM judge** comparing `generated_answer` against `expected_answer`. "
           "Hallucination is judged separately and is **never** folded into the "
           "combined score. See `docs/llm_judge_prompt.md`.\n\n",
           "## Quality Scores (macro-avg, 1–5 scale)\n\n"]
