@@ -1,118 +1,118 @@
 {
   "coverage": {
-    "evaluators": 10,
+    "evaluators": 11,
     "gold_questions": 400,
-    "questions_evaluated": 370,
-    "questions_unevaluated": 30,
-    "total_responses": 500,
-    "responses_per_question_mean": 1.35,
+    "questions_evaluated": 400,
+    "questions_unevaluated": 0,
+    "total_responses": 550,
+    "responses_per_question_mean": 1.38,
     "gold_human_authored": 100,
     "gold_ai_authored": 300
   },
   "overall_means": {
-    "clarity": 4.098,
-    "relevance": 4.098,
-    "difficulty": 3.968,
-    "answer_quality": 4.066,
-    "uniqueness": 3.742,
-    "combined": 3.994
+    "clarity": 4.115,
+    "relevance": 4.093,
+    "difficulty": 3.987,
+    "answer_quality": 4.062,
+    "uniqueness": 3.787,
+    "combined": 4.009
   },
   "means_by_source": {
     "human_authored": {
-      "clarity": 4.076,
-      "relevance": 4.053,
-      "difficulty": 3.924,
+      "clarity": 4.122,
+      "relevance": 4.058,
+      "difficulty": 3.974,
       "answer_quality": 4.115,
-      "uniqueness": 3.664,
-      "combined": 3.966
+      "uniqueness": 3.75,
+      "combined": 4.004
     },
     "ai_authored": {
-      "clarity": 4.106,
-      "relevance": 4.114,
-      "difficulty": 3.984,
-      "answer_quality": 4.049,
-      "uniqueness": 3.77,
-      "combined": 4.005
+      "clarity": 4.112,
+      "relevance": 4.107,
+      "difficulty": 3.992,
+      "answer_quality": 4.041,
+      "uniqueness": 3.802,
+      "combined": 4.011
     }
   },
   "means_by_category": {
     "guidance": {
-      "clarity": 4.058,
-      "relevance": 4.1,
-      "difficulty": 3.992,
-      "answer_quality": 4.058,
-      "uniqueness": 3.817,
-      "combined": 4.005
+      "clarity": 4.037,
+      "relevance": 4.059,
+      "difficulty": 3.971,
+      "answer_quality": 4.007,
+      "uniqueness": 3.846,
+      "combined": 3.984
     },
     "law": {
-      "clarity": 4.15,
-      "relevance": 4,
-      "difficulty": 4.02,
-      "answer_quality": 4.03,
-      "uniqueness": 3.85,
-      "combined": 4.01
+      "clarity": 4.189,
+      "relevance": 4.009,
+      "difficulty": 4.072,
+      "answer_quality": 4.054,
+      "uniqueness": 3.892,
+      "combined": 4.043
     },
     "prakas": {
-      "clarity": 4.142,
-      "relevance": 4.131,
-      "difficulty": 3.973,
-      "answer_quality": 4.087,
-      "uniqueness": 3.661,
-      "combined": 3.999
+      "clarity": 4.168,
+      "relevance": 4.143,
+      "difficulty": 3.99,
+      "answer_quality": 4.097,
+      "uniqueness": 3.709,
+      "combined": 4.021
     },
     "sub_decree": {
-      "clarity": 4.01,
-      "relevance": 4.134,
-      "difficulty": 3.876,
-      "answer_quality": 4.072,
-      "uniqueness": 3.691,
-      "combined": 3.957
+      "clarity": 4.037,
+      "relevance": 4.131,
+      "difficulty": 3.916,
+      "answer_quality": 4.075,
+      "uniqueness": 3.748,
+      "combined": 3.981
     }
   },
   "score_distribution": {
     "clarity": {
       "1": 11,
-      "2": 12,
-      "3": 63,
-      "4": 245,
-      "5": 169
+      "2": 15,
+      "3": 67,
+      "4": 264,
+      "5": 193
     },
     "relevance": {
       "1": 9,
-      "2": 8,
-      "3": 73,
-      "4": 245,
-      "5": 165
+      "2": 11,
+      "3": 84,
+      "4": 262,
+      "5": 184
     },
     "difficulty": {
       "1": 7,
-      "2": 15,
-      "3": 122,
-      "4": 199,
-      "5": 157
+      "2": 18,
+      "3": 129,
+      "4": 217,
+      "5": 179
     },
     "answer_quality": {
       "1": 8,
-      "2": 12,
-      "3": 96,
-      "4": 207,
-      "5": 177
+      "2": 15,
+      "3": 106,
+      "4": 227,
+      "5": 194
     },
     "uniqueness": {
       "1": 8,
-      "2": 48,
-      "3": 145,
-      "4": 163,
-      "5": 136
+      "2": 50,
+      "3": 151,
+      "4": 183,
+      "5": 158
     }
   },
   "inter_evaluator_agreement": {
-    "clarity": 0.446,
-    "relevance": 0.442,
-    "difficulty": 0.508,
-    "answer_quality": 0.565,
-    "uniqueness": 0.619,
-    "_questions_with_overlap": 130
+    "clarity": 0.427,
+    "relevance": 0.427,
+    "difficulty": 0.49,
+    "answer_quality": 0.533,
+    "uniqueness": 0.593,
+    "_questions_with_overlap": 150
   },
   "curation_flags": [
     {
@@ -291,6 +291,36 @@
       ]
     },
     {
+      "question_id": "guidance_qid_002",
+      "category": "guidance",
+      "source": "human",
+      "n_evaluators": 2,
+      "combined_mean": 2.5,
+      "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចត្រូវឆ្លើយតបបញ្ជាក់ការទទួលបានការជូនដំណឹងអំពីហានិភ័យក្នុងរយៈពេលប៉ុន្មានម៉ោង?",
+      "reasons": [
+        {
+          "metric": "relevance",
+          "mean": 2.5,
+          "action": "DROP — off-topic / not an insurance-law question"
+        },
+        {
+          "metric": "answer_quality",
+          "mean": 2.5,
+          "action": "FIX — target answer needs legal correction"
+        },
+        {
+          "metric": "clarity",
+          "mean": 2.5,
+          "action": "REWORD — question is unclear/ambiguous"
+        },
+        {
+          "metric": "uniqueness",
+          "mean": 2.5,
+          "action": "DEDUPE — redundant with another question"
+        }
+      ]
+    },
+    {
       "question_id": "guidance_qid_027",
       "category": "guidance",
       "source": "ai",
@@ -306,6 +336,36 @@
         {
           "metric": "difficulty",
           "mean": 1.5,
+          "action": "REVIEW — difficulty is off (too easy/hard)"
+        }
+      ]
+    },
+    {
+      "question_id": "guidance_qid_067",
+      "category": "guidance",
+      "source": "ai",
+      "n_evaluators": 1,
+      "combined_mean": 2.6,
+      "question": "តើក្នុងដំណាក់កាលសាកល្បង បុគ្គលបរិស្ថានសាកល្បង ត្រូវមានវិធានការការពារអតិថិជនអ្វីខ្លះ?",
+      "reasons": [
+        {
+          "metric": "relevance",
+          "mean": 2,
+          "action": "DROP — off-topic / not an insurance-law question"
+        },
+        {
+          "metric": "answer_quality",
+          "mean": 2,
+          "action": "FIX — target answer needs legal correction"
+        },
+        {
+          "metric": "clarity",
+          "mean": 2,
+          "action": "REWORD — question is unclear/ambiguous"
+        },
+        {
+          "metric": "difficulty",
+          "mean": 2,
           "action": "REVIEW — difficulty is off (too easy/hard)"
         }
       ]
@@ -496,6 +556,26 @@
       ]
     },
     {
+      "question_id": "sub_decree_qid_004",
+      "category": "sub_decree",
+      "source": "human",
+      "n_evaluators": 2,
+      "combined_mean": 3.0,
+      "question": "កិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូច សំដៅដល់អ្វី?",
+      "reasons": [
+        {
+          "metric": "answer_quality",
+          "mean": 2.5,
+          "action": "FIX — target answer needs legal correction"
+        },
+        {
+          "metric": "uniqueness",
+          "mean": 2.5,
+          "action": "DEDUPE — redundant with another question"
+        }
+      ]
+    },
+    {
       "question_id": "sub_decree_qid_041",
       "category": "sub_decree",
       "source": "ai",
@@ -637,21 +717,6 @@
           "metric": "clarity",
           "mean": 2.5,
           "action": "REWORD — question is unclear/ambiguous"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_025",
-      "category": "prakas",
-      "source": "human",
-      "n_evaluators": 1,
-      "combined_mean": 3.2,
-      "question": "អ្នកជំនាញគណនបុព្វលាភធានារ៉ាប់រង ត្រូវមានតួនាទី និងភារកិច្ច ដូចម្តេចខ្លះ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
         }
       ]
     },

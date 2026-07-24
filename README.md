@@ -49,7 +49,8 @@ happen at chat time.
 - **Golden-question evaluation** — a Streamlit rating UI
   (`scripts/11_human_golden_question_evaluation.py`) has humans score the
   gold questions themselves (clarity, relevance, difficulty, answer quality,
-  uniqueness) to validate the test set, independent of the live chatbot.
+  uniqueness) to validate the test set, independent of the live chatbot —
+  **11 evaluators × 50 = 550 ratings over all 400 questions**.
   `scripts/12_human_golden_question_evaluation_report.py` rolls those scores
   and target-answer corrections into a report with per-question curation flags.
 - **Answer generation** — `scripts/13_generate_model_answers.py` runs all four

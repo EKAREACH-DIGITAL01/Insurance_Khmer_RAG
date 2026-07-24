@@ -112,7 +112,7 @@
   <rect x="1206" y="498" width="534" height="150" rx="11" class="box"/>
   <text x="1222" y="522" class="num">11 → 12</text><text x="1316" y="522" class="tagH">HUMAN · STREAMLIT + SQLITE</text>
   <text x="1222" y="546" class="ctitle">Golden-question evaluation</text>
-  <text x="1222" y="568" class="body">in: gold set (400 Qs) — 50 per evaluator, coverage-aware</text>
+  <text x="1222" y="568" class="body">in: gold set (400 Qs) — 11 evaluators × 50 = 550 ratings</text>
   <text x="1222" y="588" class="body">Clarity·Relevance·Difficulty·Answer Quality·Uniqueness (1–5)</text>
   <text x="1222" y="608" class="body">legal experts curate/trim the set + fix target answers</text>
   <text x="1222" y="634" class="path">→ human_golden_question_evaluation/</text>
@@ -217,6 +217,6 @@
   <text x="66" y="1310" class="body" font-size="11">Green boxes = the three safety gates evaluated by script 16. Gate 1 is deterministic (zero cost) · Gate 2 costs one embed + search · Gate 3 costs a full generation.</text>
 
   <!-- footer legend -->
-  <text x="66" y="1392" class="body" font-size="12"><tspan font-weight="700" fill="#3B4C8C">AUTOMATED</tspan> steps are deterministic (retrieval metrics, generation, gate replay).  <tspan font-weight="700" fill="#2E7D52">LLM</tspan> scoring judges every answer on RAGAS + hallucination.  <tspan font-weight="700" fill="#2E7D52">HUMAN</tspan> evaluation validates the gold set via a Streamlit UI on SQLite (coverage-aware 50-question slices).</text>
+  <text x="66" y="1392" class="body" font-size="12"><tspan font-weight="700" fill="#3B4C8C">AUTOMATED</tspan> steps are deterministic (retrieval metrics, generation, gate replay).  <tspan font-weight="700" fill="#2E7D52">LLM</tspan> scoring judges every answer on RAGAS + hallucination.  <tspan font-weight="700" fill="#2E7D52">HUMAN</tspan> evaluation validates the gold set via a Streamlit UI on SQLite — 11 evaluators × 50 ratings over all 400 questions.</text>
   <text x="66" y="1414" class="body" font-size="12"><tspan font-weight="700" fill="#9C2B1F">Dashed line</tspan> = feedback loop: the 400-question gold set is curated and trimmed by evaluation 11–12 before it is trusted by every downstream evaluation.</text>
 </svg>

@@ -288,7 +288,7 @@ def render_md(rep):
         ["  — human-authored", cov["gold_human_authored"]],
         ["  — AI-authored", cov["gold_ai_authored"]],
         ["Questions evaluated", cov["questions_evaluated"]],
-        ["Questions NOT yet evaluated", cov["questions_unevaluated"]],
+
         ["Total responses", cov["total_responses"]],
         ["Mean responses / evaluated question", cov["responses_per_question_mean"]],
     ], headers=["Metric", "Value"], tablefmt="github"))

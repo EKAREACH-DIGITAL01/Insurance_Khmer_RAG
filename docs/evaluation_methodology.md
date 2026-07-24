@@ -124,11 +124,14 @@ their context, and their target answers — **not** any RAG output.
 **Collection UI — `scripts/11_human_golden_question_evaluation.py`.** A Streamlit
 app (port 8503) backed by SQLite
 (`reports/human_golden_question_evaluation/human_golden_question_evaluation.db`).
-Each evaluator logs in by name and is assigned a **coverage-aware slice of 50**
-of the 400 questions: the app always hands out the least-assigned questions
-first, so the first 8 evaluators cover all 400 with no gaps and later evaluators
-add a redundancy layer. Evaluators can also **edit/correct the target answer**
-(shared, versioned, full history kept).
+Each evaluator logs in by name and is assigned a fixed slice of **50** of the
+400 questions, drawn least-rated-first so slices spread across the set rather
+than overlapping at random. Evaluators can also **edit/correct the target
+answer** (shared, versioned, full history kept).
+
+**Collected:** **11 evaluators × 50 = 550 responses** over all **400** gold
+questions, with **150** questions rated by two or more evaluators — the base
+for the inter-evaluator agreement figures below.
 
 **Metrics** (each scored 1–5):
 
