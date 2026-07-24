@@ -83,7 +83,7 @@ happen at chat time.
 
 ## Architecture
 
-![Khmer Insurance Law Assistant — development flow: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–17), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/development_flow.png)
+![Khmer Insurance Law Assistant — architecture: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–17), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/architecture_overview.png)
 
 The diagram above reads in three stages:
 
@@ -147,10 +147,13 @@ Khmer-Rag-Chatbot/
 ├── static/                          # gitignored; hard links to the source PDFs,
 │   └── documents/                   # rebuilt at startup by publish_source_pdfs()
 │
-├── assets/
-│   ├── development_flow.svg          # editable source for the diagram below
-│   ├── development_flow.png          # rendered from the .svg
+├── assets/                          # diagrams regenerated from
+│   ├── architecture_overview.png     #   docs/image_generation_prompts.md
+│   ├── chat_request_path.png
+│   ├── hybrid_retrieval_rrf.png
+│   ├── evaluation_framework.png
 │   ├── favicon.png
+│   ├── irc-logo-transparent.png
 │   └── logo.png
 │
 ├── docs/

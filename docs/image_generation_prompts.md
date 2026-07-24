@@ -1,19 +1,19 @@
 # Image Generation Prompts
 
-Prompts for regenerating the diagrams in `assets/`. Each one describes **what
-the diagram must explain** — the logic of the system — and leaves style,
-palette, iconography and layout to the image model.
+Prompts for the diagrams in `assets/`, for both the README and the internship
+report. Each one describes **what the figure must explain** — the logic of the
+system — and leaves style, palette, iconography and layout to the image model.
 
 Kept in version control so the diagrams can be regenerated consistently when
 the pipeline changes.
 
 ---
 
-## How to use these
+## Read this before generating anything
 
-The images are produced in two passes:
+### Two passes, always
 
-1. **Image pass.** The image model generates the visual from the prompt below.
+1. **Image pass.** The image model generates the visual from the prompt.
 2. **Text pass.** Exact filenames, paths and figures are composited on top
    afterward with PIL, read directly from the repository.
 
@@ -27,10 +27,13 @@ Values to read from the repo during the text pass, never typed from memory:
 | Label content | Source |
 |---|---|
 | Script filenames | `scripts/` |
-| Gate thresholds | `app.py` |
-| Corpus and chunk counts | `reports/data_card/data_card.json` |
+| Gate thresholds, `TOP_K`, `CONTEXT_K`, `RRF_K` | `app.py` |
+| Corpus, chunk and gold-question counts | `reports/data_card/data_card.json` |
 | Model names | `install_models.py` |
-| Result figures | the JSON files under `reports/` |
+| Retrieval scores | `reports/embedding_model_comparison/*.json`, `reports/retrieval_mode_comparison/*.json` |
+| Generator scores, hallucination rates | `reports/generator_model_comparison/generator_model_comparison.json` |
+| Safety-gate outcomes | `reports/safety_gate_evaluation/safety_gate_evaluation.json` |
+| Human-evaluation means and agreement | `reports/human_golden_question_evaluation/*.json` |
 
 The fourth generator model is **Sailor2-L 8B Chat**, not Gemma.
 
@@ -38,9 +41,28 @@ If an image returns with garbled text baked in despite the instruction,
 regenerate it. A report figure carrying invented filenames is worse than no
 figure.
 
+### What must NOT be image-generated
+
+This matters more for the report than for the README, so it is stated plainly:
+
+- **Never image-generate a results chart.** An image model asked for "a bar
+  chart of the four models' scores" will invent bar heights that look
+  plausible and are wrong. In a research report that is fabricated evidence,
+  and a reader who checks the numbers against your own JSON will find the
+  mismatch. Every chart in [Results figures](#results-figures-plot-these-do-not-generate-them)
+  is **plotted from the report JSON with matplotlib** instead.
+- **Never image-generate a screenshot of the app.** A rendered "UI mockup"
+  showing a chat interface that does not match the real one misrepresents the
+  artifact. Use real captures — see [Screenshots](#screenshots-capture-these).
+- The diagram prompts below are safe to generate because they carry *structure
+  and relationships*, not measured values. Any number in them is composited in
+  the text pass from the repo.
+
 ---
 
-## The image set
+## The figure set
+
+**README set** — the four that explain the system to someone landing on the repo:
 
 | File | Job |
 |---|---|
@@ -48,15 +70,26 @@ figure.
 | `chat_request_path.png` | One question's journey, with the three gates |
 | `hybrid_retrieval_rrf.png` | Dense + lexical ranked lists fusing via RRF |
 | `evaluation_framework.png` | Gold set → 4 models → LLM judge + human validation |
-| `corpus_provenance.png` *(optional)* | 49 PDFs → OCR → clean → chunk → 1435 chunks |
 
-The first four are the README set. `corpus_provenance.png` duplicates what the
-data card already tabulates — include it in a written report, skip it in the
-README.
+**Report set** — deeper figures worth a page each in the internship report:
+
+| File | Job |
+|---|---|
+| `corpus_provenance.png` | 49 PDFs → OCR → clean → chunk → 1435 chunks |
+| `chunking_strategy.png` | Clause-aware splitting vs. fixed-length splitting |
+| `khmer_retrieval_problem.png` | Why Khmer script breaks ordinary lexical search |
+| `safety_gate_ladder.png` | The three gates as a cost ladder, with outcomes |
+| `context_assembly.png` | Top-10 retrieved → top-5 selected → prompt |
+| `local_first_deployment.png` | What runs on-device vs. the one-time external call |
+| `app_shell_anatomy.png` | The chat UI's regions and what each is for |
+| `conversation_persistence.png` | Write-through from session state to SQLite |
+| `answer_provenance_chain.png` | Answer → cited document → source PDF → diagnostics |
 
 ---
 
-## 1. `architecture_overview.png`
+## README set
+
+### 1. `architecture_overview.png`
 
 > Design a diagram explaining the overall architecture of a fully-local
 > Khmer-language RAG chatbot for Cambodian insurance law. You choose the visual
@@ -82,7 +115,9 @@ README.
 >
 > **Stage C — serve, runs continuously.** The live chatbot. It reuses the index
 > built in Stage A and the LLM chosen in Stage B. Everything runs locally on the
-> user's machine with no external API calls.
+> user's machine with no external API calls. Alongside the answer it keeps a
+> local conversation store, links each cited document to its source PDF, and can
+> show a per-answer diagnostics readout.
 >
 > Three relationships must be visible: Stage A feeds Stage B (the index and test
 > set are what get evaluated); Stage B's decisions determine Stage C's
@@ -94,7 +129,7 @@ README.
 
 ---
 
-## 2. `chat_request_path.png`
+### 2. `chat_request_path.png`
 
 > Design a diagram showing what happens when a user asks the chatbot one
 > question. You choose the style; I'm describing the logic.
@@ -118,18 +153,21 @@ README.
 > 5. **Checkpoint 2 — costs one search.** If the best match is too weak, the
 >    question is off-topic and gets refused here, before the expensive step.
 > 6. The top five passages are assembled into a prompt.
-> 7. A local LLM generates an answer from those passages only.
+> 7. A local LLM generates an answer from those passages only, streamed token by
+>    token, and the user can interrupt it mid-stream.
 > 8. **Checkpoint 3 — costs a full generation.** The answer is checked before it
 >    reaches the user.
-> 9. The answer is delivered with citations pointing back to the specific source
->    documents.
+> 9. The answer is delivered with three things attached: the list of source
+>    documents it drew on, each linking to that document's original PDF; a row of
+>    controls to copy or react to it; and a link to a full diagnostics readout
+>    for that specific answer.
 >
 > Show the three refusal branches leaving the main path, drawn as deliberately as
 > the success path. Show that the cost of stopping increases at each checkpoint.
 
 ---
 
-## 3. `hybrid_retrieval_rrf.png`
+### 3. `hybrid_retrieval_rrf.png`
 
 > Design a diagram explaining a hybrid document retrieval method. You choose the
 > style; I'm describing the logic.
@@ -159,7 +197,7 @@ README.
 
 ---
 
-## 4. `evaluation_framework.png`
+### 4. `evaluation_framework.png`
 
 > Design a diagram explaining how a RAG chatbot was evaluated before shipping.
 > You choose the style; I'm describing the logic.
@@ -200,7 +238,9 @@ README.
 
 ---
 
-## 5. `corpus_provenance.png` *(optional)*
+## Report set
+
+### 5. `corpus_provenance.png`
 
 > Design a diagram showing how a document collection was built. You choose the
 > style; I'm describing the logic.
@@ -221,26 +261,375 @@ README.
 > 250 each, and guidance is smallest at roughly 145. That imbalance is real and
 > should be visible, not smoothed out.
 >
+> Note the asymmetry between document count and passage count: guidance has 16
+> documents but the fewest passages, while laws has only 4 documents and far
+> more passages. Document count is not a proxy for corpus weight, and the
+> diagram should make that legible.
+>
 > Convey that the chunking respects the documents' own legal structure — this is
 > not generic text splitting.
 
 ---
 
+### 6. `chunking_strategy.png`
+
+> Design a diagram contrasting two ways of splitting a legal document into
+> searchable passages. You choose the style; I'm describing the logic.
+>
+> Show the same source document processed two ways, side by side.
+>
+> **The naive way**, drawn as the rejected option: cut the text every N
+> characters. The cuts land wherever they land — mid-sentence, mid-article,
+> splitting a provision's number away from the provision's text. A passage
+> retrieved this way can be a fragment that no longer states which article it
+> came from, which makes it useless as a citation and misleading as evidence.
+>
+> **The chosen way**: cut along the document's own structure. Cambodian legal
+> documents are already divided into numbered provisions — "មាត្រា" (article)
+> for laws and sub-decrees, "ប្រការ" for prakas — and guidance documents are
+> divided by heading hierarchy. The splitter follows those boundaries, so one
+> passage is one provision, carrying its own number and heading with it.
+>
+> Show the consequence, which is the point of the figure: a passage retrieved
+> from the structure-aware split can be cited precisely ("Article 10 of the Law
+> on Insurance"), because the boundary and the citation are the same thing. A
+> passage from the naive split cannot.
+>
+> Also convey that passage sizes are therefore uneven by nature — provisions
+> differ in length, ranging from very short to very long — and that this
+> unevenness is accepted as a consequence of respecting structure, not a defect
+> to be normalized away.
+
+---
+
+### 7. `khmer_retrieval_problem.png`
+
+> Design a diagram explaining why searching Khmer text by keyword is harder than
+> searching English, and how this system solves it. You choose the style; I'm
+> describing the logic. This figure is about a language problem, not a software
+> problem.
+>
+> Three facts have to land, in order:
+>
+> **1. Khmer is written without spaces between words.** An English sentence
+> arrives pre-split into words, so a keyword index can be built by cutting on
+> spaces. A Khmer sentence is a continuous run of characters with no such
+> markers, so the same approach yields one enormous meaningless token. Show a
+> Khmer string and an English string side by side, with the English one falling
+> apart into clean words and the Khmer one refusing to.
+>
+> **2. The workaround is to index overlapping character fragments.** Instead of
+> words, the text is cut into every sliding run of three consecutive characters.
+> A question and a document now match when they share many fragments. This
+> works, but it is noisy: fragments are short, common ones appear everywhere,
+> and the signal from a rare meaningful term gets buried under fragments shared
+> by every document in the collection.
+>
+> **3. Provision numbers need rescuing from that noise.** When someone asks
+> about a specific article by number, the fragment-based match ranks it poorly —
+> the query is short, and its fragments are mostly generic. The system detects
+> the "article + number" pattern explicitly, treats the pair as a single unit,
+> and weights it heavily so the one passage that actually contains that
+> provision rises to the top. Show this as a targeted rescue of a signal that
+> the general method loses: a passage sitting far down a ranked list, lifted to
+> the top by the boost.
+>
+> Convey that steps 2 and 3 exist because of step 1 — this is a chain of
+> consequences from a property of the writing system, not three unrelated
+> techniques.
+
+---
+
+### 8. `safety_gate_ladder.png`
+
+> Design a diagram showing a chatbot's refusal system as a ladder of
+> increasingly expensive checks. You choose the style; I'm describing the logic.
+>
+> The organising idea: every question that will ultimately be refused should be
+> refused as early and as cheaply as possible, so the checks are ordered by what
+> they cost to run.
+>
+> **Rung 1 — free.** No AI, no search, pure pattern matching on the raw text.
+> It catches four things: text that contains no Khmer script at all; questions
+> too short to be meaningful; and questions whose *intent* is out of bounds
+> regardless of topic — asking which company or product to buy, asking what
+> something will cost, or asking for advice about the user's own situation.
+> Those last three are refused even though they are genuinely about insurance,
+> because the system is not licensed to answer them. That distinction —
+> out-of-scope is not the same as off-topic — should be visible.
+>
+> **Rung 2 — costs one retrieval.** The question is embedded and searched. If
+> even the best-matching passage in the entire corpus is too weak a match, the
+> question is off-topic and is refused here, before any text is generated.
+>
+> **Rung 3 — costs a full generation.** The generated answer is checked before
+> it is shown.
+>
+> Then show how outcomes are scored, because this is how the system was
+> measured: every adversarial test question has an expected behaviour, so each
+> result falls into one of four boxes — correctly refused, correctly answered,
+> wrongly answered, wrongly refused. Draw these as a two-by-two grid of
+> expected-versus-actual. Convey that the two error boxes are not equally bad: a
+> wrong answer to a pricing or advice question is a real harm, while a
+> needlessly refused question is only an annoyance.
+>
+> Leave empty space for the counts in each box and for the threshold values.
+
+---
+
+### 9. `context_assembly.png`
+
+> Design a diagram showing how retrieved passages are turned into a prompt for a
+> language model, and why the funnel narrows. You choose the style; I'm
+> describing the logic.
+>
+> The stages narrow deliberately:
+>
+> 1. **Retrieve wide.** The fused search returns ten candidate passages ranked
+>    best-first. Retrieving more than will be used is intentional — it gives the
+>    selection step something to choose between.
+> 2. **Cap per document.** No more than two passages from any single document
+>    may proceed. Show why this rule exists: a single law split into per-article
+>    passages produces many near-identical neighbours, and without a cap they
+>    would crowd out every other document, leaving the model with one source's
+>    view of the question instead of several. Also show the opposite failure the
+>    cap must avoid — set the cap to one and two questions about adjacent
+>    articles of the same law collapse to the same answer, because only one of
+>    the two articles ever reaches the model.
+> 3. **Select five.** The surviving top five become the context.
+> 4. **Assemble.** Those five are concatenated with their document names and
+>    provision headings, wrapped in an instruction telling the model to answer
+>    only from the supplied text, and sent to a local model with a fixed context
+>    budget that the assembled prompt must fit inside.
+>
+> Show the discarded passages leaving at each stage, and show that the passages
+> reaching the model carry their source identity with them — that identity is
+> what the citation under the answer is later built from.
+
+---
+
+### 10. `local_first_deployment.png`
+
+> Design a diagram showing which parts of an AI system run on the user's own
+> machine and which do not. You choose the style; I'm describing the logic.
+>
+> Draw a clear boundary — a machine, a building, a perimeter, whatever suits
+> your style — and place things inside or outside it.
+>
+> **Inside, running locally at question time:** the embedding model that turns
+> the question into a vector; the vector index holding every passage; the
+> keyword index; the fusion step; the quantized large language model generating
+> the answer, served by a local inference server bound to the loopback address
+> only; the conversation database; and the original source PDFs, served from
+> disk.
+>
+> **Outside, and used exactly once:** a single external OCR API call, during the
+> one-time corpus build, to read scanned Khmer pages that no local tool could
+> read reliably. Show this as a dotted line to a cloud that is crossed once
+> during setup and never again.
+>
+> The point of the figure is the asymmetry: no user question, no retrieved
+> passage, and no generated answer ever leaves the machine. For a system
+> handling legal questions about people's own insurance situations, that is a
+> privacy property, not a performance detail — make the boundary the most
+> visually prominent thing in the diagram.
+>
+> Also show that the inference server listens only on the loopback interface,
+> so it is not reachable from the local network.
+
+---
+
+### 11. `app_shell_anatomy.png`
+
+> Design an annotated layout diagram of a chat application's interface —
+> wireframe-style, showing regions and their purpose rather than realistic
+> visual detail. You choose the style; I'm describing the structure. Do not
+> render any readable text inside the regions; leave callout space instead.
+>
+> The window is divided into two columns.
+>
+> **Left column, a fixed-width rail.** Top to bottom: a brand lockup (small
+> circular emblem, product name, subtitle) sharing its row with a control that
+> collapses the rail; a "new conversation" action; a section heading; then a
+> list of past conversations, one row each, with the current one highlighted.
+> Hovering a row reveals a small overflow control at its right edge that opens a
+> two-item menu (rename, delete). The rail is pinned — it does not scroll away
+> with the conversation.
+>
+> **Right column, the conversation.** The user's questions are right-aligned in
+> filled bubbles; the assistant's answers are left-aligned as plain text at full
+> width. Under each answer, in order: a short list of the source documents that
+> answer drew on, as bulleted links; then a row of four small icon controls —
+> copy, approve, disapprove, and details.
+>
+> **Pinned to the bottom of the right column, not the window:** the question
+> input, centred on the conversation column rather than on the whole window, and
+> beneath it a permanent single-line legal disclaimer.
+>
+> Two structural points the annotation should make: the conversation column
+> starts at the same height as the rail's brand, with no header bar above it;
+> and the input and disclaimer stay fixed while the conversation scrolls behind
+> them.
+
+---
+
+### 12. `conversation_persistence.png`
+
+> Design a diagram explaining how a chat application keeps conversations after
+> the browser is closed. You choose the style; I'm describing the logic.
+>
+> The framing question: a web app's in-memory state dies when the page reloads,
+> so what makes a conversation still be there tomorrow?
+>
+> Show two layers and the traffic between them.
+>
+> **The working layer**, in memory, belonging to one browser session: the list
+> of messages currently on screen and which conversation is open.
+>
+> **The durable layer**, a small local database file on disk: two tables, one
+> row per conversation and one row per message, with each message stored as a
+> complete record — the question, the answer, the sources, and the full
+> diagnostic payload for that answer.
+>
+> The important behaviours to convey:
+>
+> - **Write-through, not save-on-exit.** Every finished message is written to
+>   disk the moment it lands, through a single choke point that all outcomes
+>   pass through — normal answer, interrupted answer, error, refusal. Show that
+>   there is exactly one door to the database, so no path can quietly skip it.
+>   The consequence: a crash loses at most the answer still being typed.
+> - **A conversation is created when the question is accepted**, not when its
+>   answer arrives — so the sidebar shows it as the active conversation for the
+>   whole time the answer is being generated.
+> - **Reading back is complete, not partial.** Reopening a conversation restores
+>   not just the visible text but the diagnostic payload too, so the per-answer
+>   detail view still works on a conversation from last week.
+> - Show that the database file is local and per-machine — it is not
+>   synchronised, shared, or committed to version control.
+
+---
+
+### 13. `answer_provenance_chain.png`
+
+> Design a diagram showing how a reader can trace a generated answer back to the
+> law it came from. You choose the style; I'm describing the logic. The figure
+> argues that a claim in this system is checkable at three widening levels of
+> detail.
+>
+> Start with a generated answer on screen. From it, three paths lead outward:
+>
+> **Level 1 — which documents.** Directly under the answer is the list of source
+> documents it drew on, named in full. This is the everyday level: a reader sees
+> at a glance that the answer rests on, say, three specific laws.
+>
+> **Level 2 — the source itself.** Each of those names is a link that opens that
+> document's original scanned PDF. The reader is not asked to trust a
+> paraphrase; they can open the actual instrument. Show this as the jump from
+> the interface to a real document.
+>
+> **Level 3 — how it was retrieved.** A separate control opens a full diagnostic
+> readout for that one answer: every candidate passage the search returned, the
+> score each retrieval method gave it, which method surfaced it, the full text
+> of each passage, token counts, and stage-by-stage timings. This view has its
+> own address, so it can be reloaded, bookmarked, or handed to someone else for
+> review.
+>
+> The point to convey: the three levels serve different readers — a user, a
+> lawyer checking the citation, and an examiner auditing the retrieval — and the
+> same answer supports all three without the user having to ask for anything in
+> advance.
+
+---
+
+## Screenshots (capture these)
+
+These belong in both the README and the report, and must be **real captures of
+the running app**, not generated images. A generated mockup of a UI that does
+not exist is a misrepresentation of the artifact, and in a report it will not
+survive a reader comparing it to the code.
+
+Run the app, then capture at a consistent window size (roughly 1440×900,
+retina if available):
+
+| File | What to capture |
+|---|---|
+| `screenshot_welcome.png` | The welcome state: rail on the left, greeting, and the centred input |
+| `screenshot_answer.png` | A completed Khmer answer with its source list and action row |
+| `screenshot_sidebar_menu.png` | The conversation overflow menu open, showing rename and delete |
+| `screenshot_rename_inline.png` | A conversation row mid-rename, with the inline field focused |
+| `screenshot_low_confidence.png` | An answer carrying the low-confidence warning |
+| `screenshot_refusal.png` | A refused question — use one from `data/10_adversarial/` |
+| `screenshot_diagnostics.png` | The diagnostics page for one answer, showing the ranked chunk cards |
+| `screenshot_source_pdf.png` | A cited document's PDF opened from an answer's source list |
+
+For the report, the refusal and low-confidence captures matter most — they are
+the evidence that the safety design is real and not just described.
+
+---
+
+## Results figures (plot these, do not generate them)
+
+Every figure below is a chart of measured values, so it must be **drawn from
+the report JSON**, not produced by an image model. Ask the agent to write a
+plotting script rather than to generate a picture.
+
+| File | Chart | Source |
+|---|---|---|
+| `fig_embedding_comparison.png` | Grouped bars: Hit@5, Recall@5, MRR@5, File-Hit@5 for the three embedding models | `reports/embedding_model_comparison/embedding_model_comparison.json` |
+| `fig_retrieval_mode.png` | Hit@k curves, dense vs. hybrid, k = 1…10, per category | `reports/retrieval_mode_comparison/retrieval_mode_comparison.json` |
+| `fig_generator_scores.png` | Grouped bars: the five judged dimensions for the four models | `reports/generator_model_comparison/generator_model_comparison.json` |
+| `fig_hallucination_rate.png` | Bars: hallucination rate per model, kept **separate** from the quality score | same file |
+| `fig_safety_confusion.png` | 2×2 confusion matrix, plus a per-category breakdown | `reports/safety_gate_evaluation/safety_gate_evaluation.json` |
+| `fig_gate_attribution.png` | Which gate stopped each refused question | same file |
+| `fig_human_eval.png` | Mean score per dimension, with inter-evaluator agreement shown alongside | `reports/human_golden_question_evaluation/human_golden_question_evaluation_report.json` |
+| `fig_corpus_distribution.png` | Documents vs. chunks per category, on twin axes | `reports/data_card/data_card.json` |
+
+Instruction for the agent:
+
+> Write `scripts/render_report_figures.py`. It reads the JSON files under
+> `reports/` and plots each figure listed in the results table of
+> `docs/image_generation_prompts.md` with matplotlib, writing PNGs to `assets/`.
+>
+> Every number must come from the JSON. Do not hardcode a single value, and do
+> not fill in a missing metric with a plausible one — if a field is absent,
+> fail loudly and say which file and key were missing.
+>
+> Keep it deterministic and re-runnable, so the figures can be regenerated after
+> any evaluation is re-run. One consistent style across all figures: same font,
+> same palette, axis labels on every axis, and units or score ranges stated.
+> Hallucination rate must never be merged into the combined quality score — it
+> is reported separately on purpose.
+
+Two things to be careful about when these are read in a report:
+
+- **MiniLM's near-zero retrieval scores are a real finding, not a plotting
+  bug.** It cannot discriminate between Khmer legal passages and scores almost
+  everything alike, so its ranking is close to random. Annotate that on the
+  chart, or a reader will assume the bar is broken.
+- **Inter-evaluator agreement is computed over the subset of questions that
+  more than one person rated**, not over all 400. State the subset size on the
+  figure, or the agreement number will be read as stronger evidence than it is.
+
+---
+
 ## Wrapper instruction
 
-Wrap the prompts above with this when driving the generation from a CLI agent:
+Wrap the diagram prompts with this when driving generation from a CLI agent:
 
-> Generate the images for `assets/` using the OpenAI image API, one per prompt in
-> `docs/image_generation_prompts.md`. Then, in a second pass, write
-> `scripts/render_diagram_labels.py` that composites the exact text labels onto
-> each generated image using PIL.
+> Generate the diagrams for `assets/` using the OpenAI image API, one per
+> diagram prompt in `docs/image_generation_prompts.md` — the README set and the
+> report set only. Do **not** generate the screenshots or the results figures;
+> those are captured and plotted respectively, and the file explains why.
+>
+> Then, in a second pass, write `scripts/render_diagram_labels.py` that
+> composites the exact text labels onto each generated image using PIL.
 >
 > All label text must be read from the repository, never typed from memory:
-> script filenames from `scripts/`, thresholds from `app.py`, corpus and chunk
-> counts from `reports/data_card/data_card.json`, model names from
-> `install_models.py`, and result figures from the JSON files under `reports/`.
-> Do not let the image model render filenames, paths, or numbers — it will
-> corrupt them.
+> script filenames from `scripts/`, thresholds and constants from `app.py`,
+> corpus and chunk counts from `reports/data_card/data_card.json`, model names
+> from `install_models.py`, and result figures from the JSON files under
+> `reports/`. Do not let the image model render filenames, paths, or numbers —
+> it will corrupt them.
 >
 > Use a single monospace face for all composited labels. Keep the script
 > deterministic and re-runnable so the diagrams can be regenerated when the
