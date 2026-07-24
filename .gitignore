@@ -36,6 +36,15 @@ docs/Internship_Report.docx
 reports/human_golden_question_evaluation/*.db
 reports/human_golden_question_evaluation/*.db-*
 
+# Hard links to the source PDFs, generated at startup so Streamlit can serve
+# them (see publish_source_pdfs) -- rebuilt on every run, never committed
+static/
+
+# Local chat history written by the assistant's conversation rail (incl. the
+# WAL sidecar files) -- per-machine, never committed
+chat_history.db
+chat_history.db-*
+
 # Python
 __pycache__/
 *.pyc

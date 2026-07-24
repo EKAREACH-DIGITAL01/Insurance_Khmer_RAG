@@ -1,0 +1,6 @@
+[server]
+# Lets the assistant link each answer's cited documents straight to the source
+# PDF. Streamlit serves ./static at /app/static/<path>; publish_source_pdfs()
+# in app.py populates it with hard links to data/01_source_documents, so the
+# 195 MB corpus is exposed without a second copy of it on disk.
+enableStaticServing = true

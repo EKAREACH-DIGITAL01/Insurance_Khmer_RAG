@@ -21,6 +21,7 @@ import html
 import json
 import queue
 import re
+import shutil
 import threading
 import time
 import uuid
@@ -32,6 +33,8 @@ from PIL import Image
 from openai import OpenAI
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
+
+import history
 
 LLAMA_SERVER_URL = "http://localhost:8080/v1"
 LLAMA_SERVER_ROOT = "http://localhost:8080"
@@ -438,6 +441,16 @@ PHASE_LABELS = {
 
 CHATBOT_NAME = "ជំនួយការធានារ៉ាប់រងកម្ពុជា"
 CHATBOT_SUBTITLE = "Cambodia Insurance Assistant"
+# Welcome-state copy: a formal Khmer greeting, then the offer to help. The
+# second line is the invitation to type, so the middle of the welcome screen
+# asks for exactly the one thing the screen is for.
+WELCOME_GREETING = "សូមគោរពជម្រាបសួរ"
+WELCOME_SUBLINE = "តើមានអ្វីខ្ញុំអាចជួយដល់លោក លោកស្រីដែរឬទេ?"
+# Names the document types actually in the corpus, so the screen says what can
+# be asked, not just that it will help. Kept as its own line rather than folded
+# into the line above: that one asks what the user needs, and a sentence doing
+# both jobs buries the question.
+WELCOME_HINT = "សូមសួរអំពីច្បាប់ អនុក្រឹត្ត សេចក្តីប្រកាស និងសេចក្តីណែនាំ។"
 IRC_LOGO_PATH = os.path.join(_APP_DIR, "assets", "logo.png")
 FAVICON_PATH = os.path.join(_APP_DIR, "assets", "favicon.png")
 
@@ -458,8 +471,6 @@ favicon = Image.open(FAVICON_PATH)
 # ----------------------------------------------------------------------------
 
 st.session_state.setdefault("messages", [])
-st.session_state.setdefault("view", "chat")
-st.session_state.setdefault("active_msg_id", None)
 st.session_state.setdefault("pending_question", None)
 st.session_state.setdefault("is_generating", False)
 st.session_state.setdefault("stop_event", None)
@@ -473,15 +484,61 @@ st.session_state.setdefault("active_run", None)
 # being orphaned with nobody left to read its queue.
 st.session_state.setdefault("pipeline_out_q", None)
 st.session_state.setdefault("pipeline_state", None)
+# The conversation the working "messages" list belongs to. None means a new
+# chat nobody has spoken in yet -- the row is created lazily on the first
+# message, so opening the app or clicking "ថ្មី" never leaves empty
+# conversations littering the sidebar.
+st.session_state.setdefault("conversation_id", None)
+st.session_state.setdefault("renaming_id", None)
 
-IS_DIAGNOSTICS = st.session_state["view"] == "diagnostics"
+history.init_db()
+
+# Which page is showing lives in the URL, not in session state, so every
+# answer's diagnostics has its own address: ?view=diagnostics&msg=<message id>.
+# That address is openable cold -- render_diagnostics_page() falls back to
+# looking the message up in the database when the current session doesn't
+# have it -- so it can be reloaded, bookmarked, or handed to someone else.
+DIAG_MSG_ID = st.query_params.get("msg")
+IS_DIAGNOSTICS = st.query_params.get("view") == "diagnostics" and bool(DIAG_MSG_ID)
+
+
+def open_chat():
+    st.query_params.clear()
 
 st.set_page_config(
     page_title=CHATBOT_NAME,
     page_icon=favicon,
     layout="wide" if IS_DIAGNOSTICS else "centered",
-    initial_sidebar_state="collapsed",
+    # Diagnostics is a full-width single-purpose readout with its own "Back
+    # to chat" control -- the conversation rail is noise there.
+    initial_sidebar_state="collapsed" if IS_DIAGNOSTICS else "expanded",
 )
+
+
+def ensure_conversation(question):
+    """Opens a conversation row for the working thread if it doesn't have one.
+
+    Called the moment a question is accepted, not when its answer lands. A
+    conversation begins when you ask, and the rail renders before the pipeline
+    runs -- creating the row at commit time instead left the rail showing the
+    new conversation as unselected for the whole length of the generation, and
+    only catching up on some later rerun."""
+    if st.session_state["conversation_id"] is None:
+        st.session_state["conversation_id"] = history.create_conversation(
+            history.derive_title(question)
+        )
+    return st.session_state["conversation_id"]
+
+
+def commit_message(msg):
+    """The single write-through point for finished messages.
+
+    Every path that produces a message -- normal answer, interrupted, errored,
+    out-of-domain -- goes through here rather than appending to session state
+    directly, so there is no way to add a message that silently fails to
+    persist."""
+    st.session_state["messages"].append(msg)
+    history.append_message(ensure_conversation(msg["question"]), msg)
 
 # ----------------------------------------------------------------------------
 # CSS
@@ -490,16 +547,23 @@ st.set_page_config(
 PAGE_BG = "var(--ink)" if IS_DIAGNOSTICS else "var(--parchment)"
 PAGE_FG = "var(--mist)" if IS_DIAGNOSTICS else "var(--stone)"
 BUTTON_HOVER_COLOR = "var(--signal)" if IS_DIAGNOSTICS else "var(--lacquer)"
-# Streamlit's default block-container top padding is generous, sized for
-# chat's own fixed topbar/welcome layout -- the diagnostics page has
-# neither, so that default padding just reads as dead space above the
-# Back button. Scoped to IS_DIAGNOSTICS only, so chat's layout is
-# completely untouched.
-DIAG_TOP_PADDING_CSS = (
-    '[data-testid="stAppViewContainer"] .block-container { padding-top: 1.2rem !important; }'
+# Streamlit's default block-container top padding is 96px, sized for pages
+# that put a header bar there. Neither page here does: diagnostics opens on
+# its Back button, and chat opens straight onto the thread, so on both that
+# padding is dead space. Chat goes to zero and does its own spacing in
+# .kc-thread, which is what lets the first question sit level with the rail's
+# brand instead of a screen-height below it.
+TOP_PADDING_CSS = (
+    '[data-testid="stAppViewContainer"] .block-container '
+    "{ padding-top: 1.2rem !important; }"
     if IS_DIAGNOSTICS
-    else ""
+    # Chat owns both ends: 9px above (which, plus the first message row's own
+    # 18px margin, lands the opening question level with the rail's logo) and
+    # enough below to clear the fixed chat bar and disclaimer.
+    else '[data-testid="stAppViewContainer"] .block-container '
+    "{ padding-top: 9px !important; padding-bottom: 150px !important; }"
 )
+
 
 CSS = f"""
 <style>
@@ -524,16 +588,73 @@ CSS = f"""
   --mist: #A9B9AF;
   --signal: var(--irc-secondary);
   --danger: #C0524A;
+  /* Conversation rail. A tint of --parchment rather than the --ink surface
+     the diagnostics page uses: the rail is a quiet index the eye passes over
+     on its way to the answer, and a full dark panel next to a near-white
+     thread pulls attention the wrong way. It reads as a recessed shelf of the
+     same material, separated by tone alone. */
+  --rail: #EDF2EE;
+  --rail-hover: #E2EAE4;
+  --rail-line: rgba(22,51,38,0.10);
+  /* Live width of the rail, in px, kept in sync by the observer in
+     sync_rail_width(). Fixed-position chrome (top bar, chat bar) is
+     positioned against the chat area rather than the viewport, so it can't
+     run under the rail or center itself against the wrong box. 0 is the
+     correct fallback: if the script never runs, the rail is not there. */
+  --kc-rail-w: 0px;
+  /* Side-panel toggle mark, inlined as a data URI (no external requests). */
+  --kc-panel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2.5'/%3E%3Cline x1='9.5' y1='4' x2='9.5' y2='20'/%3E%3Cpolyline points='16.2,9.5 13.7,12 16.2,14.5'/%3E%3C/svg%3E");
 }}
 
 #MainMenu {{ visibility: hidden; }}
 footer {{ visibility: hidden; }}
-[data-testid="stHeader"] {{background: transparent;}}
-[data-testid="stToolbar"] {{display: none !important;}}
+/* The toolbar is kept in the layout because Streamlit nests the control that
+   re-opens a collapsed rail inside it; its own actions are hidden below. */
+[data-testid="stToolbar"] {{
+  background: transparent !important;
+  padding: 0 !important;
+}}
+[data-testid="stAppDeployButton"],
+[data-testid="stMainMenu"] {{display: none !important;}}
+[data-testid="stExpandSidebarButton"] {{
+  display: inline-flex !important;
+  position: fixed !important;
+  top: 10px !important;
+  left: 12px !important;
+  z-index: 1000 !important;
+}}
+[data-testid="stExpandSidebarButton"] button,
+[data-testid="stExpandSidebarButton"] svg {{
+  color: var(--stone) !important;
+  fill: var(--stone) !important;
+  opacity: 0.55;
+}}
+[data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"] {{
+  width: 19px !important;
+  height: 19px !important;
+  font-size: 0 !important;
+  background-color: var(--stone);
+  -webkit-mask: var(--kc-panel-icon) center / contain no-repeat;
+  mask: var(--kc-panel-icon) center / contain no-repeat;
+  opacity: 0.6;
+  transform: scaleX(-1);  /* chevron points the way the rail will move */
+}}
 [data-testid="stDecoration"] {{display: none !important;}}
 [data-testid="stStatusWidget"] {{display: none !important;}}
 [data-testid="stForm"] div[data-testid="InputInstructions"] {{display: none !important;}}
-header {{display: none !important;}}
+/* The header is flattened to nothing rather than removed. Streamlit renders
+   control that RE-OPENS a collapsed rail into this header, and nowhere else
+   -- `display: none` here left the rail collapsible but not reopenable, with
+   a full page reload the only way back. Its decorative contents are hidden
+   individually above. */
+header, [data-testid="stHeader"] {{
+  background: transparent !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}}
+
 
 html, body, [data-testid="stAppViewContainer"], .stApp {{
   background: {PAGE_BG} !important;
@@ -541,16 +662,30 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   font-family: 'IBM Plex Sans', sans-serif;
 }}
 
-{DIAG_TOP_PADDING_CSS}
+{TOP_PADDING_CSS}
 
-.kc-welcome-wrap {{ margin-top: 16vh; text-align: center; }}
-.kc-welcome-lockup {{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  text-align: left;
-  max-width: calc(100vw - 40px);
+.kc-welcome-wrap {{ margin-top: 26vh; text-align: center; }}
+.kc-greeting {{
+  font-family: 'Moul', serif;
+  font-size: 27px;
+  line-height: 1.75;
+  color: var(--lacquer);
+}}
+.kc-greeting-sub {{
+  font-family: 'Hanuman', sans-serif;
+  font-size: 16px;
+  line-height: 1.9;
+  color: var(--stone);
+  opacity: 0.75;
+  margin-top: 10px;
+}}
+.kc-greeting-hint {{
+  font-family: 'Hanuman', sans-serif;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--stone);
+  opacity: 0.5;
+  margin-top: 4px;
 }}
 .kc-logo {{
   display: block;
@@ -559,33 +694,6 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   height: 48px;
   object-fit: contain;
   border-radius: 50%;
-}}
-.kc-welcome-lockup .kc-logo {{
-  width: 64px;
-  height: 64px;
-}}
-.kc-eyebrow {{
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--brass);
-  text-align: center;
-}}
-.kc-title-big {{
-  font-family: 'Moul', serif !important;
-  font-size: 30px !important;
-  color: var(--lacquer) !important;
-  margin: 17px 0 0 0 !important;
-  line-height: 1.3 !important;
-  white-space: normal;
-}}
-.kc-subtitle {{
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 13px;
-  color: var(--stone);
-  opacity: 0.7;
-  margin-top: 16px;
 }}
 .kc-model-pill {{
   display: inline-flex;
@@ -696,25 +804,39 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   outline-offset: 2px;
 }}
 
-/* ---------- Compact fixed top bar (chat state) ---------- */
-.kc-topbar {{
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 998;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 20px;
-  background: var(--parchment);
-  border-bottom: 1px solid var(--brass-soft);
+/* The chat area carries no top chrome at all -- the identity lives in the
+   rail (.kc-brand), so the thread starts at the top of its own column. */
+/* The helper scripts (sync_rail_width, disable_rail_resize, scroll_to_bottom,
+   the keydown guard) each render as a 0-height iframe, but they are still flex
+   children of the page's vertical block -- which has a 16px gap -- so every one
+   of them contributed a full gap of dead space above the first message even at
+   zero height. Taking them out of flow drops those gaps while leaving the
+   iframes live; `display: none` would stop their scripts from running at all. */
+/* Every element in a vertical block spends a 16px flex gap, including the ones
+   that render nothing: the helper-script iframes, the injected <style> block,
+   the fixed-position disclaimer, and the empty .kc-thread div. Left in flow
+   they stacked up into a screenful of dead space above the first question --
+   space that was then scrollable. Taken out of flow they cost nothing, and the
+   iframes stay live (display:none would stop their scripts running). */
+[data-testid="stAppViewContainer"] [data-testid="stElementContainer"]:has(> iframe.stIFrame),
+[data-testid="stAppViewContainer"] [data-testid="stElementContainer"]:has(style),
+[data-testid="stAppViewContainer"] [data-testid="stElementContainer"]:has(.kc-disclaimer),
+[data-testid="stAppViewContainer"] [data-testid="stElementContainer"]:has(.kc-thread) {{
+  position: absolute !important;
+  top: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
 }}
-.kc-topbar .kc-logo {{ width: 40px; height: 40px; }}
-.kc-topbar-title {{ font-family: 'Moul', serif; font-size: 15px; line-height: 1.35; color: var(--lacquer); }}
-.kc-topbar-sub {{ font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--brass); opacity: 0.85; }}
 
-.kc-thread {{ padding-top: 82px; padding-bottom: 96px; }}
+/* .kc-thread carries NO spacing. It looks like a wrapper around the message
+   list but it never was one: Streamlit sanitises each st.markdown block on its
+   own, so the opening <div> is auto-closed immediately and renders as an empty
+   standalone box -- the messages are siblings after it, not children. Any
+   padding put here therefore became a ~160px empty box sitting above the
+   thread, which is exactly the dead space that pushed the first question down
+   the screen. The real spacing lives on .block-container. */
+.kc-thread {{ padding: 0; margin: 0; }}
 
 .kc-msg-user-row {{ display: flex; justify-content: flex-end; margin: 18px 0 6px 0; }}
 .kc-msg-user {{
@@ -739,22 +861,140 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   min-height: 1.4em;
 }}
 
-.kc-sources-block {{ margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }}
-.kc-source-chip {{ border-left: 2px solid var(--brass); padding: 4px 0 4px 12px; }}
-.kc-source-chip .name {{ font-family: 'Hanuman', sans-serif; font-size: 13.5px; color: var(--stone); }}
-.kc-source-chip .id {{ font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--brass); margin-top: 2px; }}
-
-.kc-msg-actions {{ margin-top: 10px; }}
-
-.kc-disclaimer {{
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 11.5px;
+/* Sources read as part of the answer, not as a separate labelled panel: body
+   type, ordinary bullets, and the document name as a plain link. The brass
+   rules and monospace chunk ids that used to be here announced a system
+   detail (which chunk was retrieved) in the loudest colour on the page. */
+.kc-sources-title {{
+  font-family: 'Hanuman', sans-serif;
+  font-size: 14px;
   color: var(--stone);
-  opacity: 0.65;
-  border-top: 1px dashed var(--brass-soft);
-  padding-top: 8px;
-  margin-top: 14px;
-  line-height: 1.6;
+  opacity: 0.75;
+  margin-top: 20px;
+}}
+.kc-sources-list {{
+  margin: 6px 0 0 0;
+  padding-left: 20px;
+  list-style: disc;
+}}
+.kc-sources-list li {{
+  font-family: 'Hanuman', sans-serif;
+  font-size: 14px;
+  line-height: 1.95;
+  color: var(--stone);
+}}
+.kc-sources-list li::marker {{ color: var(--stone); opacity: 0.45; }}
+.kc-sources-list a {{
+  color: var(--lacquer);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}}
+.kc-sources-list a:hover {{
+  color: var(--lacquer-deep);
+  border-bottom-color: var(--lacquer-deep);
+}}
+.kc-sources-list a:focus-visible {{
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}}
+
+/* Pinned under the chat bar, sharing its exact left/right bracket so the two
+   read as one unit sitting in the chat area. */
+.kc-disclaimer {{
+  position: fixed;
+  left: var(--kc-rail-w, 0px);
+  right: 0;
+  bottom: 14px;
+  margin: 0 auto;
+  width: min(560px, calc(100vw - var(--kc-rail-w, 0px) - 48px));
+  z-index: 999;
+  font-family: 'Hanuman', sans-serif;
+  font-size: 10.5px;
+  line-height: 1.75;
+  text-align: center;
+  color: var(--stone);
+  opacity: 0.5;
+}}
+
+/* ---- Answer action row ----
+   Four controls of the same kind in one flex row: they align by construction,
+   and each carries a plain title attribute so the tooltips match. */
+.kc-actions {{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  overflow: visible;
+}}
+.kc-act {{
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--stone);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: background 120ms ease, opacity 120ms ease, color 120ms ease;
+}}
+/* Tooltip. The four controls are plain elements, so they'd otherwise fall back
+   to the browser's native title bubble -- which is what made the copy icon look
+   different from its neighbours in the first place. Drawing it here gives all
+   four the same styled tooltip, matching the ones Streamlit renders elsewhere
+   in the app. */
+.kc-act::after {{
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--parchment-soft);
+  color: var(--stone);
+  font-family: 'Hanuman', sans-serif;
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 3px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  /* The page is near-white too, so the tooltip needs an edge and a shadow to
+     separate from it -- colour alone won't do the work here. */
+  border: 1px solid var(--rail-line);
+  box-shadow: 0 2px 8px rgba(22,51,38,0.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 1000;
+}}
+.kc-act:hover::after,
+.kc-act:focus-visible::after {{ opacity: 1; }}
+
+/* The diagnostics control is an anchor, and Streamlit colours markdown links
+   its own link-blue with a rule that outranks .kc-act -- so it is restated
+   here for the anchor specifically, or one of the four icons would be blue. */
+a.kc-act, a.kc-act:hover, a.kc-act:visited {{
+  color: var(--stone) !important;
+  text-decoration: none !important;
+}}
+.kc-act svg {{ width: 18px; height: 18px; }}
+.kc-act:hover {{
+  background: rgba(22,51,38,0.07);
+  color: var(--stone);
+  opacity: 1;
+}}
+.kc-act:focus-visible {{
+  outline: 2px solid var(--brass);
+  outline-offset: 1px;
+}}
+/* Copy confirms itself for a moment; the reactions stay lit while chosen. */
+.kc-act-copy.is-done,
+.kc-act-thumb.is-on {{
+  color: var(--lacquer);
+  opacity: 1;
 }}
 
 /* Streamlit wraps every element (markdown, button, etc.) in its own
@@ -800,16 +1040,20 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
    :has(), so the outer box itself never moves or resizes. */
 .st-key-kc_chatbar {{
   position: fixed !important;
-  left: 50% !important;
-  bottom: 24px !important;
-  transform: translateX(-50%) !important;
+  /* Centred on the chat area, not the viewport: left/right bracket the space
+     beside the rail and `margin: auto` centres within that bracket, so the bar
+     sits under the thread it belongs to at any rail width (including 0, when
+     the rail is collapsed). Sits above the pinned disclaimer. */
+  left: var(--kc-rail-w, 0px) !important;
+  right: 0 !important;
+  bottom: 72px !important;
+  transform: none !important;
+  margin: 0 auto !important;
   contain: none !important;
   filter: none !important;
   will-change: auto !important;
   z-index: 999;
-  max-width: 560px;
-  width: calc(100% - 48px);
-  margin: 0 !important;
+  width: min(560px, calc(100vw - var(--kc-rail-w, 0px) - 48px));
 }}
 .st-key-kc_chatbar [data-testid="stForm"] {{
   margin: 0 !important;
@@ -1139,25 +1383,413 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 }}
 
 @media (max-width: 560px) {{
-  .kc-welcome-lockup {{
-    flex-direction: column;
-    text-align: center;
-    gap: 12px;
-  }}
-  .kc-title-big {{
-    font-size: 24px !important;
-    text-align: center;
-  }}
-  .kc-topbar {{
-    align-items: flex-start;
-    padding: 10px 14px;
-  }}
-  .kc-topbar-title {{
-    font-size: 13px;
-  }}
   .kc-thread {{
-    padding-top: 96px;
+    padding-bottom: 168px;
   }}
+  .kc-greeting {{
+    font-size: 20px;
+  }}
+  .kc-welcome-wrap {{
+    margin-top: 16vh;
+  }}
+}}
+
+/* ---------- Conversation rail ----------
+   The rail sits on --rail, a tint of the parchment used by the
+   thread, separated by tone rather than by a change of material. Active rows
+   are marked with the brass left rule used by .kc-source-chip, tying the rail
+   to the rest of the system. Everything below is scoped under
+   [data-testid="stSidebar"] so it can't leak into the chat surface's own
+   button and input styling. */
+[data-testid="stSidebar"] {{
+  background: var(--rail) !important;
+  border-right: 1px solid var(--rail-line);
+  /* Fixed width, not resizable. The rail holds one thing -- a list of
+     conversation titles -- and it is sized so the brand lockup sits on one
+     line; letting it be dragged only offers the chance to break that. It is
+     either open at this width or closed. Locking all three width properties
+     overrides the inline width Streamlit's drag handle writes. */
+  width: 290px !important;
+  min-width: 290px !important;
+  max-width: 290px !important;
+  flex: 0 0 290px !important;
+  /* Pinned to the viewport: the rail is navigation, and navigation that
+     scrolls away with the conversation is navigation you have to scroll back
+     to find. Sticky rather than fixed so it stays a flex sibling of the chat
+     column -- fixed would take it out of flow and let the thread run beneath
+     it. */
+  position: sticky !important;
+  top: 0 !important;
+  align-self: flex-start !important;
+  height: 100vh !important;
+}}
+/* The drag handle itself is removed by disable_rail_resize() -- it carries no
+   test id and only a build-generated class name, so there is no stable
+   selector to write here. */
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] {{
+  background: var(--rail) !important;
+}}
+/* Streamlit reserves a 60px band at the top of the rail for the collapse
+   control alone, which is pure dead space above the brand. The band is
+   collapsed to nothing and the control is pinned into the brand's own row --
+   brand left, collapse right, on one line at the very top. .kc-brand keeps a
+   right inset so a long title never runs under the control. */
+[data-testid="stSidebar"] [data-testid="stSidebarHeader"] {{
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  position: relative !important;
+}}
+/* Pinned to the rail's top-right corner, level with the brand on its left --
+   one row holding identity and the control that hides it. */
+[data-testid="stSidebarCollapseButton"] {{
+  position: absolute !important;
+  /* Centred on the brand's two-line block -- level with the gap between the
+     Khmer title and the English line, not with the top of the rail. */
+  top: 30px !important;
+  /* Aligns the GLYPH -- not the button box -- with the right end of the rail's
+     divider rules, so the icon terminates the line. The glyph sits 6px inside
+     its own hit area (button margin plus centring slack), so the box is pushed
+     that far past the line to put the mark itself on it. The hit area still
+     ends well inside the rail. */
+  right: -6px !important;
+  z-index: 3;
+  /* Streamlit reveals this only on hover. It stays visible here: it is the
+     only way to collapse the rail, and a control you have to discover by
+     hovering is not one users find. */
+  visibility: visible !important;
+  opacity: 1 !important;
+}}
+[data-testid="stSidebarCollapseButton"] button {{
+  padding-right: 0 !important;
+}}
+/* Streamlit's glyph here is a double chevron, which reads as "skip to the
+   end" rather than "hide this panel". Swapped for the standard side-panel
+   mark -- a panel outline with the rail picked out and a chevron pointing
+   the way it will move. Drawn as a mask so it takes its colour from the
+   rule above rather than carrying its own. */
+[data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"] {{
+  width: 19px !important;
+  height: 19px !important;
+  font-size: 0 !important;
+  background-color: var(--stone);
+  -webkit-mask: var(--kc-panel-icon) center / contain no-repeat;
+  mask: var(--kc-panel-icon) center / contain no-repeat;
+  opacity: 0.6;
+}}
+[data-testid="stSidebar"] .block-container,
+[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{
+  padding-top: 0 !important;
+}}
+/* Streamlit's collapse chevron is near-invisible against the rail. */
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stSidebarCollapseButton"] svg {{
+  color: var(--stone) !important;
+  fill: var(--stone) !important;
+  opacity: 0.55;
+}}
+
+.kc-brand {{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 44px 16px 10px;
+}}
+.kc-brand .kc-logo {{ width: 34px; height: 34px; }}
+.kc-brand-title {{
+  font-family: 'Moul', serif;
+  /* Sized to clear the drag floor on one line -- see the rail's min-width. */
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--lacquer);
+  white-space: nowrap;
+}}
+.kc-brand-sub {{
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.02em;
+  color: var(--brass);
+  margin-top: 2px;
+  white-space: nowrap;
+}}
+
+.kc-rail-label {{
+  /* Hanuman, not the mono face the chat surface uses for its eyebrows: IBM
+     Plex Mono has no Khmer coverage, so a mono label renders through a
+     fallback face at a size that clips the diacritics. */
+  font-family: 'Hanuman', sans-serif;
+  font-size: 11.5px;
+  line-height: 2;
+  letter-spacing: 0.04em;
+  color: var(--brass);
+  padding: 14px 10px 10px 10px;
+  border-top: 1px solid var(--rail-line);
+  margin-top: 10px;
+}}
+/* Centred and set down from the heading: with no rows to head, a line hugging
+   the left edge reads as a truncated first entry rather than as the state of
+   an empty list. */
+.kc-rail-empty {{
+  font-family: 'Hanuman', sans-serif;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--stone);
+  opacity: 0.55;
+  padding: 34px 10px 6px 10px;
+  text-align: center;
+}}
+
+/* Row buttons: tertiary = an inactive conversation, primary = the open one. */
+[data-testid="stSidebar"] .stButton button {{
+  font-family: 'Hanuman', sans-serif !important;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
+  /* Khmer stacks diacritics above and below the baseline; the tighter
+     line-heights used on Latin UI text clip them. */
+  line-height: 1.9 !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  /* The chat surface styles buttons as mono uppercase brass links; the rail's
+     rows are navigation carrying Khmer sentences, so both of those inherited
+     text treatments have to be explicitly undone here. */
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  transition: background 120ms ease, color 120ms ease;
+}}
+/* Undo the chat surface's negative button margin, which exists to tighten the
+   "មើលព័ត៌មានលម្អិត" link under an answer and would overlap the rail's rows. */
+[data-testid="stSidebar"] [data-testid="stButton"],
+[data-testid="stSidebar"] [data-testid="stElementContainer"]:has([data-testid="stButton"]) {{
+  margin-bottom: 0 !important;
+}}
+/* Long Khmer titles are truncated with an ellipsis rather than wrapping, so
+   every row is the same height. The line box has to clear Khmer's stacked
+   diacritics first -- at a tighter line-height, `overflow: hidden` crops
+   them. */
+[data-testid="stSidebar"] .stButton button p {{
+  /* Streamlit sets the font on this inner <p>, not on the button, so the
+     button-level family never reaches the label -- Khmer fell back to a Latin
+     face that has no room for its stacked diacritics and cropped them. */
+  font-family: 'Hanuman', sans-serif !important;
+  font-size: 13.5px !important;
+  line-height: 2.1 !important;
+}}
+/* Streamlit wraps the label in two nested flex divs that centre it, which is
+   what actually positions the text -- text-align on the button never reaches
+   it. The rows are nav targets, so the label starts at the row's own padding
+   edge, in line with the section heading above it. */
+[data-testid="stSidebar"] .stButton button > div,
+[data-testid="stSidebar"] .stButton button > div > span {{
+  width: 100% !important;
+  justify-content: flex-start !important;
+}}
+[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"] {{
+  width: 100% !important;
+  text-align: left !important;
+}}
+[data-testid="stSidebar"] .stButton button p {{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}}
+[data-testid="stSidebar"] .stButton button[kind="tertiary"] {{
+  background: transparent !important;
+  color: var(--stone) !important;
+  border: none !important;
+}}
+[data-testid="stSidebar"] .stButton button:hover {{
+  /* The chat surface underlines its buttons because they read as links; the
+     rail's rows are full-width nav targets and use a fill instead. */
+  text-decoration: none !important;
+  background: transparent !important;
+}}
+
+/* ---- Conversation row ----
+   Hover and selection are painted on the row wrapper, so the fill runs the
+   full width of the row and the overflow menu sits inside it rather than
+   stranded on the rail beside it. Selection is the fill alone -- an extra
+   rule down the edge was one marker too many for a two-state list. */
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_"] {{
+  border-radius: 8px;
+  transition: background 120ms ease;
+}}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_"]:hover {{
+  background: var(--rail-hover);
+}}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_active"],
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_active"]:hover {{
+  background: var(--lacquer-mist);
+}}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_active"] .stButton button {{
+  color: var(--lacquer-deep) !important;
+  font-weight: 500 !important;
+}}
+[data-testid="stSidebar"] .stButton button:focus-visible {{
+  outline: 2px solid var(--brass) !important;
+  outline-offset: 1px;
+}}
+
+/* New chat is the same shape as a conversation row -- it belongs to the same
+   list and does the same kind of thing -- distinguished only by the accent
+   colour and the leading +. A solid full-width CTA here would outweigh the
+   conversations it sits above. */
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] {{
+  margin-top: 10px !important;
+}}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button {{
+  color: var(--lacquer) !important;
+  font-weight: 500 !important;
+  align-items: center !important;
+}}
+/* The label carries a 2.1 line-height so Khmer diacritics clear; the icon
+   does not, so without an explicit centre the two sit on different lines. */
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button > div,
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button > div > span {{
+  align-items: center !important;
+}}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button p {{
+  overflow: visible !important;
+}}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button:hover {{
+  background: var(--rail-hover) !important;
+  color: var(--lacquer-deep) !important;
+}}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button [data-testid="stIconMaterial"] {{
+  font-size: 17px !important;
+  line-height: 2.1 !important;
+  margin-right: 2px;
+}}
+
+[data-testid="stSidebar"] .stButton button:disabled {{
+  opacity: 0.45 !important;
+}}
+
+/* Per-row overflow menu. Hidden until the row is hovered -- a column of dots
+   down a list of titles is noise, and the menu is only ever wanted for the row
+   the pointer is already on. It stays visible while its own menu is open
+   (aria-expanded), or the trigger would vanish under the panel it opened, and
+   while focused, so keyboard users can reach it at all. */
+[data-testid="stSidebar"] [data-testid="stPopover"] button {{
+  background: transparent !important;
+  color: var(--stone) !important;
+  border: 1px solid transparent !important;
+  padding: 7px 4px !important;
+  min-height: 0 !important;
+  justify-content: center !important;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_"]:hover [data-testid="stPopover"] button,
+[data-testid="stSidebar"] [data-testid="stPopover"] button[aria-expanded="true"],
+[data-testid="stSidebar"] [data-testid="stPopover"] button:focus-visible {{
+  opacity: 1;
+}}
+/* The popover's dropdown chevron doubles up with the "⋯" glyph that already
+   says "more actions". */
+[data-testid="stSidebar"] [data-testid="stPopover"] button [data-testid="stIconMaterial"] {{
+  display: none !important;
+}}
+[data-testid="stSidebar"] [data-testid="stPopover"] button:hover {{
+  background: var(--rail-hover) !important;
+  color: var(--lacquer) !important;
+}}
+[data-testid="stSidebar"] [data-testid="stTextInput"] input {{
+  background: var(--parchment-soft) !important;
+  color: var(--stone) !important;
+  border: 1px solid var(--rail-line) !important;
+  font-family: 'Hanuman', sans-serif !important;
+  font-size: 13px !important;
+}}
+[data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {{
+  gap: 2px !important;
+}}
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {{
+  gap: 2px !important;
+}}
+/* Menu items: icon, then label, left aligned, one per line. */
+[class*="st-key-kc_rail_rename_open_"] [data-testid="stButton"],
+[class*="st-key-kc_rail_delete_"] [data-testid="stButton"] {{
+  margin-bottom: 0 !important;
+}}
+[class*="st-key-kc_rail_rename_open_"] button,
+[class*="st-key-kc_rail_delete_"] button {{
+  background: transparent !important;
+  border: none !important;
+  min-height: 36px !important;
+  font-family: 'Hanuman', sans-serif !important;
+  font-size: 13.5px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 7px 10px !important;
+  border-radius: 7px !important;
+  color: var(--stone) !important;
+}}
+[class*="st-key-kc_rail_rename_open_"] button p,
+[class*="st-key-kc_rail_delete_"] button p {{
+  font-family: 'Hanuman', sans-serif !important;
+  font-size: 13.5px !important;
+  line-height: 2.1 !important;
+}}
+[class*="st-key-kc_rail_rename_open_"] button:hover {{
+  background: var(--rail-hover) !important;
+  color: var(--stone) !important;
+  text-decoration: none !important;
+}}
+/* Delete is the only destructive item on the rail, and it reads as one.
+   Declared after the shared menu-item colour above so it wins. */
+[class*="st-key-kc_rail_delete_"] button,
+[class*="st-key-kc_rail_delete_"] button:hover {{
+  color: var(--danger) !important;
+}}
+[class*="st-key-kc_rail_delete_"] button:hover {{
+  background: rgba(192,82,74,0.10) !important;
+  text-decoration: none !important;
+}}
+[class*="st-key-kc_rail_delete_"] button [data-testid="stIconMaterial"] {{
+  color: var(--danger) !important;
+}}
+[class*="st-key-kc_rail_rename_open_"] button [data-testid="stIconMaterial"],
+[class*="st-key-kc_rail_delete_"] button [data-testid="stIconMaterial"] {{
+  font-size: 17px !important;
+  opacity: 0.7;
+}}
+
+/* Inline rename editor -- sits exactly where the row's title was. */
+[data-testid="stSidebar"] [class*="st-key-kc_rail_editing_"] input {{
+  padding: 5px 9px !important;
+  border: 1px solid var(--lacquer) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 3px var(--lacquer-mist) !important;
+}}
+
+/* The popover panel ships with padding sized for form content; a two-item
+   menu only needs enough to keep the rows off the edges. */
+[data-testid="stPopoverBody"] {{
+  padding: 8px !important;
+  min-width: 0 !important;
+}}
+[data-testid="stPopoverBody"] [data-testid="stVerticalBlock"] {{
+  gap: 4px !important;
+}}
+[data-testid="stPopoverBody"] [data-testid="stElementContainer"] {{
+  margin-bottom: 0 !important;
+}}
+
+.kc-rail-menu-title {{
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 6px;
 }}
 </style>
 """
@@ -1185,6 +1817,109 @@ components.html(
     """,
     height=0,
 )
+
+
+def sync_rail_width():
+    """Publishes the rail's live width to the parent document as --kc-rail-w.
+
+    The fixed-position top bar, chat bar, and disclaimer are positioned
+    against the chat area rather than the viewport, which means they need a
+    number CSS cannot derive on its own: the sidebar's width is set by
+    Streamlit at runtime, changes when the user drags or collapses it, and is
+    animated in between. A ResizeObserver covers drag and collapse; the rAF
+    pass that follows a transitionstart covers the animation frames in
+    between, so the bars travel with the rail instead of snapping at the end.
+
+    Runs inside a 0-height components.html iframe, so it reaches back out to
+    window.parent -- same approach as the keydown listener and
+    scroll_to_bottom() below."""
+    components.html(
+        """
+        <script>
+        (function () {
+          var doc = window.parent.document;
+          function measure() {
+            var rail = doc.querySelector('[data-testid="stSidebar"]');
+            // Collapsed rails are translated off-screen rather than removed,
+            // so the right edge -- clamped at 0 -- is what the chat area
+            // actually starts at, in both states.
+            var w = rail ? Math.max(0, rail.getBoundingClientRect().right) : 0;
+            doc.documentElement.style.setProperty('--kc-rail-w', w + 'px');
+          }
+          function track() {
+            var start = null;
+            function step(t) {
+              if (start === null) start = t;
+              measure();
+              if (t - start < 600) window.requestAnimationFrame(step);
+            }
+            window.requestAnimationFrame(step);
+          }
+          measure();
+          var rail = doc.querySelector('[data-testid="stSidebar"]');
+          if (rail) {
+            new window.parent.ResizeObserver(measure).observe(rail);
+            rail.addEventListener('transitionstart', track);
+          }
+          // The collapse control lives outside the rail, and clicking it is
+          // the one case where the rail is about to move before any observer
+          // on it has fired.
+          doc.addEventListener('click', function (e) {
+            if (e.target.closest('[data-testid="stSidebarCollapseButton"], '
+                                 + '[data-testid="stSidebarCollapsedControl"]')) {
+              track();
+            }
+          }, true);
+          window.parent.addEventListener('resize', measure);
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def disable_rail_resize():
+    """Removes Streamlit's sidebar drag handle.
+
+    The rail is a fixed width by design, so the handle does nothing but put a
+    col-resize cursor on the border and invite a drag that CSS then refuses.
+    It cannot be hidden from the stylesheet: Streamlit gives it no data-testid
+    and only a build-generated emotion class that changes between releases.
+    What it does have, unmistakably, is `cursor: col-resize` -- so it's found
+    by that computed style instead, which no version bump can rename.
+
+    A MutationObserver re-runs the sweep because Streamlit re-mounts chrome on
+    rerun, which would otherwise restore the handle after the first pass."""
+    components.html(
+        """
+        <script>
+        (function () {
+          var doc = window.parent.document;
+          function sweep() {
+            var all = doc.querySelectorAll('div');
+            for (var i = 0; i < all.length; i++) {
+              var el = all[i];
+              if (el.dataset.kcResizeOff) continue;
+              var cur = window.parent.getComputedStyle(el).cursor;
+              if (cur === 'col-resize' || cur === 'ew-resize') {
+                el.dataset.kcResizeOff = '1';
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('pointer-events', 'none', 'important');
+                el.style.setProperty('cursor', 'default', 'important');
+              }
+            }
+          }
+          sweep();
+          var pending = null;
+          new window.parent.MutationObserver(function () {
+            if (pending) return;
+            pending = window.setTimeout(function () { pending = null; sweep(); }, 80);
+          }).observe(doc.body, {childList: true, subtree: true});
+        })();
+        </script>
+        """,
+        height=0,
+    )
 
 
 def scroll_to_bottom():
@@ -2007,15 +2742,186 @@ def render_ladder_html(current_idx, phase_elapsed):
 # ----------------------------------------------------------------------------
 
 
-def render_full_header(model_name):
+def open_conversation(conv_id):
+    """Swaps the working conversation. Any in-flight generation state belongs
+    to the conversation being left, so it's dropped here rather than carried
+    across -- the background thread is already told to stop by the caller."""
+    st.session_state["conversation_id"] = conv_id
+    st.session_state["messages"] = history.load_messages(conv_id) if conv_id else []
+    st.session_state["pending_question"] = None
+    st.session_state["is_generating"] = False
+    st.session_state["active_run"] = None
+    st.session_state["stop_event"] = None
+    st.session_state["pipeline_out_q"] = None
+    st.session_state["pipeline_state"] = None
+    st.session_state["renaming_id"] = None
+
+
+def commit_rename(conv_id, widget_key):
+    """Saves an inline row rename and closes the editor.
+
+    Runs as the text input's on_change, so Enter and clicking away both commit
+    -- there is no separate save button to hunt for. An empty or whitespace-only
+    title is ignored by history.rename_conversation(), which leaves the row
+    named as it was rather than blank."""
+    history.rename_conversation(conv_id, st.session_state.get(widget_key, ""))
+    st.session_state["renaming_id"] = None
+
+
+def focus_rename_input():
+    """Puts the cursor in the inline rename field with its text selected.
+
+    Streamlit has no autofocus, and a rename box you still have to click into
+    is a rename box that looks broken. Runs in the usual 0-height iframe and
+    reaches into window.parent, same as the other helpers here."""
+    components.html(
+        """
+        <script>
+        (function () {
+          var doc = window.parent.document;
+          var tries = 0;
+          function grab() {
+            var el = doc.querySelector(
+              '[data-testid="stSidebar"] [class*="st-key-kc_rail_editing_"] input'
+            );
+            if (el) { el.focus(); el.select(); return; }
+            if (tries++ < 20) window.setTimeout(grab, 50);
+          }
+          grab();
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def render_sidebar():
+    """The conversation rail.
+
+    Rows are disabled while an answer is streaming: switching conversations
+    mid-generation would orphan the background thread and file its answer
+    against whichever conversation happened to be open when it finished. Stop
+    the answer first, then switch -- the disabled state says so.
+    """
+    # A question accepted on the previous run has not reached commit_message()
+    # yet -- its conversation is opened here, before the first row is drawn,
+    # so the rail shows it selected from the moment generation starts.
+    pending = st.session_state.get("pending_question")
+    if pending:
+        ensure_conversation(pending)
+
+    is_gen = st.session_state["is_generating"]
+    active_id = st.session_state["conversation_id"]
+
+    with st.sidebar:
+        render_rail_brand()
+        if st.button(
+            "ការសន្ទនាថ្មី",
+            key="kc_rail_new",
+            icon=":material/add:",
+            type="tertiary",
+            width="stretch",
+            disabled=is_gen or (not st.session_state["messages"] and active_id is None),
+        ):
+            open_conversation(None)
+            st.rerun()
+
+        st.markdown(
+            '<div class="kc-rail-label">ការសន្ទនា</div>', unsafe_allow_html=True
+        )
+
+        if st.session_state["renaming_id"] is not None:
+            focus_rename_input()
+
+        conversations = history.list_conversations()
+        if not conversations:
+            st.markdown(
+                '<div class="kc-rail-empty">មិនមានការសន្ទនា</div>',
+                unsafe_allow_html=True,
+            )
+            return
+
+        for conv in conversations:
+            conv_id = conv["id"]
+            is_active = conv_id == active_id
+            # The active fill and the hover fill are painted on this wrapper
+            # rather than on the title button, so they span the whole row --
+            # the overflow menu sits inside the highlight instead of stranded
+            # on the rail beside it. The key encodes the state because CSS is
+            # the only thing that can style a Streamlit container.
+            row_key = (
+                f"kc_rail_row_active_{conv_id}" if is_active else f"kc_rail_row_{conv_id}"
+            )
+            if st.session_state["renaming_id"] == conv_id:
+                # The row turns into its own editor: the title is edited where
+                # the title is, not in a field tucked inside the menu that
+                # opened it. Enter (or clicking away) commits via on_change.
+                with st.container(key=f"kc_rail_editing_{conv_id}"):
+                    widget_key = f"kc_rail_rename_{conv_id}"
+                    st.text_input(
+                        "ឈ្មោះការសន្ទនា",
+                        value=conv["title"],
+                        label_visibility="collapsed",
+                        key=widget_key,
+                        on_change=commit_rename,
+                        args=(conv_id, widget_key),
+                    )
+                continue
+
+            with st.container(key=row_key):
+                col_title, col_menu = st.columns([1, 0.17])
+                with col_title:
+                    if st.button(
+                        conv["title"],
+                        key=f"kc_rail_open_{conv_id}",
+                        width="stretch",
+                        type="tertiary",
+                        disabled=is_gen,
+                        help=("បញ្ឈប់ចម្លើយមុននឹងប្តូរការសន្ទនា" if is_gen else None),
+                    ):
+                        if not is_active:
+                            open_conversation(conv_id)
+                        st.rerun()
+                with col_menu:
+                    with st.popover(
+                        "⋯",
+                        width="stretch",
+                        disabled=is_gen,
+                        key=f"kc_rail_menu_{conv_id}",
+                    ):
+                        if st.button(
+                            "ផ្លាស់ប្តូរឈ្មោះ",
+                            key=f"kc_rail_rename_open_{conv_id}",
+                            icon=":material/edit:",
+                            width="stretch",
+                        ):
+                            st.session_state["renaming_id"] = conv_id
+                            st.rerun()
+                        if st.button(
+                            "លុបការសន្ទនា",
+                            key=f"kc_rail_delete_{conv_id}",
+                            icon=":material/delete:",
+                            width="stretch",
+                        ):
+                            history.delete_conversation(conv_id)
+                            if is_active:
+                                # The open conversation just stopped existing
+                                # -- land on a fresh one rather than a thread
+                                # whose messages have no home to be saved to.
+                                open_conversation(None)
+                            st.rerun()
+
+
+def render_welcome_greeting():
+    """The welcome state's centre column. The logo and title do NOT live here
+    -- they stay in the fixed top bar in every state, so the identity never
+    moves between the welcome screen and the thread. What's left in the middle
+    is an invitation to type, which is the only thing this screen asks for."""
     st.markdown(
         f'<div class="kc-welcome-wrap">'
-        f'<div class="kc-eyebrow">RAG &middot; Insurance Law Corpus</div>'
-        f'<div class="kc-welcome-lockup">'
-        f"{IRC_LOGO_HTML}"
-        f'<div class="kc-title-big">{CHATBOT_NAME}</div>'
-        f"</div>"
-        f'<div class="kc-subtitle">{CHATBOT_SUBTITLE}</div>'
+        f'<div class="kc-greeting">{html.escape(WELCOME_GREETING)}</div>'
+        f'<div class="kc-greeting-sub">{html.escape(WELCOME_SUBLINE)}</div>'
+        f'<div class="kc-greeting-hint">{html.escape(WELCOME_HINT)}</div>'
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -2040,12 +2946,16 @@ def render_welcome_form():
         st.rerun()
 
 
-def render_compact_topbar(model_name):
+def render_rail_brand():
+    """The product identity, at the top of the rail above the conversation
+    list. It lives here rather than in a bar over the thread so the chat area
+    is nothing but the conversation -- the identity sits with the navigation,
+    and collapsing the rail gives the answer the full width."""
     st.markdown(
-        f'<div class="kc-topbar">{IRC_LOGO_HTML}'
+        f'<div class="kc-brand">{IRC_LOGO_HTML}'
         f"<div>"
-        f'<div class="kc-topbar-title">{CHATBOT_NAME}</div>'
-        f'<div class="kc-topbar-sub">{CHATBOT_SUBTITLE}</div>'
+        f'<div class="kc-brand-title">{CHATBOT_NAME}</div>'
+        f'<div class="kc-brand-sub">{CHATBOT_SUBTITLE}</div>'
         f"</div>"
         f"</div>",
         unsafe_allow_html=True,
@@ -2099,36 +3009,221 @@ def render_input_bar():
     return (None, None)
 
 
+# Chunk ids are "<document id>_chunk_<n>" and document ids are
+# "<type>_<nn>", where the type names the folder the PDF sits in.
+_CHUNK_SUFFIX_RE = re.compile(r"_chunk_\d+$")
+SOURCE_PDF_DIRS = {
+    "law": "laws",
+    "prakas": "prakas",
+    "sub_decree": "sub_decrees",
+    "guidance": "guidance",
+}
+
+
+def document_id_for_chunk(chunk_id):
+    """"law_04_chunk_9" -> "law_04"."""
+    return _CHUNK_SUFFIX_RE.sub("", str(chunk_id))
+
+
+@st.cache_resource(show_spinner=False)
+def publish_source_pdfs():
+    """Exposes the corpus PDFs to the browser and returns {document id: url}.
+
+    Streamlit only serves files under ./static, and the corpus is 195 MB, so
+    the files are HARD LINKED rather than copied -- same bytes, second name,
+    no extra disk. Copying would duplicate the whole corpus on every machine
+    that runs the app. Falls back to a copy if the link can't be made (a
+    different filesystem, or a platform that won't), and skips any document
+    whose PDF is missing rather than failing the page: a missing source should
+    cost that one link, not the answer.
+
+    cache_resource so the directory is rebuilt once per server start, which is
+    also what picks up any newly added source document."""
+    static_dir = os.path.join(_APP_DIR, "static", "documents")
+    os.makedirs(static_dir, exist_ok=True)
+    urls = {}
+    for doc_type, folder in SOURCE_PDF_DIRS.items():
+        src_dir = os.path.join(_APP_DIR, "data", "01_source_documents", folder)
+        if not os.path.isdir(src_dir):
+            continue
+        for filename in os.listdir(src_dir):
+            if not filename.lower().endswith(".pdf"):
+                continue
+            doc_id = os.path.splitext(filename)[0]
+            src = os.path.join(src_dir, filename)
+            dst = os.path.join(static_dir, filename)
+            try:
+                if not os.path.exists(dst):
+                    try:
+                        os.link(src, dst)
+                    except OSError:
+                        shutil.copyfile(src, dst)
+                urls[doc_id] = f"app/static/documents/{filename}"
+            except OSError:
+                continue
+    return urls
+
+
 def render_used_sources(used_sources):
-    chips = []
+    """The documents an answer was drawn from, as plain links to the PDFs.
+
+    One entry per DOCUMENT, not per chunk: which of a law's articles was
+    retrieved is a retrieval detail, and it's on the diagnostics page for
+    anyone who wants it. What a reader wants here is which laws this came from
+    and how to go read them, so each name links to the source PDF."""
+    seen = []
     for score, chunk in used_sources:
         metadata = chunk.get("metadata", {})
-        name = html.escape(metadata.get("document_name", "Unknown Document"))
-        cid = html.escape(chunk["chunk_id"])
-        chips.append(
-            f'<div class="kc-source-chip"><div class="name">{name}</div>'
-            f'<div class="id">{cid}</div></div>'
+        name = metadata.get("document_name", "Unknown Document")
+        doc_id = document_id_for_chunk(chunk["chunk_id"])
+        if not any(d == doc_id for d, _ in seen):
+            seen.append((doc_id, name))
+
+    if not seen:
+        return
+
+    pdf_urls = publish_source_pdfs()
+    items = []
+    for doc_id, name in seen:
+        label = html.escape(name)
+        url = pdf_urls.get(doc_id)
+        # A document with no PDF on disk still gets listed -- it is a real
+        # source of the answer -- just without a link to follow.
+        items.append(
+            f'<li><a href="{html.escape(url)}" target="_blank" '
+            f'rel="noopener">{label}</a></li>'
+            if url
+            else f"<li>{label}</li>"
         )
+
     st.markdown(
-        f"""
-        <div class="kc-sources-title" style="color: var(--brass); padding-top: 20px;">
-            ប្រភព
-        </div>
-        <div class="kc-sources-block">
-            {"".join(chips)}
-        </div>
-        """,
+        f'<div class="kc-sources-title">មើលប្រភពឯកសារ</div>'
+        f'<ul class="kc-sources-list">{"".join(items)}</ul>',
         unsafe_allow_html=True,
     )
 
 
 def render_disclaimer():
-    """Renders the mandatory disclaimer. Called from the single shared
-    render_message() call site so every answer path -- normal,
-    low-confidence, out-of-domain -- carries it structurally, and it's
-    never part of LLM-generated text a user's question could influence."""
+    """Renders the mandatory disclaimer as one permanent line pinned under the
+    input bar, on every screen including the welcome state.
+
+    It used to repeat under each individual answer. Pinning it once keeps the
+    same guarantee that made per-answer rendering worth it -- it is on screen
+    whenever an answer is, it covers every answer path (normal, low-confidence,
+    out-of-domain), and it is static markup rather than LLM-generated text a
+    user's question could influence -- while dropping the repetition that made
+    a long thread mostly disclaimer."""
     st.markdown(
         f'<div class="kc-disclaimer">{html.escape(DISCLAIMER_TEXT)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def install_action_row_script():
+    """Wires up the answer action row: copy, and the two reactions.
+
+    The controls are plain elements in the page rather than Streamlit widgets,
+    and this installs ONE delegated click listener on the parent document for
+    all of them. That matters for copy specifically: the clipboard API needs a
+    user gesture in the document it's called from. An earlier version put the
+    copy button inside its own iframe to get that gesture, which worked but
+    gave it a browser-native tooltip while its three neighbours had Streamlit's
+    -- four controls in a row, one of them visibly different. Handling the
+    click here keeps the gesture in the page where the click happened, so all
+    four can be the same kind of element with the same kind of tooltip.
+
+    The reactions toggle a class and nothing more -- see render_message_actions
+    for why there is deliberately no server round trip behind them."""
+    components.html(
+        """
+        <script>
+        (function () {
+          var doc = window.parent.document;
+          if (doc.body.dataset.kcActionsWired) return;
+          doc.body.dataset.kcActionsWired = '1';
+          doc.addEventListener('click', function (e) {
+            var copy = e.target.closest('.kc-act-copy');
+            if (copy) {
+              window.parent.navigator.clipboard
+                .writeText(copy.dataset.copy || '')
+                .then(function () {
+                  copy.classList.add('is-done');
+                  window.setTimeout(function () {
+                    copy.classList.remove('is-done');
+                  }, 1200);
+                });
+              return;
+            }
+            var thumb = e.target.closest('.kc-act-thumb');
+            if (thumb) {
+              var wasOn = thumb.classList.contains('is-on');
+              var row = thumb.closest('.kc-actions');
+              if (row) {
+                row.querySelectorAll('.kc-act-thumb').forEach(function (t) {
+                  t.classList.remove('is-on');
+                });
+              }
+              if (!wasOn) thumb.classList.add('is-on');
+            }
+          }, false);
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
+_ICON_COPY = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="9" y="9" width="11" height="11" rx="2"/>'
+    '<path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'
+)
+_ICON_THUMB_UP = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M7 21V10l5-7a2 2 0 0 1 3 2l-1.2 5H19a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 '
+    '17.6 21H7z"/><rect x="3" y="10" width="4" height="11" rx="1"/></svg>'
+)
+_ICON_THUMB_DOWN = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M17 3v11l-5 7a2 2 0 0 1-3-2l1.2-5H5a2 2 0 0 1-2-2.4l1.4-7A2 2 0 0 1 '
+    '6.4 3H17z"/><rect x="17" y="3" width="4" height="11" rx="1"/></svg>'
+)
+_ICON_INFO = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6v.4"/></svg>'
+)
+
+
+def render_message_actions(msg):
+    """Copy, the two reactions, and the way into diagnostics.
+
+    One markdown block, four elements of the same kind, in one flex row -- so
+    they line up by construction instead of by reconciling three different
+    Streamlit layout behaviours, and every one of them gets the same tooltip.
+
+    The reactions are deliberately inert: they light up and nothing else
+    happens. Nothing is recorded, sent, or persisted. Kept because an answer
+    with no way to react to it feels unfinished, but there is no feedback
+    pipeline behind them, and this note is here so nobody wires one up later
+    assuming that was always the intent.
+    """
+    answer = html.escape(msg.get("answer") or "", quote=True)
+    diag_url = f"?view=diagnostics&amp;msg={html.escape(str(msg['id']))}"
+    st.markdown(
+        f'<div class="kc-actions">'
+        f'<button type="button" class="kc-act kc-act-copy" data-copy="{answer}" '
+        f'data-tip="ចម្លង" aria-label="ចម្លង">{_ICON_COPY}</button>'
+        f'<button type="button" class="kc-act kc-act-thumb" '
+        f'data-tip="ពេញចិត្ត" aria-label="ពេញចិត្ត">{_ICON_THUMB_UP}</button>'
+        f'<button type="button" class="kc-act kc-act-thumb" '
+        f'data-tip="មិនពេញចិត្ត" aria-label="មិនពេញចិត្ត">{_ICON_THUMB_DOWN}</button>'
+        f'<a class="kc-act" href="{diag_url}" target="_blank" rel="noopener" '
+        f'data-tip="មើលព័ត៌មានលម្អិត" aria-label="មើលព័ត៌មានលម្អិត">{_ICON_INFO}</a>'
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -2199,19 +3294,7 @@ def render_message(msg):
         and not msg.get("out_of_domain")
     ):
         render_used_sources(msg["used_sources"])
-        st.markdown('<div class="kc-msg-actions">', unsafe_allow_html=True)
-        if st.button("មើលព័ត៌មានលម្អិត", key=f"diag_{msg['id']}"):
-            st.session_state["view"] = "diagnostics"
-            st.session_state["active_msg_id"] = msg["id"]
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # Disclaimer is shown on every real answer path -- normal, low-confidence,
-    # and out-of-domain -- but not on interrupted/errored states, since those
-    # aren't actual answers. This is the one render_message() call site every
-    # message passes through, so there's no path that can skip it.
-    if not msg.get("interrupted") and not msg.get("errored"):
-        render_disclaimer()
+        render_message_actions(msg)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -2422,7 +3505,7 @@ def handle_new_question(
                 "ជំនួយការនេះអាចឆ្លើយបានតែសំណួរទាក់ទងនឹងច្បាប់ធានារ៉ាប់រងប៉ុណ្ណោះ។ "
                 f"{REDIRECT_TEXT}"
             )
-        st.session_state["messages"].append(
+        commit_message(
             {
                 "id": str(uuid.uuid4()),
                 "question": question,
@@ -2446,7 +3529,7 @@ def handle_new_question(
         # alert vanished and the question disappeared with no trace. Persist
         # it like an interrupted message instead.
         st.session_state["active_run"] = None
-        st.session_state["messages"].append(
+        commit_message(
             {
                 "id": str(uuid.uuid4()),
                 "question": question,
@@ -2524,9 +3607,9 @@ def handle_new_question(
                 "generated_tokens": final_payload["generated_tokens"],
             },
         }
-        st.session_state["messages"].append(msg)
+        commit_message(msg)
     except Exception as e:
-        st.session_state["messages"].append(
+        commit_message(
             {
                 "id": str(uuid.uuid4()),
                 "question": question,
@@ -2550,12 +3633,15 @@ def render_chat_page(
     messages = st.session_state["messages"]
     pending = st.session_state["pending_question"]
 
+    # Fixed-position and unconditional -- rendered first, in every state, so it
+    # doesn't depend on which branch of the page runs below.
+    render_disclaimer()
+
     if not messages and not pending and not st.session_state.get("is_generating"):
-        render_full_header(model_name)
+        render_welcome_greeting()
         render_welcome_form()
         return
 
-    render_compact_topbar(model_name)
     # Single .kc-thread wrapper spans BOTH the existing history and the
     # currently-processing question below it -- previously this was opened
     # and closed twice (once per section), stacking the wrapper's top/bottom
@@ -2592,7 +3678,7 @@ def render_chat_page(
 
         active = st.session_state.get("active_run")
         if active is not None:
-            st.session_state["messages"].append(
+            commit_message(
                 {
                     "id": str(uuid.uuid4()),
                     "question": active["question"],
@@ -2821,18 +3907,16 @@ def render_source_detail(rank, score, chunk):
 
 
 def render_diagnostics_page():
+    # The message is looked for in the open conversation first, then in the
+    # database -- so this page renders whether it was reached by clicking the
+    # info icon or by opening its URL in a fresh session.
     msg = next(
-        (
-            m
-            for m in st.session_state["messages"]
-            if m["id"] == st.session_state["active_msg_id"]
-        ),
+        (m for m in st.session_state["messages"] if m["id"] == DIAG_MSG_ID),
         None,
-    )
+    ) or history.load_message(DIAG_MSG_ID)
 
     if st.button("← Back to chat", key="back_to_chat"):
-        st.session_state["view"] = "chat"
-        st.session_state["active_msg_id"] = None
+        open_chat()
         st.rerun()
 
     if msg is None:
@@ -2953,9 +4037,18 @@ index = load_index()
 chunks = load_metadata()
 bm25_index = load_bm25_index(chunks)
 
-if st.session_state["view"] == "diagnostics":
+if IS_DIAGNOSTICS:
     render_diagnostics_page()
 else:
+    # Rendered before the page body: the rail can switch or delete the working
+    # conversation, and doing that after the thread has already been painted
+    # would show one conversation's messages under another's title for a frame.
+    render_sidebar()
+    # After the rail exists in the DOM, so the first measurement is the real
+    # width rather than the 0px fallback.
+    sync_rail_width()
+    disable_rail_resize()
+    install_action_row_script()
     render_chat_page(
         MODEL_NAME, client, embedding_model, embedding_model_info, index, bm25_index, chunks
     )

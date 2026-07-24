@@ -40,9 +40,19 @@ happen at chat time.
 - **Per-answer diagnostics page** — every answer can be inspected for
   retrieval scores (FAISS, BM25, and fused RRF per chunk), provenance
   badges showing which retrieval engine surfaced each chunk, full chunk
-  text, token counts, and timing breakdown.
-- **Source citations** under every answer, linking back to the specific
-  document and chunk used.
+  text, token counts, and timing breakdown. Each answer's diagnostics has
+  its own address (`?view=diagnostics&msg=<message id>`), opened in a new
+  tab from the answer and reloadable on its own — the page looks the
+  message up in `chat_history.db` when the session doesn't hold it.
+- **Source citations** under every answer, listing the documents the
+  answer was drawn from. Each name links to that document's source PDF,
+  served straight from `data/01_source_documents/` (see
+  [Source PDF serving](#source-pdf-serving)).
+- **Conversation history** in a sidebar, persisted to SQLite
+  (`chat_history.db`, gitignored) so conversations survive a page refresh
+  and a server restart. New chat, rename, and delete; every message is
+  written through as it lands, so a crash loses at most the answer still
+  streaming.
 - **Embedding model comparison** — three models are benchmarked
   (BGE-M3, multilingual-e5-large, MiniLM) with results saved to
   `reports/embedding_model_comparison/`.
@@ -125,9 +135,17 @@ Khmer-Rag-Chatbot/
 ├── .gitignore
 ├── README.md
 ├── app.py                           # Streamlit chatbot
+├── history.py                       # SQLite store behind the conversation sidebar
 ├── start_chatbot.py                 # Launches llama-server + app
 ├── install_models.py                # Download/install model files
 ├── requirements.txt
+├── chat_history.db                  # gitignored (local conversations)
+│
+├── .streamlit/
+│   └── config.toml                  # enables static serving for the source PDFs
+│
+├── static/                          # gitignored; hard links to the source PDFs,
+│   └── documents/                   # rebuilt at startup by publish_source_pdfs()
 │
 ├── assets/
 │   ├── development_flow.svg          # editable source for the diagram below
@@ -514,6 +532,22 @@ re-running the script later will pick up exactly the gaps that failed.
 
 ---
 
+## Source PDF serving
+
+Each document cited under an answer links to its own PDF. Streamlit only
+serves files under `./static`, and the corpus is ~195 MB, so
+`publish_source_pdfs()` in `app.py` **hard links** every PDF from
+`data/01_source_documents/<category>/` into `static/documents/` at startup
+rather than copying it — same inode, second name, no extra disk. The
+directory is rebuilt once per server start, which is also what picks up
+newly added source documents, and `static/` is gitignored.
+
+This needs `enableStaticServing` in `.streamlit/config.toml`; without it
+the names still render, just without links. A document whose PDF is
+missing is listed without a link rather than failing the answer.
+
+---
+
 ## Configuration
 
 The main tunable constants live at the top of `app.py`:
@@ -579,6 +613,12 @@ against `data/10_adversarial/` before trusting it.
   → choose the one under `.venv/bin/python`, then reload the window.
 - **A brief "Streamlit" tab title flash on first launch only** — a
   Chromium browsing-history quirk, not something the app controls.
+- **Source documents under an answer aren't links** — `enableStaticServing`
+  isn't on. Confirm `.streamlit/config.toml` exists and restart; the app
+  reads it only at startup.
+- **Old conversations disappeared** — `chat_history.db` lives in the project
+  root and is gitignored, so it is per-machine and not carried by a clone or
+  a pull. Deleting it clears every stored conversation.
 - **`No precomputed index` error when running `09_compare_embedding_models.py`**
   — run `python scripts/08_generate_embeddings.py` first to build the
   indices for all three models, then retry.
