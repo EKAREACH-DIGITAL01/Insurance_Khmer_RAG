@@ -264,6 +264,11 @@ EDGE CASES
 =============================================================================
 OUTPUT
 =============================================================================
+Your ONLY output is the updated score fields inside {{FILE}}.
+Do NOT generate, write or update any report. Do NOT create new files. Do NOT
+run scripts/15_generate_comparison_report.py or any other script -- reporting
+is a separate step the user runs afterwards, not your job.
+
 Rewrite {{FILE}} in place with the scored lines updated. Keep it valid JSONL:
 one record per line, same line order, same record count, UTF-8, Khmer text
 unescaped (not \uXXXX). Do not reformat or pretty-print. Do not touch any
