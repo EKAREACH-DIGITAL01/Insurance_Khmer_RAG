@@ -226,73 +226,7 @@ narrow for the question — a gold-data fix, not a pipeline fix. See
 
 ---
 
-## 10. Per-model gold scope — manual-only vs. full (script 13)
-
-The gold set has two tiers per category: the first 25 questions are purely
-**human-authored** (question, expected chunks, *and* expected answer), and
-question 26 onward are **AI-generated**. Across the four categories that's
-**100 manual** and **300 AI** questions (400 total).
-
-Most models are compared on the manual-only 100 — that's the clean,
-trusted set. But SeaLLM (the model shipped to the client) is additionally
-evaluated over the **full 400** so its behaviour is measured on the wider,
-messier question distribution real users resemble. To keep the two runs from
-colliding, the full run writes to a **separate set of files**.
-
-**Mechanism:**
-
-- A model opts into the full set with `"gold_scope": "full"` in `LLM_MODELS`
-  (currently only SeaLLM). Everyone else defaults to the manual set.
-- `main()` builds **both** lists once: `gold_entries_manual` (the 100) and
-  `gold_entries_full` (the 400). A `scope_for(info)` helper returns the
-  `(suffix, gold_entries)` pair for each model.
-- A module-level `RESULTS_SUFFIX` (set per-model right before that model runs,
-  since models run strictly one at a time) flows into the filename helpers:
-  - manual scope → `generated_answer_results.jsonl` / `..._summary.json` / `.md`
-  - full scope   → `generated_answer_results_full.jsonl` / `..._full_summary.*`
-- **Resume is automatic and free.** The 100 manual SeaLLM answers were copied
-  into `..._full.jsonl` first; `load_existing_results()` keys off
-  `question_id`, sees those 100 as done, and generates only the ~300 AI
-  questions. `reorder_results_file()` then slots everything into full gold
-  order.
-- The token ceiling self-sizes: `compute_gold_ceiling()` runs over whichever
-  list the model uses, so the full run's ceiling reflects the longest of all
-  400 answers.
-
-> AI questions may lack an `expected_answer`. That's handled: such entries are
-> excluded from the ceiling calc, and their `answer_correctness` scores as
-> `None` (genuinely uncomputable, §1's normalisation), so they neither crash
-> nor distort the summary.
-
-> Comparison caveat: the final comparison table then mixes a 400-question
-> SeaLLM summary with 100-question summaries for the others. The metrics are
-> per-question means so they stay comparable, but SeaLLM's combined score now
-> reflects the harder AI questions too — bear that in mind when reading the
-> ranking.
-
-### Both result files get their own summary
-
-A model that has *both* result files on disk (SeaLLM: the 100-question
-`generated_answer_results.jsonl` **and** the 400-question
-`generated_answer_results_full.jsonl`) gets a summary for **each**, written to
-its matching name:
-
-| Result file | Summary json | Summary md |
-|---|---|---|
-| `generated_answer_results.jsonl` | `generated_answer_results_summary.json` | `..._summary.md` |
-| `generated_answer_results_full.jsonl` | `generated_answer_results_full_summary.json` | `..._full_summary.md` |
-
-`generate_all_summaries(label)` loops the suffixes `("", "_full")`, loads
-whichever result file exists (via `load_all_rows()`, which keeps error rows so
-`summarise()` can count them), and writes that scope's summary. It runs after a
-model finishes **and** when a model is skipped as already-done, so both summary
-files stay current even on a no-op resume run. The cross-model comparison still
-uses each model's **primary-scope** summary (full for SeaLLM, manual for the
-rest), so the final table has exactly one row per model.
-
----
-
-## 11. Server-launch guards: stale server, context cap, Ctrl+C (both files)
+## 10. Server-launch guards: stale server, context cap, Ctrl+C (both files)
 
 This area saw several iterations; the **final** design is below.
 
@@ -353,7 +287,7 @@ failures — no manual cleanup.
 
 ---
 
-## 12. Sailor-only output style rule
+## 11. Sailor-only output style rule
 
 Sailor alone tended to dress answers up — an invented bold heading, markdown
 emphasis, injected source citations/dates pulled from chunk metadata (e.g.
@@ -373,7 +307,7 @@ Sailor's house style.)
 
 ---
 
-## 13. Known limitation: Qwen3.5 reasoning + the PEG parser
+## 12. Known limitation: Qwen3.5 reasoning + the PEG parser
 
 `Qwen3.5-9B` is a **reasoning** model. To return the clean, short answers we
 want, llama.cpp must *extract* its `<think>…</think>` out of the content — and
@@ -399,7 +333,7 @@ which is Qwen2-based, do not have this issue.)
 
 ---
 
-## 14. Summary of where each change lives
+## 13. Summary of where each change lives
 
 | Change | `app.py` / `start_chatbot.py` | `scripts/13_compare_generator_models.py` |
 |---|---|---|
@@ -411,8 +345,6 @@ which is Qwen2-based, do not have this issue.)
 | "End with ។" prompt rule | **added** | **added** |
 | Retry on transient gen error | **added** (pre-first-token) | **added** (full re-roll) |
 | Resume re-processes error rows | n/a | **added** |
-| Per-model gold scope (manual/full) | n/a | **added** |
-| Summary per result file (manual + full) | n/a | **added** |
 | Free port 8080 before launch | **added** (`start_chatbot.py`) | **added** |
 | Verify server by loaded **model name**; warn (not abort) on model ctx cap | **added** (`start_chatbot.py`) | **added** |
 | Ctrl+C-proof server shutdown + port backstop | n/a | **added** |

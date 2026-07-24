@@ -139,7 +139,7 @@ parser.add_argument(
     action="store_true",
     help=(
         "Do NOT generate anything. Reload every model's existing "
-        "generated_answer_results(.jsonl) / _full.jsonl, recompute all metrics "
+        "generated_answer_results.jsonl, recompute all metrics "
         "with the current scoring functions (rebuilding each answer's context "
         "from its saved context_chunk_ids), rewrite the JSONL in place, and "
         "regenerate every summary + the final comparison report. Use this to "
@@ -427,12 +427,6 @@ LLM_MODELS = {
         "local_filename": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
         "label": "SeaLLM v3 7B",
         "extra_args": ["--jinja"],
-        # Evaluate SeaLLM over the FULL gold set (manual + AI questions, 400),
-        # writing to the "..._full.jsonl" files. The 100 manual answers already
-        # generated into that file are skipped on resume, so only the ~300 AI
-        # questions are processed. The other three models stay on the manual-only
-        # 100-question set (default scope). See main().
-        "gold_scope": "full",
     },
     "2": {
         "local_filename": "Qwen3.5-9B-Q4_K_M.gguf",
@@ -1284,15 +1278,6 @@ def score_answer(
 # ----------------------------------------------------------------------------
 # Real-time result file helpers
 # ----------------------------------------------------------------------------
-# Filename suffix for the per-model output files. Set per-model in main() right
-# before that model is evaluated. A model run over the FULL gold set (manual +
-# AI questions) writes to "..._full.jsonl"/"..._full_summary.*" so it never
-# collides with the manual-only 100-question files. Empty string = the normal
-# manual-only files. Because models are evaluated strictly one at a time, a
-# single module-level value is unambiguous for the whole of that model's run.
-RESULTS_SUFFIX = ""
-
-
 def model_dir(label):
     for info in LLM_MODELS.values():
         if info["label"] == label:
@@ -1303,19 +1288,19 @@ def model_dir(label):
 def result_path(label):
     path = model_dir(label)
     path.mkdir(parents=True, exist_ok=True)
-    return path / f"generated_answer_results{RESULTS_SUFFIX}.jsonl"
+    return path / "generated_answer_results.jsonl"
 
 
 def summary_path(label):
     path = model_dir(label)
     path.mkdir(parents=True, exist_ok=True)
-    return path / f"generated_answer_results{RESULTS_SUFFIX}_summary.json"
+    return path / "generated_answer_results_summary.json"
 
 
 def summary_md_path(label):
     path = model_dir(label)
     path.mkdir(parents=True, exist_ok=True)
-    return path / f"generated_answer_results{RESULTS_SUFFIX}_summary.md"
+    return path / "generated_answer_results_summary.md"
 
 
 def load_existing_results(label):
@@ -1994,8 +1979,8 @@ def print_model_summary(summary):
 
 
 def load_all_rows(label):
-    """Loads EVERY row from this model's result file for the current
-    RESULTS_SUFFIX (errors included), for summarisation. Unlike
+    """Loads EVERY row from this model's result file (errors included), for
+    summarisation. Unlike
     load_existing_results(), it does not dedupe or drop error rows -- summarise()
     handles those itself."""
     path = result_path(label)
@@ -2014,26 +1999,14 @@ def load_all_rows(label):
     return rows
 
 
-def generate_all_summaries(label):
-    """Writes a summary (json + md) for EVERY result file this model has on disk
-    -- the manual-only `generated_answer_results.jsonl` and, when present, the
-    full `generated_answer_results_full.jsonl`. Each writes its own matching
-    `..._summary.json` / `..._summary.md` (the "_full" suffix flows through the
-    path helpers via RESULTS_SUFFIX).
-
-    Returns {suffix: summary_dict} for whichever files existed. The caller picks
-    which one feeds the cross-model comparison (the model's primary scope)."""
-    global RESULTS_SUFFIX
-    saved_suffix = RESULTS_SUFFIX
-    out = {}
-    for suffix in ("", "_full"):
-        RESULTS_SUFFIX = suffix
-        rows = load_all_rows(label)
-        if rows is None:
-            continue  # this scope's result file doesn't exist for this model
-        out[suffix] = summarise(rows, label)  # writes ..._summary.json / .md
-    RESULTS_SUFFIX = saved_suffix
-    return out
+def generate_summary(label):
+    """Writes this model's `..._summary.json` / `..._summary.md` from its
+    `generated_answer_results.jsonl`. Returns the summary dict, or None if the
+    model has no result file on disk yet."""
+    rows = load_all_rows(label)
+    if rows is None:
+        return None
+    return summarise(rows, label)  # writes ..._summary.json / .md
 
 
 def print_final_comparison(summaries):
@@ -2302,10 +2275,7 @@ def rescore_all(chunks, embedding_model):
     from the chunk metadata (headers, dates and all), making the rescore
     bit-for-bit consistent with how the answer was scored at generation time.
     Rows that recorded a generation error (no answer) are left untouched."""
-    global RESULTS_SUFFIX
-
     chunk_lookup = {c["chunk_id"]: c for c in chunks}
-    COMPARE_SUFFIX = ""
     all_summaries = []
 
     banner = "=" * SEPARATOR_WIDTH
@@ -2316,52 +2286,43 @@ def rescore_all(chunks, embedding_model):
 
     for info in LLM_MODELS.values():
         label = info["label"]
-        rescored_any = False
 
-        for suffix in ("", "_full"):
-            RESULTS_SUFFIX = suffix
-            rows = load_all_rows(label)
-            if rows is None:
-                continue  # this scope's file doesn't exist for this model
+        rows = load_all_rows(label)
+        if rows is None:
+            continue  # this model has no result file on disk
 
-            rescored = 0
+        rescored = 0
+        for row in rows:
+            if row.get("error") or not row.get("generated_answer"):
+                continue
+            context_ids = row.get("context_chunk_ids") or []
+            context_chunks = [
+                (0.0, chunk_lookup[c]) for c in context_ids if c in chunk_lookup
+            ]
+            context = build_context(context_chunks)
+            scored = score_answer(
+                row["generated_answer"],
+                row["question"],
+                row.get("expected_answer", ""),
+                row.get("expected_chunks", []),
+                context_ids,
+                context,
+                embedding_model,
+            )
+            row["scores"]   = scored["scores"]
+            row["combined"] = scored["combined"]
+            row["detail"]   = scored["detail"]
+            rescored += 1
+
+        path = result_path(label)
+        with open(path, "w", encoding="utf-8") as f:
             for row in rows:
-                if row.get("error") or not row.get("generated_answer"):
-                    continue
-                context_ids = row.get("context_chunk_ids") or []
-                context_chunks = [
-                    (0.0, chunk_lookup[c]) for c in context_ids if c in chunk_lookup
-                ]
-                context = build_context(context_chunks)
-                scored = score_answer(
-                    row["generated_answer"],
-                    row["question"],
-                    row.get("expected_answer", ""),
-                    row.get("expected_chunks", []),
-                    context_ids,
-                    context,
-                    embedding_model,
-                )
-                row["scores"]   = scored["scores"]
-                row["combined"] = scored["combined"]
-                row["detail"]   = scored["detail"]
-                rescored += 1
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        print(f"  {label}: rescored {rescored} answers -> {path}")
 
-            path = result_path(label)
-            with open(path, "w", encoding="utf-8") as f:
-                for row in rows:
-                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
-            print(f"  {label} [{suffix or 'manual'}]: rescored {rescored} answers "
-                  f"-> {path}")
-            rescored_any = True
-
-        if rescored_any:
-            # Rewrites both ..._summary.json/.md for whichever files exist.
-            summaries = generate_all_summaries(label)
-            if COMPARE_SUFFIX in summaries:
-                all_summaries.append(summaries[COMPARE_SUFFIX])
-
-    RESULTS_SUFFIX = ""
+        summary = generate_summary(label)
+        if summary:
+            all_summaries.append(summary)
 
     if not all_summaries:
         raise SystemExit(
@@ -2436,42 +2397,22 @@ def main():
         match = _QID_NUM_PATTERN.search(str(q.get("question_id", "")))
         return bool(match) and int(match.group(1)) <= HUMAN_AUTHORED_LIMIT
 
-    # Two scopes:
-    #   gold_entries_manual -- the 100 purely human-authored questions (first 25
-    #     per category). The default set used by Qwen / Sailor / Llama.
-    #   gold_entries_full   -- ALL questions (manual + AI, 400). Used only by
-    #     models flagged "gold_scope": "full" (currently SeaLLM), written to the
-    #     separate "..._full.jsonl" files.
-    gold_entries_manual = []
-    gold_entries_full = []
+    # Every model is evaluated on the SAME set: the 100 purely human-authored
+    # gold questions (first 25 per category). The AI-authored questions are not
+    # used for generator comparison.
+    gold_entries = []
     for gf in gold_files:
         category = gf.parent.name
         with open(gf, "r", encoding="utf-8") as f:
             questions = json.load(f)
         for q in questions:
-            entry = {**q, "category": category}
-            gold_entries_full.append(entry)
             if is_human_authored(q):
-                gold_entries_manual.append(entry)
-
-    def scope_for(info):
-        """Returns (results_suffix, gold_entries) for a model based on its
-        configured gold_scope. Full-scope models write to the separate
-        "..._full" files over the complete question set; everyone else uses the
-        manual-only set and the default filenames."""
-        if info.get("gold_scope") == "full":
-            return "_full", gold_entries_full
-        return "", gold_entries_manual
-
-    # Default gold_entries (manual) drives the run-wide mode label; per-model
-    # scope is resolved inside the loop.
-    gold_entries = gold_entries_manual
+                gold_entries.append({**q, "category": category})
 
     mode_label = (
         "DRY RUN (1 question per model)"
         if DRY_RUN
-        else f"FULL RUN ({len(gold_entries_manual)} manual / "
-             f"{len(gold_entries_full)} full questions)"
+        else f"FULL RUN ({len(gold_entries)} human-authored questions per model)"
     )
 
     installed = {k: v for k, v in LLM_MODELS.items() if is_installed(v)}
@@ -2489,20 +2430,9 @@ def main():
     if not installed:
         raise SystemExit("No generator models installed. Run: python scripts/13_install_models.py")
 
-    global RESULTS_SUFFIX
-
-    # The cross-model comparison ALWAYS uses each model's manual-only
-    # `generated_answer_results.jsonl` (suffix ""), so every model is ranked on
-    # the same 100 human-authored questions. SeaLLM still RUNS over the full set
-    # and writes its `..._full.jsonl` (for separate analysis), but that file is
-    # never fed into the comparison. See scope_for() (run scope) vs this (compare
-    # scope) -- they are deliberately decoupled.
-    COMPARE_SUFFIX = ""
-
     all_summaries = []
     if not DRY_RUN:
         for info in installed.values():
-            RESULTS_SUFFIX = COMPARE_SUFFIX
             sp = summary_path(info["label"])
             if sp.exists():
                 try:
@@ -2512,27 +2442,21 @@ def main():
                     print(f"  Loaded existing summary for: {info['label']}")
                 except (json.JSONDecodeError, OSError):
                     pass
-        RESULTS_SUFFIX = ""
 
     already_done_labels = {s["label"] for s in all_summaries}
 
     for key, info in installed.items():
         label = info["label"]
-        RESULTS_SUFFIX, gold_entries = scope_for(info)
 
         if not DRY_RUN and label in already_done_labels:
             existing = load_existing_results(label)
             if len(existing) >= len(gold_entries):
                 print(f"\n  Skipping {label} -- all {len(existing)} questions already done.")
-                # Still (re)write summaries for every result file this model has,
-                # so both generated_answer_results(.jsonl) and its _full variant
-                # always have an up-to-date *_summary.json/.md even on a no-op run.
-                # The comparison always uses the manual-only "" summary.
-                primary_suffix = COMPARE_SUFFIX
-                summaries = generate_all_summaries(label)
-                if primary_suffix in summaries:
+                # Still (re)write the summary so it is never stale on a no-op run.
+                summary = generate_summary(label)
+                if summary:
                     all_summaries = [s for s in all_summaries if s["label"] != label]
-                    all_summaries.append(summaries[primary_suffix])
+                    all_summaries.append(summary)
                 continue
 
         print(f"\n{SEPARATOR}")
@@ -2560,14 +2484,10 @@ def main():
             )
 
             if not DRY_RUN:
-                # Summarise EVERY result file this model has (manual "" and, for
-                # SeaLLM, full "_full"), each into its own *_summary.json/.md.
-                primary_suffix = COMPARE_SUFFIX
-                summaries = generate_all_summaries(label)
-                # The cross-model comparison ALWAYS uses the manual-only "" scope
-                # (the 100 human-authored questions), even for full-scope models
-                # like SeaLLM -- so every model is ranked on the same questions.
-                summary = summaries.get(primary_suffix) or summarise(results, label)
+                # Write this model's *_summary.json/.md and feed it into the
+                # cross-model comparison. Every model is ranked on the same 100
+                # human-authored questions.
+                summary = generate_summary(label) or summarise(results, label)
                 all_summaries = [s for s in all_summaries if s["label"] != label]
                 all_summaries.append(summary)
                 print_model_summary(summary)

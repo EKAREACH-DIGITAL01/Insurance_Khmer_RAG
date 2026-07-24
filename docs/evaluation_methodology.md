@@ -203,16 +203,15 @@ Thresholds are calibrated to this corpus's real score distribution — see
 
 **Data produced.** Every generated answer is written immediately (crash-safe,
 resumable) to
-`reports/generator_model_comparison/<model>/generated_answer_results.jsonl`
-(and `..._full.jsonl` for the full-set run of the shipped model).
+`reports/generator_model_comparison/<model>/generated_answer_results.jsonl`.
 
 **Output → `reports/generator_model_comparison/`**:
 `generator_model_comparison.{json,md}` (cross-model table) and
 `generator_score_diagnostics.{json,md}`.
 
 **What happens next.** The winning model (**SeaLLM**, `SeaLLMs-v3-7B-Chat`) is the
-generator shipped in `app.py`, and its per-answer `..._full.jsonl` becomes the
-input to the safety-gate run (script 18).
+generator shipped in `app.py`, and it is the model the safety-gate run
+(script 18) replays the adversarial set against.
 
 ---
 

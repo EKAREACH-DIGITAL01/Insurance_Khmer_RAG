@@ -39,6 +39,9 @@ docs/Internship_Report.docx
 reports/human_golden_question_evaluation/*.db
 reports/human_golden_question_evaluation/*.db-*
 
+# Derived judge input -- regenerate with scripts/16_prepare_llm_judge_input.py
+reports/llm_judge_evaluation/input/
+
 # Python
 __pycache__/
 *.pyc
