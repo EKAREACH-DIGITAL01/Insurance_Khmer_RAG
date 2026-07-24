@@ -1372,7 +1372,7 @@ def main():
         process = None
         try:
             process = start_llama_server(info)
-            print(f"  llama-server ready.")
+            print("  llama-server ready.")
 
             client     = OpenAI(base_url=LLAMA_SERVER_URL, api_key="not-needed")
             model_resp = requests.get(f"{LLAMA_SERVER_URL}/models", timeout=5)

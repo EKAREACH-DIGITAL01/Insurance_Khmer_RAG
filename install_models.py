@@ -28,7 +28,7 @@ HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 os.environ["HF_HOME"] = str(HF_CACHE_DIR)
 
 # All HF imports come AFTER the env var is set.
-from huggingface_hub import hf_hub_download, snapshot_download
+from huggingface_hub import hf_hub_download
 from sentence_transformers import SentenceTransformer
 
 # ============================================================
@@ -274,10 +274,10 @@ else:
 
 # SUMMARY
 print("\n========== COMPLETE ==========")
-print(f"\nProject layout:")
-print(f"  models/retriever/.cache/  ← all HF model weights (one copy)")
-print(f"  models/retriever/<name>/     ← INSTALLED.json markers only")
-print(f"  models/generator/            ← GGUF files")
+print("\nProject layout:")
+print("  models/retriever/.cache/  ← all HF model weights (one copy)")
+print("  models/retriever/<name>/     ← INSTALLED.json markers only")
+print("  models/generator/            ← GGUF files")
 
 print("\nInstalled embedding models:")
 any_embed = False
@@ -302,5 +302,5 @@ if not any_llm:
     raise SystemExit("\nNo generator model installed.")
 
 print("\nSetup completed successfully.")
-print(f"\nVerify no files leaked to ~/.cache/huggingface:")
-print(f"  ls ~/.cache/huggingface  (should be empty or not exist)")
+print("\nVerify no files leaked to ~/.cache/huggingface:")
+print("  ls ~/.cache/huggingface  (should be empty or not exist)")

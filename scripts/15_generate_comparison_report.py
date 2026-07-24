@@ -390,7 +390,7 @@ def write_comparison(summaries):
     contradictions = sum(len(s["hallucination"]["contradicts_faithfulness"])
                          for s in ranked)
     if contradictions:
-        md.append(f"### Judge self-contradictions\n\n")
+        md.append("### Judge self-contradictions\n\n")
         md.append(f"**{contradictions}** answer(s) across all models scored 4–5 on "
                   f"faithfulness yet were flagged as hallucinating. Faithfulness and "
                   f"the hallucination flag measure the same thing, so these are "

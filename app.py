@@ -695,21 +695,6 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   object-fit: contain;
   border-radius: 50%;
 }}
-.kc-model-pill {{
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--ink);
-  color: var(--parchment-soft);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11.5px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  margin-top: 10px;
-}}
-.kc-dot {{ width: 7px; height: 7px; border-radius: 50%; display: inline-block; }}
-.kc-dot-on {{ background: var(--signal); box-shadow: 0 0 0 3px rgba(90,168,123,0.25); }}
-.kc-dot-off {{ background: var(--danger); box-shadow: 0 0 0 3px rgba(192,82,74,0.25); }}
 
 /* welcome-only input: in-flow under the title, NOT pinned. Arrow is laid out
    as a real adjacent column rather than absolutely positioned, since the
@@ -1255,17 +1240,6 @@ a.kc-act, a.kc-act:hover, a.kc-act:visited {{
 .kc-row-label {{ color: var(--mist); opacity: 0.85; }}
 .kc-row-value {{ color: var(--parchment-soft); text-align: right; }}
 
-.kc-chunk-row {{
-  display: grid; grid-template-columns: 28px 60px 1fr 60px; gap: 10px;
-  font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
-  padding: 6px 0; border-bottom: 1px dashed rgba(157,182,171,0.12); align-items: center;
-}}
-.kc-chunk-row:last-child {{ border-bottom: none; }}
-.kc-chunk-rank {{ color: var(--brass); }}
-.kc-chunk-score {{ color: var(--signal); }}
-.kc-chunk-id {{ color: var(--parchment-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-.kc-chunk-len {{ color: var(--mist); opacity: 0.7; text-align: right; }}
-
 /* ---------- Diagnostics source cards (right column, ink register) ---------- */
 .kc-diag-src-list {{ display: flex; flex-direction: column; gap: 10px; }}
 .kc-diag-src-card {{
@@ -1790,14 +1764,6 @@ a.kc-act, a.kc-act:hover, a.kc-act:visited {{
   margin-bottom: 0 !important;
 }}
 
-.kc-rail-menu-title {{
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--brass);
-  margin-bottom: 6px;
-}}
 </style>
 """
 
