@@ -1,6 +1,6 @@
 # Data Card — Khmer Insurance RAG Chatbot
 
-Generated: 2026-07-24 16:04:48
+Generated: 2026-07-24 16:14:43
 
 Retrieval-augmented question answering over Cambodian insurance laws, sub-decrees, prakas and guidance, in Khmer. The assistant answers strictly from the retrieved source documents and refuses out-of-scope, advisory, pricing and recommendation requests.
 

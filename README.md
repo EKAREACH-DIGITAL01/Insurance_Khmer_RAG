@@ -54,30 +54,32 @@ happen at chat time.
   and target-answer corrections into a report with per-question curation flags.
 - **Answer generation** — `scripts/13_generate_model_answers.py` runs all four
   quantized LLMs over the 100 human-authored gold questions and stores each
-  answer to `reports/generated_answers/`. It generates only; it does not score.
+  answer plus its latency to `reports/generator_model_comparison/`. It generates
+  only; it does not score.
 - **LLM-as-judge scoring** — every answer is scored on the five RAGAS metrics
   **plus a separate hallucination flag** by an LLM judge, written back into the
-  same JSONL. `scripts/16_prepare_llm_judge_input.py` makes each file
-  self-contained (resolves the chunk ids to text, resets the metrics to 0); the
-  rubric is `docs/llm_judge_prompt.md`. This ranking selects the shipped
-  generator.
+  same JSONL. `scripts/14_prepare_llm_judge_input.py` makes each file
+  self-contained (resolves the chunk ids to text, resets the metrics to 0) and
+  the rubric is `docs/llm_judge_prompt.md`.
+  `scripts/15_generate_comparison_report.py` then aggregates the judged files
+  into per-model summaries and a cross-model report naming the winner.
 - **Safety-gate evaluation** — the adversarial test set is replayed through
-  all three gates by `scripts/18_evaluate_safety_gates.py`.
-- **Data card** — `scripts/19_generate_data_card.py` rolls up the whole
+  all three gates by `scripts/16_evaluate_safety_gates.py`.
+- **Data card** — `scripts/17_generate_data_card.py` rolls up the whole
   pipeline into one JSON + Markdown card.
 
 ---
 
 ## Architecture
 
-![Khmer Insurance Law Assistant — development flow: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–19), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/development_flow.png)
+![Khmer Insurance Law Assistant — development flow: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–17), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/development_flow.png)
 
 The diagram above reads in three stages:
 
 - **Stage A — Data-Build Pipeline (`01`–`08`):** raw source PDFs are OCR'd,
   cleaned, merged, chunked, and embedded into the FAISS indices under
   `vector_db/`. Run once, or whenever the corpus changes.
-- **Stage B — Evaluation & Reporting (`09`–`19`):** benchmarks the corpus and
+- **Stage B — Evaluation & Reporting (`09`–`17`):** benchmarks the corpus and
   models (embedding comparison, retrieval modes, answer generation, LLM-judge
   scoring, human gold-set validation, safety gates) and rolls everything into a data card,
   writing JSON + Markdown to `reports/`. This is where **BGE-M3 is selected
@@ -167,11 +169,12 @@ Khmer-Rag-Chatbot/
 │   ├── retrieval_mode_comparison/
 │   │   ├── retrieval_mode_comparison.json
 │   │   └── retrieval_mode_comparison.md
-│   ├── generated_answers/               # one self-contained JSONL per model,
-│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M/   # scored in place by the LLM judge
+│   ├── generator_model_comparison/
+│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M/   # JSONL (judged in place) + summary
 │   │   ├── Qwen3.5-9B-Q4_K_M/
 │   │   ├── Sailor2-8B-Chat-Q4_K_M/
-│   │   └── Llama-3.1-8B-Instruct-Q4_K_M/
+│   │   ├── Llama-3.1-8B-Instruct-Q4_K_M/
+│   │   └── generator_model_comparison.{json,md}
 │   ├── safety_gate_evaluation/
 │   │   └── safety_gate_evaluation.{json,md}
 │   └── data_card/
@@ -204,9 +207,10 @@ Khmer-Rag-Chatbot/
 │   ├── 11_human_golden_question_evaluation.py
 │   ├── 12_human_golden_question_evaluation_report.py
 │   ├── 13_generate_model_answers.py
-│   ├── 16_prepare_llm_judge_input.py
-│   ├── 18_evaluate_safety_gates.py
-│   └── 19_generate_data_card.py
+│   ├── 14_prepare_llm_judge_input.py
+│   ├── 15_generate_comparison_report.py
+│   ├── 16_evaluate_safety_gates.py
+│   └── 17_generate_data_card.py
 │
 └── vector_db/
     ├── BAAI-BGE-M3/                 # Production index (default)
@@ -358,14 +362,15 @@ python scripts/12_human_golden_question_evaluation_report.py  # aggregate + cura
 python scripts/13_generate_model_answers.py
 
 # LLM-as-judge scoring (RAGAS + hallucination) — no llama-server needed
-python scripts/16_prepare_llm_judge_input.py   # inline the context, reset scores to 0
+python scripts/14_prepare_llm_judge_input.py    # inline the context, reset scores to 0
 # then follow docs/llm_judge_prompt.md — the judge scores each JSONL in place
+python scripts/15_generate_comparison_report.py # summaries + winner
 
 # Safety-gate evaluation against the adversarial set (requires llama-server)
-python scripts/18_evaluate_safety_gates.py
+python scripts/16_evaluate_safety_gates.py
 
 # Data card — rolls up every artifact above into one card
-python scripts/19_generate_data_card.py
+python scripts/17_generate_data_card.py
 ```
 
 ---

@@ -3,11 +3,11 @@
 Scores the answers produced by `scripts/13_generate_model_answers.py`.
 
 Each model has **one self-contained JSONL** at
-`reports/generated_answers/<model>/generated_answer_results.jsonl`. Every record
+`reports/generator_model_comparison/<model>/generated_answer_results.jsonl`. Every record
 already carries the question, the retrieved context text, the gold answer and
 the generated answer — the judge never needs another file.
 
-Run `scripts/16_prepare_llm_judge_input.py` once first. It resolves the chunk
+Run `scripts/14_prepare_llm_judge_input.py` once first. It resolves the chunk
 ids into `retrieved_context`, resets the metrics to 0 and adds
 `hallucination: ""`. **0 and `""` mean "not yet judged."**
 
@@ -34,12 +34,13 @@ ids into `retrieved_context`, resets the metrics to 0 and adds
     "completeness": 0
   },
   "combined": 0,
-  "hallucination": ""
+  "hallucination": "",
+  "hallucination_evidence": ""
 }
 ```
 
-The judge fills in `scores`, `combined` and `hallucination`. Everything else is
-read-only.
+The judge fills in `scores`, `combined`, `hallucination` and
+`hallucination_evidence`. Everything else is read-only.
 
 ---
 
@@ -56,9 +57,9 @@ It is JSONL, one record per line. Score ONLY lines {{START}} to {{END}}
 inclusive (1-indexed). Leave every other line byte-identical.
 
 For each record in range, fill in "scores" (five integers 1-5), "combined"
-(the weighted average, rounded to 2 decimals) and "hallucination" ("true" or
-"false"). Change nothing else -- not the question, the context, the answers,
-the timing, nor any record outside the range.
+(the weighted average, rounded to 2 decimals), "hallucination" ("true" or
+"false") and "hallucination_evidence". Change nothing else -- not the question,
+the context, the answers, the timing, nor any record outside the range.
 
 RULES
 1. Judge generated_answer ONLY against retrieved_context and expected_answer.
@@ -107,6 +108,11 @@ HALLUCINATION -- judged SEPARATELY, never folded into scores or combined
   "false" otherwise. Vague but grounded prose is NOT a hallucination.
           Being merely incomplete is NOT a hallucination.
 
+  hallucination_evidence
+          If "true", quote the exact fabricated span from generated_answer --
+          verbatim, no paraphrase, so it can be checked against the context.
+          If "false", use "".
+
 OUTPUT
 Rewrite {{FILE}} in place with the scored lines updated. Keep it valid JSONL:
 one record per line, same line order, same record count, UTF-8, Khmer text
@@ -123,7 +129,7 @@ but where later records were never actually read.
 ```bash
 python - <<'EOF'
 import json
-p = "reports/generated_answers/<model>/generated_answer_results.jsonl"
+p = "reports/generator_model_comparison/<model>/generated_answer_results.jsonl"
 rs = [json.loads(l) for l in open(p, encoding="utf-8")]
 print("records :", len(rs))                                    # must stay 100
 print("unscored:", sum(1 for r in rs if r["combined"] == 0))
@@ -140,9 +146,16 @@ Record count must never change. Any score outside 1–5 means the judge drifted.
 
 ## When all 400 are scored
 
-Rank the four models by mean `combined`. **This ranking selects the shipped
-generator** — the deterministic proxy scorer that previously made that call has
-been removed. Report the hallucination rate separately, never folded in.
+```bash
+python scripts/15_generate_comparison_report.py
+```
+
+That writes the per-model summaries and
+`generator_model_comparison.{json,md}`, ranks the four models and names the
+winner. **This ranking selects the shipped generator** — the deterministic proxy
+scorer that previously made that call has been removed. Any answer still at 0 is
+excluded from the averages and reported as unjudged, so a partial run cannot
+look complete.
 
 ## Validating the judge
 

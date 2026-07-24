@@ -54,7 +54,7 @@ from sentence_transformers import SentenceTransformer
 #
 # WINNER MODEL: run this script with the winner from script 10.
 # Usage:
-#   python scripts/18_evaluate_safety_gates.py
+#   python scripts/16_evaluate_safety_gates.py
 # ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------

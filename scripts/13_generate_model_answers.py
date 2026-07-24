@@ -41,14 +41,14 @@ from sentence_transformers import SentenceTransformer
 # (25 questions x 4 categories = 100 questions per model), retrieve the context
 # for each question exactly as app.py would, generate the answer, and store the
 # result. This script does NOT score or rank anything -- scoring is done by an
-# LLM judge (see scripts/16_prepare_llm_judge_input.py and
+# LLM judge (see scripts/14_prepare_llm_judge_input.py and
 # docs/llm_judge_prompt.md).
 #
 # PARITY: retrieval, prompting, gating and token limits mirror app.py exactly,
 # so a generated answer here is the answer the live chatbot would have given.
 # See docs/generation_robustness_and_parity.md.
 #
-# OUTPUT (per model, under reports/generated_answers/<model>/)
+# OUTPUT (per model, under reports/generator_model_comparison/<model>/)
 #   generated_answer_results.jsonl   one row per question: the question, the
 #                                    retrieved context_chunk_ids, the gold
 #                                    expected_answer, the generated_answer and
@@ -90,7 +90,7 @@ ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
 INDEX_PATH       = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance.index"
 METADATA_PATH    = f"vector_db/{ACTIVE_MODEL_DIR}/khmer_insurance_metadata.json"
 EVALUATION_ROOT  = Path("data/09_evaluation")
-REPORTS_DIR      = Path("reports/generated_answers")
+REPORTS_DIR      = Path("reports/generator_model_comparison")
 LLM_DIR          = Path("models/generator")
 
 LLAMA_SERVER_URL             = "http://localhost:8080/v1"
@@ -1416,7 +1416,7 @@ def main():
     minutes, seconds = divmod(rem, 60)
     print(f"\nTotal wall-clock runtime : {hours}h {minutes}m {seconds}s")
     print("\nNext: score these answers with an LLM judge --")
-    print("  python scripts/16_prepare_llm_judge_input.py")
+    print("  python scripts/14_prepare_llm_judge_input.py")
     print("  then follow docs/llm_judge_prompt.md")
 
 

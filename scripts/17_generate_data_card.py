@@ -21,8 +21,8 @@ from tabulate import tabulate
 #   data/10_adversarial/*_questions.json            (safety eval sets)
 #   reports/embedding_model_comparison/*.json       (script 09)
 #   reports/retrieval_mode_comparison/*.json        (script 10)
-#   reports/generated_answers/<model>/*.jsonl       (LLM-judge scores)
-#   reports/safety_gate_evaluation/*.json           (script 18)
+#   reports/generator_model_comparison/*.json       (script 15)
+#   reports/safety_gate_evaluation/*.json           (script 16)
 #   vector_db/*/embedding_model_info.json           (script 08)
 #
 # Outputs (under reports/data_card/)
@@ -40,7 +40,7 @@ VECTOR_DB_DIR     = Path("vector_db")
 
 EMBEDDING_REPORT  = Path("reports/embedding_model_comparison/embedding_model_comparison.json")
 RETRIEVAL_REPORT  = Path("reports/retrieval_mode_comparison/retrieval_mode_comparison.json")
-GENERATOR_REPORT  = Path("reports/generated_answers/llm_judge_ranking.json")
+GENERATOR_REPORT  = Path("reports/generator_model_comparison/generator_model_comparison.json")
 SAFETY_REPORT     = Path("reports/safety_gate_evaluation/safety_gate_evaluation.json")
 
 OUTPUT_DIR = Path("reports/data_card")
