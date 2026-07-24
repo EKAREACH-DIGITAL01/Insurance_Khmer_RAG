@@ -1,5 +1,12 @@
 # Image Generation Prompts
 
+> **Scratch file — delete once the images are generated.** This is a working
+> brief for driving an image agent, not project documentation. Nothing in the
+> repo links to it, so it can be removed without leaving a dangling reference.
+> If you keep it, keep it current: a prompt file describing a system that has
+> since changed is worse than no prompt file, because the next regeneration
+> will quietly produce diagrams of the old design.
+
 Prompts for the diagrams in `assets/`, for both the README and the internship
 report. Each one describes **what the figure must explain** — the logic of the
 system — and leaves style, palette, iconography and layout to the image model.
