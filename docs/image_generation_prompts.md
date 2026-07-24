@@ -8,8 +8,8 @@
 > will quietly produce diagrams of the old design.
 
 Prompts for the diagrams in `assets/`, for both the README and the internship
-report. Each one describes **what the figure must explain** — the logic of the
-system — and leaves style, palette, iconography and layout to the image model.
+report. Each one describes **only what must be in the figure** — the elements,
+the relationships between them, and the idea a reader should come away with.
 
 Kept in version control so the diagrams can be regenerated consistently when
 the pipeline changes.
@@ -17,6 +17,20 @@ the pipeline changes.
 ---
 
 ## Read this before generating anything
+
+### These prompts describe content, not appearance
+
+Nothing here specifies a style, palette, colour, icon set, shape, or layout,
+and nothing added to it should. Those decisions belong to the image model —
+it is better at them than a written brief is, and a prompt that dictates them
+produces the same stiff diagram every time.
+
+A prompt in this file says *what the figure contains and what it must make
+clear*. If you find yourself writing "blue boxes", "left to right", or "draw
+this as a grid", delete it.
+
+The one exception is functional, not decorative: every prompt asks for **empty
+label space**, because exact text is composited afterward (see below).
 
 ### Two passes, always
 
@@ -139,9 +153,7 @@ follows it to the report.
 ### 1. `architecture_overview.png`
 
 > Design a diagram explaining the overall architecture of a fully-local
-> Khmer-language RAG chatbot for Cambodian insurance law. You choose the visual
-> style, palette, icons and layout — I'm describing only the logic that must be
-> conveyed.
+> Khmer-language RAG chatbot for Cambodian insurance law.
 >
 > The system has three stages that run at different times, and that distinction
 > is the most important thing the diagram must communicate:
@@ -179,7 +191,7 @@ follows it to the report.
 ### 2. `chat_request_path.png`
 
 > Design a diagram showing what happens when a user asks the chatbot one
-> question. You choose the style; I'm describing the logic.
+> question.
 >
 > The central idea: this system refuses far more often than a normal chatbot,
 > deliberately, because giving wrong legal or financial advice is worse than
@@ -187,7 +199,7 @@ follows it to the report.
 > along the path can stop a question, and each is cheaper than the one after it
 > — that ordering is intentional and should be legible.
 >
-> The path, left to right:
+> The path:
 >
 > 1. A user question arrives in Khmer.
 > 2. **Checkpoint 1 — costs nothing.** Rejects non-Khmer text, questions that are
@@ -216,8 +228,7 @@ follows it to the report.
 
 ### 3. `hybrid_retrieval_rrf.png`
 
-> Design a diagram explaining a hybrid document retrieval method. You choose the
-> style; I'm describing the logic.
+> Design a diagram explaining a hybrid document retrieval method.
 >
 > The problem: searching Khmer legal text by *meaning* alone misses exact
 > technical terminology, and searching by *keyword* alone misses paraphrased
@@ -247,7 +258,7 @@ follows it to the report.
 ### 4. `evaluation_framework.png`
 
 > Design a diagram explaining how a RAG chatbot was evaluated before shipping.
-> You choose the style; I'm describing the logic.
+>
 >
 > Everything depends on one shared resource at the center: a set of 400
 > gold-standard questions about Cambodian insurance law, each paired with the
@@ -289,8 +300,7 @@ follows it to the report.
 
 ### 5. `corpus_provenance.png`
 
-> Design a diagram showing how a document collection was built. You choose the
-> style; I'm describing the logic.
+> Design a diagram showing how a document collection was built.
 >
 > 49 official Cambodian legal PDFs in four categories — laws, sub-decrees,
 > prakas (ministerial regulations), and guidance documents — become 1435
@@ -321,9 +331,9 @@ follows it to the report.
 ### 6. `chunking_strategy.png`
 
 > Design a diagram contrasting two ways of splitting a legal document into
-> searchable passages. You choose the style; I'm describing the logic.
+> searchable passages.
 >
-> Show the same source document processed two ways, side by side.
+> Cover the same source document processed two ways.
 >
 > **The naive way**, drawn as the rejected option: cut the text every N
 > characters. The cuts land wherever they land — mid-sentence, mid-article,
@@ -352,18 +362,17 @@ follows it to the report.
 ### 7. `khmer_retrieval_problem.png`
 
 > Design a diagram explaining why searching Khmer text by keyword is harder than
-> searching English, and how this system solves it. You choose the style; I'm
-> describing the logic. This figure is about a language problem, not a software
-> problem.
+> searching English, and how this system solves it. This figure is about a
+> language problem, not a software problem.
 >
 > Three facts have to land, in order:
 >
 > **1. Khmer is written without spaces between words.** An English sentence
 > arrives pre-split into words, so a keyword index can be built by cutting on
 > spaces. A Khmer sentence is a continuous run of characters with no such
-> markers, so the same approach yields one enormous meaningless token. Show a
-> Khmer string and an English string side by side, with the English one falling
-> apart into clean words and the Khmer one refusing to.
+> markers, so the same approach yields one enormous meaningless token. Contrast
+> a Khmer string with an English one: the English separates cleanly into words,
+> the Khmer does not.
 >
 > **2. The workaround is to index overlapping character fragments.** Instead of
 > words, the text is cut into every sliding run of three consecutive characters.
@@ -390,7 +399,7 @@ follows it to the report.
 ### 8. `safety_gate_ladder.png`
 
 > Design a diagram showing a chatbot's refusal system as a ladder of
-> increasingly expensive checks. You choose the style; I'm describing the logic.
+> increasingly expensive checks.
 >
 > The organising idea: every question that will ultimately be refused should be
 > refused as early and as cheaply as possible, so the checks are ordered by what
@@ -415,10 +424,10 @@ follows it to the report.
 > Then show how outcomes are scored, because this is how the system was
 > measured: every adversarial test question has an expected behaviour, so each
 > result falls into one of four boxes — correctly refused, correctly answered,
-> wrongly answered, wrongly refused. Draw these as a two-by-two grid of
-> expected-versus-actual. Convey that the two error boxes are not equally bad: a
-> wrong answer to a pricing or advice question is a real harm, while a
-> needlessly refused question is only an annoyance.
+> wrongly answered, wrongly refused — the four combinations of what was
+> expected against what happened. Convey that the two error boxes are not
+> equally bad: a wrong answer to a pricing or advice question is a real harm,
+> while a needlessly refused question is only an annoyance.
 >
 > Leave empty space for the counts in each box and for the threshold values.
 
@@ -427,8 +436,7 @@ follows it to the report.
 ### 9. `context_assembly.png`
 
 > Design a diagram showing how retrieved passages are turned into a prompt for a
-> language model, and why the funnel narrows. You choose the style; I'm
-> describing the logic.
+> language model, and why the funnel narrows.
 >
 > The stages narrow deliberately:
 >
@@ -458,10 +466,8 @@ follows it to the report.
 ### 10. `local_first_deployment.png`
 
 > Design a diagram showing which parts of an AI system run on the user's own
-> machine and which do not. You choose the style; I'm describing the logic.
->
-> Draw a clear boundary — a machine, a building, a perimeter, whatever suits
-> your style — and place things inside or outside it.
+> machine and which do not. There is a boundary, and everything belongs on one
+> side of it or the other.
 >
 > **Inside, running locally at question time:** the embedding model that turns
 > the question into a vector; the vector index holding every passage; the
@@ -472,14 +478,13 @@ follows it to the report.
 >
 > **Outside, and used exactly once:** a single external OCR API call, during the
 > one-time corpus build, to read scanned Khmer pages that no local tool could
-> read reliably. Show this as a dotted line to a cloud that is crossed once
-> during setup and never again.
+> read reliably. It is crossed once during setup and never again.
 >
 > The point of the figure is the asymmetry: no user question, no retrieved
 > passage, and no generated answer ever leaves the machine. For a system
 > handling legal questions about people's own insurance situations, that is a
-> privacy property, not a performance detail — make the boundary the most
-> visually prominent thing in the diagram.
+> privacy property, not a performance detail, and it is the main thing the
+> figure exists to communicate.
 >
 > Also show that the inference server listens only on the loopback interface,
 > so it is not reachable from the local network.
@@ -488,26 +493,25 @@ follows it to the report.
 
 ### 11. `app_shell_anatomy.png`
 
-> Design an annotated layout diagram of a chat application's interface —
-> wireframe-style, showing regions and their purpose rather than realistic
-> visual detail. You choose the style; I'm describing the structure. Do not
-> render any readable text inside the regions; leave callout space instead.
+> Design an annotated layout diagram of a chat application's interface,
+> showing each region and what it is for. Do not render readable text inside the
+> regions; leave callout space instead.
 >
 > The window is divided into two columns.
 >
-> **Left column, a fixed-width rail.** Top to bottom: a brand lockup (small
-> circular emblem, product name, subtitle) sharing its row with a control that
-> collapses the rail; a "new conversation" action; a section heading; then a
-> list of past conversations, one row each, with the current one highlighted.
-> Hovering a row reveals a small overflow control at its right edge that opens a
-> two-item menu (rename, delete). The rail is pinned — it does not scroll away
+> **Left column, a fixed-width rail.** Top to bottom: a brand lockup (emblem,
+> product name, subtitle) sharing its row with a control that collapses the
+> rail; a "new conversation" action; a section heading; then a list of past
+> conversations, one row each, with the current one marked as active. Hovering a
+> row reveals an overflow control at its right edge that opens a two-item menu
+> (rename, delete). The rail is pinned — it does not scroll away
 > with the conversation.
 >
-> **Right column, the conversation.** The user's questions are right-aligned in
-> filled bubbles; the assistant's answers are left-aligned as plain text at full
-> width. Under each answer, in order: a short list of the source documents that
-> answer drew on, as bulleted links; then a row of four small icon controls —
-> copy, approve, disapprove, and details.
+> **Right column, the conversation.** The user's questions sit in bubbles on one
+> side; the assistant's answers run as plain text at full width on the other.
+> Under each answer, in order: a short list of the source documents that answer
+> drew on, as links; then a row of four icon controls — copy, approve,
+> disapprove, and details.
 >
 > **Pinned to the bottom of the right column, not the window:** the question
 > input, centred on the conversation column rather than on the whole window, and
@@ -523,7 +527,7 @@ follows it to the report.
 ### 12. `conversation_persistence.png`
 
 > Design a diagram explaining how a chat application keeps conversations after
-> the browser is closed. You choose the style; I'm describing the logic.
+> the browser is closed.
 >
 > The framing question: a web app's in-memory state dies when the page reloads,
 > so what makes a conversation still be there tomorrow?
@@ -559,7 +563,7 @@ follows it to the report.
 ### 13. `answer_provenance_chain.png`
 
 > Design a diagram showing how a reader can trace a generated answer back to the
-> law it came from. You choose the style; I'm describing the logic. The figure
+> law it came from. The figure
 > argues that a claim in this system is checkable at three widening levels of
 > detail.
 >
@@ -599,7 +603,7 @@ figure.
 ### 14. `ocr_and_cleaning_pipeline.png`
 
 > Design a diagram showing how a scanned legal document becomes clean machine
-> text. You choose the style; I'm describing the logic. This figure is about
+> text. This figure is about
 > what goes *wrong* at each stage and what fixes it.
 >
 > Six stages, in order, each with a defect it removes:
@@ -633,7 +637,7 @@ figure.
 ### 15. `gold_question_lifecycle.png`
 
 > Design a diagram following one test question through its life, from written to
-> used as evidence. You choose the style; I'm describing the logic.
+> used as evidence.
 >
 > The argument: an evaluation is only as trustworthy as the question set it
 > measures against, so the question set itself is treated as something to be
@@ -666,7 +670,7 @@ figure.
 ### 16. `llm_judge_rubric.png`
 
 > Design a diagram explaining how generated answers are scored by a language
-> model acting as a judge. You choose the style; I'm describing the logic.
+> model acting as a judge.
 >
 > One answer goes in. The judge sees three things: the original question, the
 > passages the system retrieved, and the answer produced from them. It never
@@ -682,8 +686,8 @@ figure.
 > the answer asserts something the passages do not support.
 >
 > The single most important thing this diagram must convey: **the hallucination
-> flag is deliberately kept out of the combined score.** Draw it on a separate
-> track that does not merge into the total. The reason is that averaging it away
+> flag is deliberately kept out of the combined score.** It stays on its own
+> track and never merges into the total. The reason is that averaging it away
 > would let a model with a high fabrication rate hide behind otherwise fluent,
 > well-structured answers — and in a legal-information setting a fabricated
 > provision is a different category of failure from a merely incomplete answer,
@@ -696,12 +700,11 @@ figure.
 
 ### 17. `request_sequence.png`
 
-> Design a sequence diagram — actors as columns, time flowing downward, messages
-> as arrows between them — for a single question answered by a locally-hosted
-> RAG chatbot. You choose the visual style; I'm describing the interaction.
+> Design a figure showing a single question being answered by a locally-hosted
+> RAG chatbot as an interaction over time between the participants below.
 >
-> Five columns: the **user**, the **web interface**, the **retrieval layer**, the
-> **local inference server**, and the **local conversation store**.
+> Five participants: the **user**, the **web interface**, the **retrieval
+> layer**, the **local inference server**, and the **local conversation store**.
 >
 > The sequence:
 >
@@ -709,27 +712,27 @@ figure.
 > 2. The interface immediately records that a new conversation has begun in the
 >    store — before any answer exists — and shows the question on screen.
 > 3. The interface asks the retrieval layer for relevant passages. Show the two
->    parallel searches and their fusion happening *inside* that column.
+>    parallel searches and their fusion happening *within* that participant.
 > 4. The retrieval layer returns ranked passages, and the interface checks the
 >    best score against a threshold before continuing.
 > 5. The interface sends an assembled prompt to the inference server and receives
->    the answer **as a stream of tokens**, not a single reply — draw this as
->    repeated arrows over time, with the interface redrawing after each one.
+>    the answer **as a stream of tokens**, not a single reply, redrawing as each
+>    one arrives.
 > 6. Show that the user can interrupt this stream, and that an interrupted answer
 >    is still recorded rather than discarded.
 > 7. When the stream ends, the interface writes the finished message to the store
 >    and renders the sources and controls beneath it.
 >
 > Two things worth making visible: the store is written to twice, at the
-> beginning and the end; and every column except the user is a local process, so
-> no arrow in the whole diagram leaves the machine.
+> beginning and the end; and every participant except the user is a local
+> process, so nothing in the figure leaves the machine.
 
 ---
 
 ### 18. `data_model.png`
 
 > Design an entity-relationship diagram for the small local database behind a
-> chat application's history. You choose the style; I'm describing the structure.
+> chat application's history.
 >
 > Two entities:
 >
@@ -759,12 +762,11 @@ figure.
 ### 19. `scope_boundary.png`
 
 > Design a diagram that classifies questions a legal-information assistant might
-> receive, according to whether it is willing to answer them. You choose the
-> style; I'm describing the logic. This figure is about a policy decision, not a
-> technical mechanism.
+> receive, according to whether it is willing to answer them. This figure is
+> about a policy decision, not a technical mechanism.
 >
-> Do not draw a simple in/out circle. The classification has three regions, and
-> the middle one is the entire point:
+> The classification has three regions rather than two, and the third is the
+> entire point:
 >
 > 1. **Off-topic.** Nothing to do with insurance law. Declined because the system
 >    has no relevant material.
@@ -774,8 +776,8 @@ figure.
 > 3. **On-topic but not permitted.** Questions squarely about insurance that the
 >    system still declines: which company or product someone should choose, what
 >    a policy will cost them, what they personally should do about their own
->    situation, and any calculation of an individual's money. Show these as
->    *inside* the subject area but outside what the system will answer.
+>    situation, and any calculation of an individual's money. These sit inside
+>    the subject area but outside what the system will answer.
 >
 > The reason for region 3 must be legible: these are the questions where being
 > confidently wrong causes real financial harm to a specific person, and where
@@ -790,8 +792,7 @@ figure.
 ### 20. `deployment_topology.png`
 
 > Design a deployment diagram showing the processes that make up a locally-run AI
-> application and how they talk to each other. You choose the style; I'm
-> describing the structure.
+> application and how they talk to each other.
 >
 > On one machine, two long-running processes:
 >
@@ -873,8 +874,8 @@ Instruction for the agent:
 > fail loudly and say which file and key were missing.
 >
 > Keep it deterministic and re-runnable, so the figures can be regenerated after
-> any evaluation is re-run. One consistent style across all figures: same font,
-> same palette, axis labels on every axis, and units or score ranges stated.
+> any evaluation is re-run. Keep one consistent style across all figures, label
+> every axis, and state units or score ranges.
 > Hallucination rate must never be merged into the combined quality score — it
 > is reported separately on purpose.
 
@@ -890,7 +891,7 @@ Two things to be careful about when these are read in a report:
 - **`fig_embedding_space.png` is the figure that explains the headline retrieval
   result**, so it is worth the effort: project the real stored chunk vectors
   down to two dimensions with the same method and seed for each model, and show
-  the three panels side by side. The winning model should show visible structure
+  and present the three panels together. The winning model should show structure
   while the weakest one collapses into a single undifferentiated cloud — which
   is what "cannot discriminate between Khmer legal passages" looks like. Say
   which projection and seed were used in the caption, and never reuse one
@@ -920,8 +921,8 @@ Wrap the diagram prompts with this when driving generation from a CLI agent:
 > `reports/`. Do not let the image model render filenames, paths, or numbers —
 > it will corrupt them.
 >
-> Use a single monospace face for all composited labels. Keep the script
-> deterministic and re-runnable so the diagrams can be regenerated when the
-> pipeline changes.
+> Keep the composited label styling consistent across every figure, and keep the
+> script deterministic and re-runnable so the diagrams can be regenerated when
+> the pipeline changes.
 >
 > Show me each image after the text pass before committing anything.
