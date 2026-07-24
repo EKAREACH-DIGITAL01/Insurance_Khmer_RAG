@@ -1,6 +1,6 @@
 # Data Card — Khmer Insurance RAG Chatbot
 
-Generated: 2026-06-25 21:25:36
+Generated: 2026-07-24 15:30:51
 
 Retrieval-augmented question answering over Cambodian insurance laws, sub-decrees, prakas and guidance, in Khmer. The assistant answers strictly from the retrieved source documents and refuses out-of-scope, advisory, pricing and recommendation requests.
 
@@ -21,16 +21,16 @@ Retrieval-augmented question answering over Cambodian insurance laws, sub-decree
 ## 2. Chunked Knowledge Base
 
 - **Total chunks:** 1435
-- **Avg chunk size:** 511.6 chars
+- **Avg chunk size:** 512.7 chars
 - **Chunking method(s):** guidance_heading, legal_unit
 
 | Category    |   Docs |   Chunks |   Avg Size | Size Range   |
 |-------------|--------|----------|------------|--------------|
-| guidance    |     16 |      146 |      741.9 | 53–3409      |
+| guidance    |     16 |      146 |      743.1 | 53–3409      |
 | laws        |      4 |      255 |      473.1 | 64–4747      |
-| prakas      |     25 |      783 |      484   | 62–4470      |
-| sub_decrees |      4 |      251 |      502.5 | 61–3068      |
-| **TOTAL**   |        |     1435 |      511.6 |              |
+| prakas      |     25 |      783 |      485.6 | 62–4470      |
+| sub_decrees |      4 |      251 |      503.8 | 61–3068      |
+| **TOTAL**   |        |     1435 |      512.7 |              |
 
 ## 3. Vector Index
 
@@ -46,38 +46,38 @@ Retrieval-augmented question answering over Cambodian insurance laws, sub-decree
 
 ## 4. Evaluation Sets
 
-**Gold question set** — 100 questions
+**Gold question set** — 400 questions
 
 | Category    |   Questions |
 |-------------|-------------|
-| guidance    |          25 |
-| laws        |          25 |
-| prakas      |          25 |
-| sub_decrees |          25 |
+| guidance    |         100 |
+| laws        |          75 |
+| prakas      |         150 |
+| sub_decrees |          75 |
 
-**Adversarial / safety set** — 43 questions
+**Adversarial / safety set** — 50 questions
 
 | Category        |   Total |   Must Refuse |   Must Answer |
 |-----------------|---------|---------------|---------------|
-| out_of_domain   |      14 |            11 |             3 |
-| personal_advice |      10 |             7 |             3 |
-| pricing         |       8 |             5 |             3 |
-| recommendation  |      11 |             7 |             4 |
+| out_of_domain   |      16 |            13 |             3 |
+| personal_advice |      12 |             9 |             3 |
+| pricing         |      10 |             7 |             3 |
+| recommendation  |      12 |             9 |             3 |
 
 ## 5. Model Selection
 
-- **Embedding model:** `BAAI/bge-m3` (Hit@5=0.98, Recall@5=0.96, MRR@5=0.8837); compared 3 models
+- **Embedding model:** `BAAI/bge-m3` (Hit@5=0.9658333333333333, Recall@5=0.9658333333333333, MRR@5=0.8684); compared 3 models
 - **Retrieval mode:** `hybrid`
-- **Generator model:** `SeaLLM v3 7B` (combined judge score 4.476/5); compared 4 models
+- **Generator model:** `SeaLLM v3 7B` (combined judge score 4.96/5); compared 4 models
 
 Retrieval mode comparison (macro-avg @5):
 
 | Metric           |   Dense |   Hybrid |      Δ |
 |------------------|---------|----------|--------|
-| Hit Rate @5      |  0.98   |   1      | 0.02   |
-| Recall @5        |  0.96   |   0.995  | 0.035  |
-| MRR @5           |  0.8837 |   0.8882 | 0.0045 |
-| File Hit Rate @5 |  1      |   1      | 0      |
+| Hit Rate @5      |  0.9658 |   0.9825 | 0.0167 |
+| Recall @5        |  0.9658 |   0.9825 | 0.0167 |
+| MRR @5           |  0.8684 |   0.8952 | 0.0267 |
+| File Hit Rate @5 |  0.9825 |   0.9917 | 0.0092 |
 
 ## 6. Quality Evaluation
 
@@ -85,25 +85,17 @@ Retrieval mode comparison (macro-avg @5):
 
 | Metric             |   Avg (1-5) |
 |--------------------|-------------|
-| Context Relevance  |       4.48  |
-| Faithfulness       |       4.52  |
-| Answer Correctness |       4.64  |
-| Answer Relevance   |       4.01  |
-| Completeness       |       4.59  |
-| **Combined**       |       4.476 |
+| Context Relevance  |        4.88 |
+| Faithfulness       |        5    |
+| Answer Correctness |        4.99 |
+| Completeness       |        4.92 |
+| **Combined**       |        4.96 |
 
-### Human evaluation
+### Safety gates
 
-- **Evaluators:** 1 | **Responses:** 25 | **Questions rated:** 25
-- **Combined avg:** 4.07/5
-- **Hallucinations flagged:** 0
-
-| Metric             |   Human Avg (1-5) |
-|--------------------|-------------------|
-| Context Relevance  |              3.8  |
-| Faithfulness       |              4.08 |
-| Answer Relevance   |              4.2  |
-| Answer Correctness |              4.2  |
+- **Model:** SeaLLM v3 7B
+- **Accuracy:** 50/50 (100%)
+- **Confusion:** TR=38, TA=12, FA=0, FR=0
 
 ## 7. Limitations
 

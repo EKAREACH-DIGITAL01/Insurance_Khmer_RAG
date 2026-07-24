@@ -33,4 +33,4 @@
 
 **Recommendation: SeaLLM v3 7B**
 
-Use this model for human-scored evaluation in `scripts/16_human_answer_evaluation.py`.
+Use this model for the live chatbot and `scripts/18_evaluate_safety_gates.py`.

@@ -31,11 +31,10 @@ winning model. The gold question set itself is validated by humans (stage 11/12)
 | 2 | Retrieval Mode Comparison | `10` | Automated (retrieval) | Dense vs BM25 vs Hybrid → **Hybrid (RRF)** | `reports/retrieval_mode_comparison/` |
 | 3 | Human Golden-Question Evaluation | `11` → `12` | Human | Validates **quality of the gold set** | `reports/human_golden_question_evaluation/` |
 | 4 | Generator Model Comparison | `13` → `14` → `15` | Automated (proxy RAGAS) | Best generator model → **SeaLLM** | `reports/generator_model_comparison/` |
-| 5 | Human Answer Evaluation | `16` → `17` | Human (RAGAS) | Human-verified answer quality of the winner | `reports/human_answer_evaluation/` |
-| 6 | Safety Gate Evaluation | `18` | Automated (adversarial) | Confirms the safety gates hold | `reports/safety_gate_evaluation/` |
+| 5 | Safety Gate Evaluation | `18` | Automated (adversarial) | Confirms the safety gates hold | `reports/safety_gate_evaluation/` |
 | — | **Data Card** | `19` | Roll-up | One card summarising everything | `reports/data_card/` |
 
-The shared yardstick for evaluations 1, 2, 4 and 5 is the **gold question set** in
+The shared yardstick for evaluations 1, 2 and 4 is the **gold question set** in
 `data/09_evaluation/<category>/gold_questions.json` — **400 questions** across four
 categories (`guidance`, `law`, `prakas`, `sub_decree`), of which **100 are
 human-authored** (question ids `001–025` per category) and **300 are AI-authored**
@@ -50,7 +49,7 @@ curation gate run by legal professionals: it **removes** weak questions and lets
 experts **rewrite target answers**, so the finalised gold set used by evaluations
 1, 2, 4 and 5 is **smaller than 400 and legally vetted**.
 
-Evaluation 6 uses a separate **adversarial set** in
+Evaluation 5 uses a separate **adversarial set** in
 `data/10_adversarial/*.json` (`question_id · question · expected_behavior`).
 
 ---
@@ -213,55 +212,11 @@ resumable) to
 
 **What happens next.** The winning model (**SeaLLM**, `SeaLLMs-v3-7B-Chat`) is the
 generator shipped in `app.py`, and its per-answer `..._full.jsonl` becomes the
-input to the human answer evaluation (script 16/17) and the safety-gate run
-(script 18).
+input to the safety-gate run (script 18).
 
 ---
 
-## 5. Human Answer Evaluation — `scripts/16` → `scripts/17`
-
-**Purpose.** Have humans score the **winning model's actual answers** — the
-authoritative, human-verified **RAGAS** evaluation that the automated proxies in
-stage 4 only approximate.
-
-**Collection UI — `scripts/16_human_answer_evaluation.py`.** Streamlit app
-(port 8502) backed by SQLite
-(`reports/human_answer_evaluation/human_answer_evaluation.db`). Each evaluator
-sees the question, the retrieved `context`, the `expected_answer`, and the
-model's `generated_answer`, and is assigned a **coverage-aware slice of 50** of
-the 400 questions (least-assigned first → the first 8 evaluators cover all 400,
-later evaluators add redundancy). Every evaluator rates a mix of human- and
-AI-authored questions, so no evaluator is biased toward one source.
-
-**Metrics (RAGAS-style, 1–5 human chips):**
-
-- **Context Relevance** — did the retrieved context contain what was needed?
-- **Faithfulness** — is the answer grounded in the context (no fabrication)?
-- **Answer Relevance** — does the answer address what was asked?
-- **Answer Correctness** — how accurately does it match the expected answer?
-- **Completeness** — is it complete and not cut off?
-
-Plus a **Hallucination** flag (human **Yes/No**) — treated **independently**: it
-is never averaged into the RAGAS macro/combined score and gets its **own
-standalone report**.
-
-**Report — `scripts/17_human_answer_evaluation_report.py`.** Merges the SQLite
-ratings with the model's `generated_answer_results_full.jsonl` into a **unified
-human-verified RAGAS report**, computes **inter-annotator agreement** (average
-pairwise absolute difference on questions rated by more than one evaluator; lower
-= better) and the hallucination disagreement rate, and writes the hallucination
-findings separately.
-
-**Output → `reports/human_answer_evaluation/`**:
-`human_answer_evaluation_report.{json,md}` (unified RAGAS) and
-`hallucination_report.{json,md}` (standalone).
-
-**What happens next.** This is the headline human-quality result for the shipped
-system and a primary input to the data card.
-
----
-
-## 6. Safety Gate Evaluation — `scripts/18_evaluate_safety_gates.py`
+## 5. Safety Gate Evaluation — `scripts/18_evaluate_safety_gates.py`
 
 **Purpose.** Verify that the **three layered safety gates** in `app.py` correctly
 enforce scope boundaries under creative/adversarial queries — run against the
@@ -312,8 +267,7 @@ document**, written as both machine-readable JSON and human-readable Markdown.
 - `reports/embedding_model_comparison/*.json` — evaluation 1
 - `reports/retrieval_mode_comparison/*.json` — evaluation 2
 - `reports/generator_model_comparison/*.json` — evaluation 4
-- `reports/human_answer_evaluation/*.json` — evaluation 5
-- `reports/safety_gate_evaluation/*.json` — evaluation 6
+- `reports/safety_gate_evaluation/*.json` — evaluation 5
 - `vector_db/*/embedding_model_info.json` — embedding metadata
 
 **Output → `reports/data_card/`**: `data_card.json` and `data_card.md`.
@@ -338,10 +292,6 @@ data/09_evaluation/  (gold set, 400 Qs)      data/10_adversarial/ (safety set)
         ├─► 13 generator comparison ─► reports/generator_model_comparison/<model>/*.jsonl
         │        ├─► 14 diagnostics    └─► generator_model_comparison.{json,md}
         │        └─► 15 rescore (from disk)
-        │                 │ (winner's *_full.jsonl)
-        │                 ▼
-        ├─► 16 human answer UI (SQLite) ─► 17 report
-        │        └─► reports/human_answer_evaluation/  (RAGAS + hallucination)
         │
         └─► 18 safety gates ─► reports/safety_gate_evaluation/
                                           │

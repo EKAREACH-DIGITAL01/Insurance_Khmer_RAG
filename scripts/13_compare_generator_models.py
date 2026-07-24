@@ -39,8 +39,8 @@ from sentence_transformers import SentenceTransformer
 # ----------------------------------------------------------------------------
 # PURPOSE: rank all installed generator models against each other on the full
 # gold question set (25 questions × 4 categories = 100 questions per model)
-# using five automated proxy metrics. The winning model is then used for the
-# human-scored RAGAS evaluation in scripts/16_human_answer_evaluation.py.
+# using five automated proxy metrics. The winning model is the one the live
+# chatbot and the safety-gate evaluation in scripts/18 then run on.
 #
 # METRICS (all automated, no LLM judge):
 #
@@ -243,11 +243,10 @@ MIN_QUESTION_LENGTH    = 8      # shorter questions are treated as degenerate in
 # because a question and its answer are different grammatical forms, so it
 # penalised even byte-identical-to-gold answers and could never reach 5. Its
 # job -- "does this actually answer the question" -- is done far better by
-# answer_correctness (semantic match to the verbatim gold answer) here, and by
-# the real RAGAS/human relevance judgement in the Stage-2 human eval
-# (scripts/16). We STILL compute answer_relevance_similarity into `detail` for
-# traceability; it just carries no weight. Its 0.15 was folded into
-# answer_correctness (the gold answer is the strongest Stage-1 signal we have).
+# answer_correctness (semantic match to the verbatim gold answer) here. We
+# STILL compute answer_relevance_similarity into `detail` for traceability; it
+# just carries no weight. Its 0.15 was folded into answer_correctness (the gold
+# answer is the strongest signal we have).
 WEIGHTS = {
     "context_relevance":  0.20,
     "faithfulness":       0.25,
@@ -2149,7 +2148,7 @@ def print_final_comparison(summaries):
             )
 
     print(f"\n  {BOLD}RECOMMENDATION: {ranked[0]['label']}{RESET}")
-    print(f"  → Use this model for human-scored evaluation in scripts/16_human_answer_evaluation.py")
+    print(f"  → Use this model for the live chatbot and scripts/18_evaluate_safety_gates.py")
 
 
 def write_final_report(summaries):
@@ -2174,16 +2173,15 @@ def write_final_report(summaries):
             "expected_answer (see docs/SCORING_CALIBRATION.md). Answer "
             "Relevance (answer-vs-question cosine) is computed for traceability "
             "but is NOT weighted -- it is structurally capped and penalised even "
-            "gold-identical answers; the real relevance judgement is the Stage-2 "
-            "human eval. Completeness checks sentence-final punctuation and a "
+            "gold-identical answers. Completeness checks sentence-final punctuation and a "
             "length-ratio FLOOR only (no over-length ceiling -- verbosity is not "
             "incompleteness). "
             "BLANK ANSWERS score 1 on Answer Correctness (not excluded from "
             "averages). weighted_combined is normalised by the sum of weights "
             "that had values -- None is reserved for genuinely uncomputable "
             "metrics (missing expected_answer), not for blank generated answers. "
-            "Run scripts/16_human_answer_evaluation.py on the winning model "
-            "for human-verified RAGAS scores."
+            "The winning model is the one the live chatbot and "
+            "scripts/18_evaluate_safety_gates.py run on."
         ),
     }
 
@@ -2265,8 +2263,8 @@ def write_final_report(summaries):
         )
     md_lines.append(f"\n**Recommendation: {ranked[0]['label']}**\n\n")
     md_lines.append(
-        f"Use this model for human-scored evaluation in "
-        f"`scripts/16_human_answer_evaluation.py`.\n"
+        f"Use this model for the live chatbot and "
+        f"`scripts/18_evaluate_safety_gates.py`.\n"
     )
 
     md_path = REPORTS_DIR / "generator_model_comparison.md"

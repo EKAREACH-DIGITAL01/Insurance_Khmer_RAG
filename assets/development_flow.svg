@@ -127,23 +127,14 @@
   <text x="82" y="782" class="body">14 diagnoses the score spread · 15 rescores from disk</text>
   <text x="82" y="808" class="path">→ generator_model_comparison/   ·   picks SeaLLM</text>
 
-  <!-- 16-17 -->
-  <rect x="636" y="672" width="540" height="150" rx="11" class="box"/>
-  <text x="652" y="696" class="num">16 → 17</text><text x="746" y="696" class="tagH">HUMAN · STREAMLIT + SQLITE</text>
-  <text x="652" y="720" class="ctitle">Human answer evaluation</text>
-  <text x="652" y="742" class="body">in: winner's generated answers — 50 per evaluator, coverage-aware</text>
-  <text x="652" y="762" class="body">RAGAS 5 metrics (1–5)  +  Hallucination Yes/No (kept separate)</text>
-  <text x="652" y="782" class="body">reports inter-annotator agreement (avg pairwise |diff|)</text>
-  <text x="652" y="808" class="path">→ human_answer_evaluation/  +  hallucination_report</text>
-
   <!-- 18 -->
-  <rect x="1206" y="672" width="534" height="150" rx="11" class="box"/>
-  <text x="1222" y="696" class="num">18</text><text x="1290" y="696" class="tagA">AUTOMATED · ADVERSARIAL</text>
-  <text x="1222" y="720" class="ctitle">Safety-gate evaluation</text>
-  <text x="1222" y="742" class="body">in: data/10_adversarial — 4 refuse/answer categories</text>
-  <text x="1222" y="762" class="body">Gate 1 Khmer/length/scope · Gate 2 FAISS 0.49 · Gate 3 refusal</text>
-  <text x="1222" y="782" class="body">confusion matrix: True/False × Refuse/Answer (TR·FA·TA·FR)</text>
-  <text x="1222" y="808" class="path">→ safety_gate_evaluation/  (+ results.jsonl)</text>
+  <rect x="636" y="672" width="540" height="150" rx="11" class="box"/>
+  <text x="652" y="696" class="num">18</text><text x="720" y="696" class="tagA">AUTOMATED · ADVERSARIAL</text>
+  <text x="652" y="720" class="ctitle">Safety-gate evaluation</text>
+  <text x="652" y="742" class="body">in: data/10_adversarial — 4 refuse/answer categories</text>
+  <text x="652" y="762" class="body">Gate 1 Khmer/length/scope · Gate 2 FAISS 0.49 · Gate 3 refusal</text>
+  <text x="652" y="782" class="body">confusion matrix: True/False × Refuse/Answer (TR·FA·TA·FR)</text>
+  <text x="652" y="808" class="path">→ safety_gate_evaluation/  (+ results.jsonl)</text>
 
   <!-- feedback loop 11-12 -> gold set -->
   <path class="edgeL" d="M1620,498 C1620,440 1473,420 1473,382" marker-end="url(#arrL)"/>
@@ -152,19 +143,18 @@
   <!-- reports bus -->
   <rect x="66" y="846" width="1674" height="50" rx="10" fill="#FBF3E9" stroke="#B68B4C" stroke-width="1.5"/>
   <text x="82" y="876" class="stitle" font-size="14">reports/ — one JSON + Markdown report per evaluation</text>
-  <text x="1724" y="876" text-anchor="end" class="body">winner of 13 → its answers scored by 16/17 · winner also drives the 18 replay</text>
+  <text x="1724" y="876" text-anchor="end" class="body">winner of 13 drives the live chatbot and the 18 adversarial replay</text>
 
   <!-- arrows bottom row -> bus -->
   <path class="edge" d="M336,822 L336,844" marker-end="url(#arr)"/>
   <path class="edge" d="M906,822 L906,844" marker-end="url(#arr)"/>
-  <path class="edge" d="M1473,822 L1473,844" marker-end="url(#arr)"/>
 
   <!-- data card -->
   <rect x="400" y="924" width="1000" height="116" rx="12" fill="#F3EAF0" stroke="#9C2B1F" stroke-width="2"/>
   <text x="420" y="950" class="num" fill="#9C2B1F">19 · ROLL-UP</text>
   <text x="420" y="974" class="ctitle">Data card</text>
   <text x="420" y="996" class="body">reads: corpus metadata · chunk KB · gold set · adversarial set</text>
-  <text x="420" y="1016" class="body">+ reports from 09 · 10 · 13 · 17 · 18  ·  vector_db model info</text>
+  <text x="420" y="1016" class="body">+ reports from 09 · 10 · 13 · 18  ·  vector_db model info</text>
   <text x="900" y="1030" class="path">→ reports/data_card/   (data_card.json + data_card.md)</text>
   <path class="edge" d="M900,896 L900,922" marker-end="url(#arr)"/>
 

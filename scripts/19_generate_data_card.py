@@ -22,7 +22,6 @@ from tabulate import tabulate
 #   reports/embedding_model_comparison/*.json       (script 09)
 #   reports/retrieval_mode_comparison/*.json        (script 10)
 #   reports/generator_model_comparison/*.json       (script 13)
-#   reports/human_answer_evaluation/*.json          (script 17)
 #   reports/safety_gate_evaluation/*.json           (script 18)
 #   vector_db/*/embedding_model_info.json           (script 08)
 #
@@ -42,7 +41,6 @@ VECTOR_DB_DIR     = Path("vector_db")
 EMBEDDING_REPORT  = Path("reports/embedding_model_comparison/embedding_model_comparison.json")
 RETRIEVAL_REPORT  = Path("reports/retrieval_mode_comparison/retrieval_mode_comparison.json")
 GENERATOR_REPORT  = Path("reports/generator_model_comparison/generator_model_comparison.json")
-HUMAN_REPORT      = Path("reports/human_answer_evaluation/human_answer_evaluation_report.json")
 SAFETY_REPORT     = Path("reports/safety_gate_evaluation/safety_gate_evaluation.json")
 
 OUTPUT_DIR = Path("reports/data_card")
@@ -267,11 +265,11 @@ def build_model_selection():
 
 
 # ----------------------------------------------------------------------------
-# 6. Quality evaluation (automated + human + safety)
+# 6. Quality evaluation (automated + safety)
 # ----------------------------------------------------------------------------
 
 def build_quality():
-    quality = {"automated_judge": None, "human": None, "safety_gates": None}
+    quality = {"automated_judge": None, "safety_gates": None}
 
     gen = load_json(GENERATOR_REPORT)
     if gen and gen.get("ranking"):
@@ -287,21 +285,6 @@ def build_quality():
             "scores_avg":        winner.get("scores_avg"),
             "truncated_answers": winner.get("truncated_answers"),
             "blank_answers":     winner.get("blank_answers"),
-        }
-
-    human = load_json(HUMAN_REPORT)
-    if human:
-        # hallucination naming differs between report versions
-        halluc = human.get("hallucination_summary")
-        if halluc is None and isinstance(human.get("hallucination_audit"), list):
-            halluc = {"answers_with_flag": len(human["hallucination_audit"])}
-        quality["human"] = {
-            "evaluators":      human.get("total_evaluators"),
-            "responses":       human.get("total_responses"),
-            "questions_rated": human.get("questions_rated"),
-            "macro_avgs":      human.get("macro_avgs"),
-            "combined_avg":    human.get("combined_avg"),
-            "hallucination":   halluc,
         }
 
     safety = load_json(SAFETY_REPORT)
@@ -464,21 +447,6 @@ def render_markdown(card):
             rows = [[k.replace("_", " ").title(), v] for k, v in aj["scores_avg"].items()]
             rows.append(["**Combined**", aj["combined_avg"]])
             md.append(tabulate(rows, headers=["Metric", "Avg (1-5)"], tablefmt="github") + "\n\n")
-    hu = q.get("human")
-    if hu:
-        md.append("### Human evaluation\n\n")
-        md.append(f"- **Evaluators:** {_na(hu['evaluators'])} | "
-                  f"**Responses:** {_na(hu['responses'])} | "
-                  f"**Questions rated:** {_na(hu['questions_rated'])}\n")
-        md.append(f"- **Combined avg:** {_na(hu['combined_avg'])}/5\n")
-        if hu.get("hallucination"):
-            flagged = hu["hallucination"].get("answers_with_flag")
-            md.append(f"- **Hallucinations flagged:** {_na(flagged)}\n")
-        md.append("\n")
-        if hu.get("macro_avgs"):
-            rows = [[k.replace("_", " ").title(), _na(v)] for k, v in hu["macro_avgs"].items()]
-            md.append(tabulate(rows, headers=["Metric", "Human Avg (1-5)"],
-                               tablefmt="github") + "\n\n")
     sg = q.get("safety_gates")
     if sg:
         md.append("### Safety gates\n\n")
@@ -533,7 +501,6 @@ def main():
           f"ret={status(card['model_selection']['retrieval'])} "
           f"gen={status(card['model_selection']['generator'])}")
     print(f"  quality         : judge={status(card['quality']['automated_judge'])} "
-          f"human={status(card['quality']['human'])} "
           f"safety={status(card['quality']['safety_gates'])}")
 
     print(f"\nSaved JSON data card     : {json_path}")

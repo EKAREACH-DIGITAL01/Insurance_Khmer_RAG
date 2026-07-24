@@ -15,10 +15,9 @@ from tabulate import tabulate
 # SQLite and roll them into ONE report (JSON + Markdown) describing the QUALITY
 # OF THE GOLD QUESTION SET itself -- not the RAG system's answers.
 #
-# This is the companion to scripts/11 in the same way scripts/17 is the
-# companion to scripts/16 (human ANSWER evaluation). scripts/11 validates the
-# test set that every downstream evaluation (13 generator comparison, 16/17
-# human answer eval) is measured against; this script turns that validation
+# This is the companion to scripts/11. scripts/11 validates the
+# test set that every downstream evaluation (13 generator comparison,
+# 18 safety gates) is measured against; this script turns that validation
 # into (a) aggregate test-set quality metrics and (b) a per-question CURATION
 # flag list a maintainer acts on by hand.
 #

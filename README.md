@@ -56,12 +56,8 @@ happen at chat time.
   RAGAS-style 5-metric scorer that is **fully automated (deterministic +
   embedding proxies, no LLM judge)** by
   `scripts/13_compare_generator_models.py`, saved to
-  `reports/generator_model_comparison/`. The winner is then re-checked by the
-  human answer evaluation below.
-- **Human answer evaluation** — a Streamlit rating UI
-  (`scripts/16_human_answer_evaluation.py`) collects human scores, merged into
-  a report (plus a separate hallucination report) by
-  `scripts/17_human_answer_evaluation_report.py`.
+  `reports/generator_model_comparison/`. The winner is the model the live
+  chatbot and the safety-gate evaluation run on.
 - **Safety-gate evaluation** — the adversarial test set is replayed through
   all three gates by `scripts/18_evaluate_safety_gates.py`.
 - **Data card** — `scripts/19_generate_data_card.py` rolls up the whole
@@ -174,10 +170,6 @@ Khmer-Rag-Chatbot/
 │   │   ├── Llama-3.1-8B-Instruct-Q4_K_M/
 │   │   ├── generator_model_comparison.{json,md}
 │   │   └── generator_score_diagnostics.{json,md}
-│   ├── human_answer_evaluation/
-│   │   ├── human_answer_evaluation.db          # gitignored (local scores)
-│   │   ├── human_answer_evaluation_report.{json,md}
-│   │   └── hallucination_report.{json,md}
 │   ├── safety_gate_evaluation/
 │   │   └── safety_gate_evaluation.{json,md}
 │   └── data_card/
@@ -212,8 +204,6 @@ Khmer-Rag-Chatbot/
 │   ├── 13_compare_generator_models.py
 │   ├── 14_diagnose_generator_scores.py
 │   ├── 15_rescore_generator_scores.py
-│   ├── 16_human_answer_evaluation.py
-│   ├── 17_human_answer_evaluation_report.py
 │   ├── 18_evaluate_safety_gates.py
 │   └── 19_generate_data_card.py
 │
@@ -253,7 +243,7 @@ Khmer-Rag-Chatbot/
   + installing models.
 - **`reports/` are committed** as the evaluation deliverables (JSON +
   Markdown), except the locally-generated human-evaluation SQLite database
-  `reports/human_answer_evaluation/*.db`, which is gitignored.
+  `reports/human_golden_question_evaluation/*.db`, which is gitignored.
 
 ---
 
@@ -367,21 +357,12 @@ python scripts/12_human_golden_question_evaluation_report.py  # aggregate + cura
 python scripts/13_compare_generator_models.py
 # optional follow-ups: 14 diagnoses, 15 rescores the generator scores
 
-# Human answer evaluation — Streamlit rating UI on the winning model
-python scripts/16_human_answer_evaluation.py          # collect scores
-python scripts/17_human_answer_evaluation_report.py   # merge into a report
-
 # Safety-gate evaluation against the adversarial set (requires llama-server)
 python scripts/18_evaluate_safety_gates.py
 
 # Data card — rolls up every artifact above into one card
 python scripts/19_generate_data_card.py
 ```
-
-`scripts/17_human_answer_evaluation_report.py` also writes a **separate
-hallucination report** (`reports/human_answer_evaluation/hallucination_report.{json,md}`)
-driven by the human Yes/No hallucination flag — the mandatory pre-demo
-review gate (Internship Proposal §11).
 
 ---
 

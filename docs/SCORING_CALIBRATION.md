@@ -11,10 +11,11 @@ This is **Stage 1** of a two-stage generator evaluation:
    models on the gold question set with deterministic + embedding proxies, no
    human and no LLM judge. Pick one winner. The expensive part is *generating*
    the answers once; re-scoring them is free (see Rescore workflow below).
-2. **Stage 2 — human RAGAS.** Only the Stage-1 winner goes to
-   `scripts/16_human_answer_evaluation.py`, where a person scores the answers
-   on the UI. That is where true *answer relevance* and human-grade judgement
-   live — so Stage 1 deliberately does **not** try to reproduce them.
+2. **Human validation is applied to the gold set, not to the answers.**
+   `scripts/11` → `scripts/12` has people validate the *questions and target
+   answers* that this proxy scores against. The generated answers themselves
+   are not human-scored, so true *answer relevance* and human-grade judgement
+   are outside what this pipeline measures.
 
 Companion tools:
 - **`scripts/14_diagnose_generator_scores.py`** — runs every
@@ -88,8 +89,7 @@ question. Example: `prakas_qid_024` (SeaLLM) was near-identical to gold
 score down to 3.9.
 
 Its job — "does this actually address the question" — is covered far better by
-`answer_correctness` here (match to the gold answer), and is exactly what the
-Stage-2 human/RAGAS pass measures properly. So the similarity is still computed
+`answer_correctness` here (match to the gold answer). So the similarity is still computed
 into `detail.answer_relevance_similarity` for traceability, but it carries **no
 weight**. Its 0.15 was folded into `answer_correctness`.
 
@@ -311,12 +311,14 @@ Combined-score sanity (discrimination, not collapse): SeaLLM mean 4.96 (89/100
 
 ## The honest limitation
 
-**These thresholds are empirically derived from real data, not yet validated
-against human judgement.** That is exactly what Stage 2 is for:
-`scripts/16_human_answer_evaluation.py` has a person score the winning model's
-answers by hand. If the human scores broadly agree with this proxy, the proxy
-can be trusted for faster iteration later; if they disagree systematically,
-come back here and to `scripts/14_diagnose_generator_scores.py` and recalibrate.
+**These thresholds are empirically derived from real data and are not
+validated against human judgement of the generated answers.** This project
+human-validates the *gold set* (`scripts/11` → `scripts/12`) but does not
+human-score the model's answers, so there is no human baseline to confirm that
+these proxy scores track what a reader would say. Treat the generator ranking
+as a defensible automated comparison, not as a measured answer-quality result.
 The fixes in this revision were all made by reading the actual generated vs.
-expected answers in the JSONL — the metrics now agree with what a reader sees,
-which is the precondition for the Stage-2 human check to confirm.
+expected answers in the JSONL — the metrics agree with what a reader sees on
+the cases inspected by hand, which is the strongest claim available here. If
+the ranking ever needs to be defended more strongly, use
+`scripts/14_diagnose_generator_scores.py` to re-examine the score spread.
