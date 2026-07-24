@@ -374,12 +374,17 @@ SERVER_OUTPUT_HARD_CAP = SERVER_CTX_SIZE - 9000  # ~7384 tokens
 GEN_MAX_RETRIES   = 3
 GEN_RETRY_BACKOFF = 2.0
 
-# Which precomputed vector_db/<subfolder>/ the live app loads. Change this
-# one line to switch embedding models -- scripts/08_generate_embeddings.py
-# builds all installed models into their own subfolders (vector_db/BAAI-BGE-M3/,
-# vector_db/jinaai-jina-embeddings-v3/, vector_db/MiniLM-paraphrase-multilingual-L12-v2/),
-# so switching here doesn't require rebuilding anything that's already
-# been generated -- just restart the app.
+# Which precomputed vector_db/<subfolder>/ the live app loads.
+#
+# BGE-M3 is the production retriever -- it won the three-way comparison in
+# reports/embedding_model_comparison/ -- and is not selectable at runtime.
+# The other two indices exist only so that comparison can be re-run:
+# scripts/08_generate_embeddings.py builds every installed model into its
+# own subfolder (vector_db/BAAI-BGE-M3/, vector_db/multilingual-e5-large/,
+# vector_db/MiniLM-paraphrase-multilingual-L12-v2/). Repointing this
+# constant is therefore a deliberate change of retriever, not a runtime
+# option, and needs no rebuild of anything already generated -- but the
+# reports under reports/ then no longer describe what the app runs.
 ACTIVE_EMBEDDING_MODEL_DIR = "BAAI-BGE-M3"
 
 VECTOR_DB_ROOT = "vector_db"
@@ -1285,110 +1290,67 @@ def get_loaded_model():
 
 @st.cache_resource(show_spinner=False)
 def resolve_vector_db():
-    """Figures out which vector_db/ layout is actually on disk and
-    resolves the FAISS index path, metadata path, and embedding model
-    info accordingly. Tries, in order:
+    """Resolves the FAISS index, chunk metadata and embedding model info
+    for ACTIVE_EMBEDDING_MODEL_DIR.
 
-      1. New per-model subfolder layout -- vector_db/<ACTIVE_EMBEDDING_MODEL_DIR>/
-         -- what the current scripts/08_generate_embeddings.py builds.
-      2. Old flat layout with a top-level embedding_model_info.json --
-         what an earlier version of scripts/07 built (one model,
-         dynamically chosen, no subfolders).
-      3. Original flat layout with no info file at all -- assumes
-         BAAI/bge-m3, since that was the only option before multiple
-         embedding models existed.
+    There is exactly one supported layout: the per-model subfolder
+    vector_db/<ACTIVE_EMBEDDING_MODEL_DIR>/ that
+    scripts/08_generate_embeddings.py builds. The embedding model is not
+    selectable at runtime -- BGE-M3 won the comparison in
+    reports/embedding_model_comparison/ and is what the app ships with.
 
-    Returns (faiss_path, metadata_path, embedding_model_info, found,
-    layout_note). `found` is True only for case 1 (the current, fully
-    correct layout) -- cases 2 and 3 still work, but return a
-    human-readable note explaining the situation so the UI can show it
-    rather than silently guessing forever."""
-    new_dir = f"{VECTOR_DB_ROOT}/{ACTIVE_EMBEDDING_MODEL_DIR}"
-    new_faiss = f"{new_dir}/khmer_insurance.index"
-    new_metadata = f"{new_dir}/khmer_insurance_metadata.json"
-    new_info = f"{new_dir}/embedding_model_info.json"
+    This used to fall back to two older flat layouts and, failing those,
+    to *assuming* BGE-M3 with a guessed hf_id. That was a silent
+    correctness hazard: a wrong guess encodes queries with a different
+    model than built the index, which doesn't error -- it just returns
+    quietly bad retrievals. Anything short of a complete, current index
+    is now a hard failure with the command that rebuilds it.
 
-    if os.path.exists(new_faiss) and os.path.exists(new_metadata):
-        if os.path.exists(new_info):
-            with open(new_info, "r", encoding="utf-8") as f:
-                info = json.load(f)
-            return new_faiss, new_metadata, info, True, None
+    Returns (faiss_path, metadata_path, embedding_model_info)."""
+    db_dir = f"{VECTOR_DB_ROOT}/{ACTIVE_EMBEDDING_MODEL_DIR}"
+    faiss_path = f"{db_dir}/khmer_insurance.index"
+    metadata_path = f"{db_dir}/khmer_insurance_metadata.json"
+    info_path = f"{db_dir}/embedding_model_info.json"
 
-        # Subfolder exists but somehow no info file -- shouldn't happen
-        # from a normal scripts/07 run, but don't crash over it.
-        fallback_info = {
-            "label": ACTIVE_EMBEDDING_MODEL_DIR,
-            "hf_id": None,
-            "trust_remote_code": False,
-            "task_aware": False,
-        }
-        note = (
-            f"Found {new_dir}/ but no embedding_model_info.json inside it -- "
-            "assuming a non-task-aware model. Re-run "
-            "scripts/08_generate_embeddings.py to fix."
+    missing = [
+        os.path.basename(p)
+        for p in (faiss_path, metadata_path, info_path)
+        if not os.path.exists(p)
+    ]
+    if missing:
+        raise FileNotFoundError(
+            f"{db_dir}/ is missing {', '.join(missing)}. "
+            f"Run: python scripts/08_generate_embeddings.py"
         )
-        return new_faiss, new_metadata, fallback_info, False, note
 
-    # Fall back to the old flat layout (pre-dates per-model subfolders).
-    old_faiss = f"{VECTOR_DB_ROOT}/khmer_insurance.index"
-    old_metadata = f"{VECTOR_DB_ROOT}/khmer_insurance_metadata.json"
-    old_info = f"{VECTOR_DB_ROOT}/embedding_model_info.json"
+    with open(info_path, "r", encoding="utf-8") as f:
+        info = json.load(f)
 
-    if os.path.exists(old_faiss) and os.path.exists(old_metadata):
-        if os.path.exists(old_info):
-            with open(old_info, "r", encoding="utf-8") as f:
-                info = json.load(f)
-            note = (
-                f"Using a legacy flat vector_db/ layout built before "
-                f"per-model subfolders existed. Re-run "
-                f"scripts/08_generate_embeddings.py to migrate to "
-                f"vector_db/{ACTIVE_EMBEDDING_MODEL_DIR}/."
-            )
-            return old_faiss, old_metadata, info, False, note
-
-        fallback_info = {
-            "label": "BAAI/bge-m3",
-            "hf_id": "BAAI/bge-m3",
-            "trust_remote_code": False,
-            "task_aware": False,
-        }
-        note = (
-            "No embedding_model_info.json found anywhere -- assuming "
-            "BAAI/bge-m3 (the only option before multiple embedding "
-            "models were supported). Re-run "
-            f"scripts/08_generate_embeddings.py to build "
-            f"vector_db/{ACTIVE_EMBEDDING_MODEL_DIR}/ properly."
-        )
-        return old_faiss, old_metadata, fallback_info, False, note
-
-    raise FileNotFoundError(
-        f"No vector_db/ found at either {new_dir}/ or the legacy flat "
-        f"location. Run: python scripts/08_generate_embeddings.py"
-    )
+    return faiss_path, metadata_path, info
 
 
 @st.cache_resource(show_spinner=False)
 def load_embedding_model_info():
-    _, _, info, found, note = resolve_vector_db()
-    return info, found, note
+    _, _, info = resolve_vector_db()
+    return info
 
 
 @st.cache_resource(show_spinner=False)
 def load_embedding_model():
-    info, _, _ = load_embedding_model_info()
+    info = load_embedding_model_info()
     kwargs = {"trust_remote_code": True} if info.get("trust_remote_code") else {}
     return SentenceTransformer(info["hf_id"], device="cpu", **kwargs)
 
 
 @st.cache_resource
 def load_index():
-    faiss_path, _, _, _, _ = resolve_vector_db()
+    faiss_path, _, _ = resolve_vector_db()
     return faiss.read_index(faiss_path)
 
 
 @st.cache_resource
 def load_metadata():
-    _, metadata_path, _, _, _ = resolve_vector_db()
+    _, metadata_path, _ = resolve_vector_db()
     with open(metadata_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -2985,19 +2947,11 @@ if MODEL_NAME == "No Model Loaded":
     st.stop()
 
 client = OpenAI(base_url=LLAMA_SERVER_URL, api_key="not-needed")
-embedding_model_info, embedding_model_info_found, embedding_layout_note = (
-    load_embedding_model_info()
-)
+embedding_model_info = load_embedding_model_info()
 embedding_model = load_embedding_model()
 index = load_index()
 chunks = load_metadata()
 bm25_index = load_bm25_index(chunks)
-
-if embedding_layout_note:
-    st.markdown(
-        f'<div class="kc-alert">{html.escape(embedding_layout_note)}</div>',
-        unsafe_allow_html=True,
-    )
 
 if st.session_state["view"] == "diagnostics":
     render_diagnostics_page()

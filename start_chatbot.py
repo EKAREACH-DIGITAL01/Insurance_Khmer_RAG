@@ -30,81 +30,26 @@ if LLAMA_SERVER is None:
 
 print(f"llama-server: {LLAMA_SERVER}")
 
-MODELS = {
-    "1": {
-        "file": "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf",
-        "name": "SeaLLM",
-        # Not a reasoning model -- --jinja is still added so the GGUF's
-        # own embedded chat template is used correctly rather than
-        # llama-server's built-in heuristic fallback.
-        "extra_args": ["--jinja"],
-    },
-    "2": {
-        "file": "Qwen3.5-9B-Q4_K_M.gguf",
-        "name": "Qwen",
-        # Qwen3.5 is a hybrid-reasoning model: by default it wraps a
-        # <think>...</think> block before its actual answer. Without
-        # --jinja, llama-server can't parse the GGUF's embedded chat
-        # template at all and the <think> tags leak straight into
-        # delta.content as plain text. Without --reasoning off, the model
-        # still thinks first -- and on this corpus's long (~8-9k token)
-        # RAG prompts, thinking alone can consume the entire max_tokens=1024
-        # budget in app.py, so the real answer never gets generated and
-        # delta.content stays empty for the whole stream (sources/
-        # disclaimer still render in app.py since those don't depend on
-        # answer_text being non-empty -- this is what looked like a
-        # "silent success" with no visible answer in the UI).
-        # --reasoning off is a startup flag (no per-request override
-        # exists in llama-server yet), so it's set here once for the
-        # whole server process rather than per-request.
-        "extra_args": ["--jinja", "--reasoning", "off"],
-    },
-    "3": {
-        # Sailor2-L = the 128K-context variant. The plain Sailor2-8B GGUF is
-        # capped at 4096 ctx -- too small for our 5k-13k-token RAG prompts, so
-        # it 400'd on nearly every question. Sailor2-L is natively 131072 ctx.
-        "file": "Sailor2-L-8B-Chat-Q4_K_M.gguf",
-        "name": "Sailor2-L",
-        # Sailor2 8B is Qwen2.5-based (ChatML template) and SEA-tuned
-        # (incl. Khmer), so it's a fair-spec peer to SeaLLM/Qwen/Llama --
-        # unlike Gemma 4 E4B, which was an effective-~4B on-device variant
-        # with thin Khmer coverage and underperformed badly. --jinja parses
-        # the GGUF chat template; no reasoning-channel mechanism here.
-        "extra_args": ["--jinja"],
-    },
-    "4": {
-        "file": "Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        "name": "Llama",
-        # Not a reasoning model -- no <think> or <|channel|> mechanism at
-        # all in this architecture. --jinja still added for consistency
-        # and correctness with the other three.
-        "extra_args": ["--jinja"],
-    },
-}
+# The production generator. No longer a menu: SeaLLM v3 7B won the
+# four-way comparison in reports/generator_model_comparison/ (combined
+# 4.8815, the lowest hallucination count at 5, and zero truncated answers),
+# so it is simply what the chatbot runs.
+#
+# The other three GGUFs (Qwen3.5 9B, Sailor2-L 8B, Llama-3.1 8B) are still
+# installable via install_models.py and still benchmarked by
+# scripts/13_generate_model_answers.py, which carries its own model table
+# including the per-model llama-server flags they need. Nothing here has
+# to change to re-run that comparison.
+GENERATOR_FILE = "SeaLLMs-v3-7B-Chat-Q4_K_M.gguf"
+GENERATOR_NAME = "SeaLLM"
 
-print("""
-========================================
-Khmer Legal Chatbot
-========================================
+# SeaLLM is not a reasoning model -- --jinja is still passed so the GGUF's
+# own embedded chat template is used correctly rather than llama-server's
+# built-in heuristic fallback.
+extra_args = ["--jinja"]
 
-Choose model:
-
-1. SeaLLMs-v3-7B-Chat-Q4_K_M.gguf
-2. Qwen3.5-9B-Q4_K_M.gguf
-3. Sailor2-L-8B-Chat-Q4_K_M.gguf
-4. Llama-3.1-8B-Instruct-Q4_K_M.gguf
-""")
-
-choice = input("Choice: ").strip()
-
-if choice not in MODELS:
-    raise SystemExit("Invalid choice.")
-
-selected = MODELS[choice]
-
-model = selected["file"]
-model_name = selected["name"]
-extra_args = selected["extra_args"]
+model = GENERATOR_FILE
+model_name = GENERATOR_NAME
 
 os.environ["CHATBOT_MODEL"] = model_name
 
@@ -112,10 +57,19 @@ os.environ["CHATBOT_MODEL"] = model_name
 PROJECT_ROOT = Path(__file__).resolve().parent
 MODEL_PATH = PROJECT_ROOT / "models" / "generator" / model
 
-if not MODEL_PATH.exists():
-    raise SystemExit(f"Model not found:\n{MODEL_PATH}")
+print("""
+========================================
+Khmer Legal Chatbot
+========================================
+""")
 
-print(f"\nStarting {model}...")
+if not MODEL_PATH.exists():
+    raise SystemExit(
+        f"Generator model not found:\n  {MODEL_PATH}\n\n"
+        f"Run: python install_models.py  (choose {GENERATOR_NAME})"
+    )
+
+print(f"Generator model  : {model}")
 
 
 def active_embedding_model_dir():
@@ -124,7 +78,7 @@ def active_embedding_model_dir():
     app.py can't be imported here (importing it executes Streamlit
     page setup), so the constant is scraped textually instead. Keeping
     the launcher pointed at the SAME subfolder app.py will load is the
-    whole point of print_embedding_model_status() below."""
+    whole point of verify_embedding_model() below."""
     try:
         src = (PROJECT_ROOT / "app.py").read_text(encoding="utf-8")
     except OSError:
@@ -135,53 +89,50 @@ def active_embedding_model_dir():
     return m.group(1) if m else None
 
 
-def print_embedding_model_status():
-    """Reads embedding_model_info.json (written by
-    scripts/08_generate_embeddings.py) and prints which embedding model
-    actually built the index this session will query against -- the live
-    chatbot is only correct if it loads the SAME model app.py's own
-    load_embedding_model_info() resolves to, so surfacing this here gives
-    a single place to catch a mismatch before it shows up as confusingly
-    bad retrieval quality.
+def verify_embedding_model():
+    """Confirms the index app.py is about to load exists, and prints which
+    embedding model built it.
 
-    Mirrors app.py's resolve_vector_db() lookup order: the current
-    per-model subfolder layout (vector_db/<ACTIVE_EMBEDDING_MODEL_DIR>/)
-    first, then the legacy flat layout, then a BGE-M3 assumption for a
-    vector_db/ built before multiple embedding models were supported.
-    Checking only the flat path -- as this used to -- always fell through
-    to the assumption on a current index, reporting BGE-M3 even when
-    app.py was loading something else."""
+    There is no embedding-model selection: app.py loads exactly
+    vector_db/<ACTIVE_EMBEDDING_MODEL_DIR>/, which BGE-M3 won in
+    reports/embedding_model_comparison/. Checking it here means a missing
+    or half-built index fails immediately, with the command that fixes it,
+    instead of after llama-server has spent a minute loading a 4.7 GB
+    model."""
     active_dir = active_embedding_model_dir()
+    if not active_dir:
+        raise SystemExit(
+            "Could not read ACTIVE_EMBEDDING_MODEL_DIR from app.py -- "
+            "cannot tell which vector_db/ index the app will load."
+        )
 
-    candidates = []
-    if active_dir:
-        candidates.append(PROJECT_ROOT / "vector_db" / active_dir / "embedding_model_info.json")
-    candidates.append(PROJECT_ROOT / "vector_db" / "embedding_model_info.json")
+    db_dir = PROJECT_ROOT / "vector_db" / active_dir
+    index = db_dir / "khmer_insurance.index"
+    metadata = db_dir / "khmer_insurance_metadata.json"
 
-    for info_path in candidates:
-        if not info_path.exists():
-            continue
+    missing = [p.name for p in (index, metadata) if not p.exists()]
+    if missing:
+        raise SystemExit(
+            f"\nVector database incomplete: vector_db/{active_dir}/ is missing "
+            f"{', '.join(missing)}.\n"
+            f"Run: python scripts/08_generate_embeddings.py"
+        )
+
+    info_path = db_dir / "embedding_model_info.json"
+    label = active_dir
+    if info_path.exists():
         try:
-            info = json.loads(info_path.read_text(encoding="utf-8"))
-            print(f"Embedding model  : {info.get('label', 'unknown')}")
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"Embedding model  : could not read {info_path} ({e})")
-        return
+            label = json.loads(info_path.read_text(encoding="utf-8")).get(
+                "label", active_dir
+            )
+        except (json.JSONDecodeError, OSError):
+            pass
 
-    if active_dir:
-        print(
-            f"Embedding model  : BAAI/bge-m3 (assumed -- no "
-            f"embedding_model_info.json under vector_db/{active_dir}/ or "
-            f"vector_db/; re-run scripts/08_generate_embeddings.py)"
-        )
-    else:
-        print(
-            "Embedding model  : unknown (could not read "
-            "ACTIVE_EMBEDDING_MODEL_DIR from app.py)"
-        )
+    print(f"Embedding model  : {label}")
+    print(f"Vector database  : vector_db/{active_dir}/")
 
 
-print_embedding_model_status()
+verify_embedding_model()
 
 
 SERVER_CTX_SIZE = 16384  # must match app.py's SERVER_CTX_SIZE

@@ -91,9 +91,11 @@ The diagram above reads in three stages:
   `llama-server`.
 
 `start_chatbot.py` is the entry point for actually *using* the assistant:
-it launches `llama-server` with the chosen generator model, waits for it to
-report healthy, patches the browser tab's title/favicon, and then launches
-the Streamlit app.
+it launches `llama-server` with SeaLLM v3 7B, waits for it to report
+healthy, patches the browser tab's title/favicon, and then launches the
+Streamlit app. There is nothing to choose at startup — the generator
+(SeaLLM v3 7B) and the retriever (BGE-M3) are both fixed to the winners
+of the comparisons in `reports/`.
 
 The numbered scripts in `scripts/` are the **one-time (or as-needed) data
 pipeline** used to go from raw source PDFs to the `vector_db/` the app
@@ -311,14 +313,17 @@ embedding comparison report):
 | 2 | intfloat/multilingual-e5-large | ~1.1 GB | Comparison only |
 | 3 | paraphrase-multilingual-MiniLM-L12-v2 | ~470 MB | Comparison only |
 
-**Generator models** (choose one; more can be added later):
+**Generator models** — the chatbot always runs **SeaLLM v3 7B**, so
+choice 1 is the only one required to use the assistant. The other three
+are needed only to re-run the generator comparison
+(`scripts/13_generate_model_answers.py`):
 
-| Choice | Model | Size |
-|---|---|---|
-| 1 | SeaLLM v3 7B Q4_K_M | 4.68 GB |
-| 2 | Qwen 3.5 9B Q4_K_M | 5.68 GB |
-| 3 | Sailor2-L 8B Chat Q4_K_M (128K ctx) | 5.24 GB |
-| 4 | Llama 3.1 8B Instruct Q4_K_M | 4.92 GB |
+| Choice | Model | Size | Use |
+|---|---|---|---|
+| 1 | SeaLLM v3 7B Q4_K_M | 4.68 GB | **Production generator (required)** |
+| 2 | Qwen 3.5 9B Q4_K_M | 5.68 GB | Comparison only |
+| 3 | Sailor2-L 8B Chat Q4_K_M (128K ctx) | 5.24 GB | Comparison only |
+| 4 | Llama 3.1 8B Instruct Q4_K_M | 4.92 GB | Comparison only |
 
 Embedding models are downloaded into `models/retriever/.cache/` (one copy,
 no duplication) and generator GGUFs into `models/generator/`. Re-running the
@@ -333,11 +338,16 @@ python start_chatbot.py
 ```
 
 This will:
-1. Ask which generator model to load.
+1. Check that SeaLLM v3 7B and the `vector_db/BAAI-BGE-M3/` index are
+   both present, failing immediately (with the command that fixes it) if
+   either is missing.
 2. Start `llama-server` on `localhost:8080` and wait for it to report
    healthy (up to 120 seconds).
 3. Launch the Streamlit app on `localhost:8501` and open it in your
    browser.
+
+There is no model selection — the generator and retriever are fixed to
+the models that won the comparisons in `reports/`.
 
 The vector database in `vector_db/` is already committed — you do **not**
 need to run the data pipeline to use the chatbot.
