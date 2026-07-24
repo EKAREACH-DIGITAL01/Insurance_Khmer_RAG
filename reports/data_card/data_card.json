@@ -1,7 +1,7 @@
 {
   "project": "Khmer Insurance RAG Chatbot",
-  "generated_at": 1784890582,
-  "generated_human": "2026-07-24 17:56:22",
+  "generated_at": 1784890859,
+  "generated_human": "2026-07-24 18:00:59",
   "source_corpus": {
     "total_documents": 49,
     "by_type": {
@@ -101,7 +101,16 @@
         "prakas": 150,
         "sub_decrees": 75
       },
-      "total": 400
+      "total": 400,
+      "human_validation": {
+        "evaluators": 11,
+        "responses": 550,
+        "questions_rated": 400,
+        "responses_per_question_mean": 1.38,
+        "combined_mean": 4.009,
+        "curation_flags": 62,
+        "questions_with_two_or_more_raters": 150
+      }
     },
     "adversarial": {
       "by_category": {
@@ -221,9 +230,11 @@
   },
   "intended_use": "Retrieval-augmented question answering over Cambodian insurance laws, sub-decrees, prakas and guidance, in Khmer. The assistant answers strictly from the retrieved source documents and refuses out-of-scope, advisory, pricing and recommendation requests.",
   "limitations": [
-    "Coverage is limited to the documents listed in the source corpus; newer or amended regulations may be missing.",
+    "The assistant only knows the documents in this corpus, which is a fixed snapshot -- regulations issued or amended after the listed date range are absent, and it cannot say so when asked.",
     "Answers are only as accurate as the underlying documents and the retrieval step; low-similarity queries are refused by design.",
     "Khmer OCR/extraction and chunking can introduce minor text errors.",
+    "Generated answers are scored by an LLM judge, not by humans. The judge was measured for self-consistency (85-96% exact agreement on a repeat pass) but was never validated against human judgement of the answers, so the generator ranking is a defensible automated comparison rather than a measured answer-quality result.",
+    "Hallucination counts are an upper bound: they are judged against the gold answer, so a detail correctly taken from the source document but omitted from the gold answer is still counted. Verbose models are the most affected.",
     "Not legal advice -- users are directed to a licensed agent or the Insurance Regulator of Cambodia (IRC) for binding guidance."
   ]
 }

@@ -1,6 +1,6 @@
 # Data Card — Khmer Insurance RAG Chatbot
 
-Generated: 2026-07-24 17:56:22
+Generated: 2026-07-24 18:00:59
 
 Retrieval-augmented question answering over Cambodian insurance laws, sub-decrees, prakas and guidance, in Khmer. The assistant answers strictly from the retrieved source documents and refuses out-of-scope, advisory, pricing and recommendation requests.
 
@@ -55,6 +55,17 @@ Retrieval-augmented question answering over Cambodian insurance laws, sub-decree
 | prakas      |         150 |
 | sub_decrees |          75 |
 
+*Human validation of this set* — the gold questions were themselves rated by people, so the yardstick is checked and not merely assumed:
+
+| Metric                         |   Value |
+|--------------------------------|---------|
+| Evaluators                     |  11     |
+| Ratings collected              | 550     |
+| Questions rated                | 400     |
+| Questions rated by 2+ people   | 150     |
+| Mean rating (1-5)              |   4.009 |
+| Questions flagged for curation |  62     |
+
 **Adversarial / safety set** — 50 questions
 
 | Category        |   Total |   Must Refuse |   Must Answer |
@@ -100,8 +111,10 @@ Retrieval mode comparison (macro-avg @5):
 
 ## 7. Limitations
 
-- Coverage is limited to the documents listed in the source corpus; newer or amended regulations may be missing.
+- The assistant only knows the documents in this corpus, which is a fixed snapshot -- regulations issued or amended after the listed date range are absent, and it cannot say so when asked.
 - Answers are only as accurate as the underlying documents and the retrieval step; low-similarity queries are refused by design.
 - Khmer OCR/extraction and chunking can introduce minor text errors.
+- Generated answers are scored by an LLM judge, not by humans. The judge was measured for self-consistency (85-96% exact agreement on a repeat pass) but was never validated against human judgement of the answers, so the generator ranking is a defensible automated comparison rather than a measured answer-quality result.
+- Hallucination counts are an upper bound: they are judged against the gold answer, so a detail correctly taken from the source document but omitted from the gold answer is still counted. Verbose models are the most affected.
 - Not legal advice -- users are directed to a licensed agent or the Insurance Regulator of Cambodia (IRC) for binding guidance.
 

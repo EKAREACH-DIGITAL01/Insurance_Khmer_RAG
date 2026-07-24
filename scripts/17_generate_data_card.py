@@ -22,6 +22,7 @@ from tabulate import tabulate
 #   reports/embedding_model_comparison/*.json       (script 09)
 #   reports/retrieval_mode_comparison/*.json        (script 10)
 #   reports/generator_model_comparison/*.json       (script 15)
+#   reports/human_golden_question_evaluation/*.json (script 12)
 #   reports/safety_gate_evaluation/*.json           (script 16)
 #   vector_db/*/embedding_model_info.json           (script 08)
 #
@@ -42,6 +43,8 @@ EMBEDDING_REPORT  = Path("reports/embedding_model_comparison/embedding_model_com
 RETRIEVAL_REPORT  = Path("reports/retrieval_mode_comparison/retrieval_mode_comparison.json")
 GENERATOR_REPORT  = Path("reports/generator_model_comparison/generator_model_comparison.json")
 SAFETY_REPORT     = Path("reports/safety_gate_evaluation/safety_gate_evaluation.json")
+GOLD_VALIDATION   = Path("reports/human_golden_question_evaluation/"
+                         "human_golden_question_evaluation_report.json")
 
 OUTPUT_DIR = Path("reports/data_card")
 
@@ -205,8 +208,28 @@ def build_eval_sets():
             }
             adv_total += len(qs)
 
+    # The gold set is itself validated by humans (scripts/11 -> 12). Without
+    # this the card describes the yardstick but not whether the yardstick was
+    # checked.
+    validation = None
+    val = load_json(GOLD_VALIDATION)
+    if val:
+        cov = val.get("coverage", {})
+        overall = val.get("overall_means") or {}
+        agree = val.get("inter_evaluator_agreement") or {}
+        validation = {
+            "evaluators":       cov.get("evaluators"),
+            "responses":        cov.get("total_responses"),
+            "questions_rated":  cov.get("questions_evaluated"),
+            "responses_per_question_mean": cov.get("responses_per_question_mean"),
+            "combined_mean":    overall.get("combined"),
+            "curation_flags":   len(val.get("curation_flags") or []),
+            "questions_with_two_or_more_raters": agree.get("_questions_with_overlap"),
+        }
+
     return {
-        "gold_questions": {"by_category": gold, "total": gold_total},
+        "gold_questions": {"by_category": gold, "total": gold_total,
+                           "human_validation": validation},
         "adversarial":    {"by_category": adversarial, "total": adv_total},
     }
 
@@ -323,12 +346,25 @@ def build_data_card():
             "answers strictly from the retrieved source documents and refuses "
             "out-of-scope, advisory, pricing and recommendation requests."
         ),
+        # "Coverage" is avoided here: it means three different things in this
+        # project (the corpus, the gold-question evaluation, and insurance
+        # coverage itself), so each limitation names what it actually refers to.
         "limitations": [
-            "Coverage is limited to the documents listed in the source corpus; "
-            "newer or amended regulations may be missing.",
+            "The assistant only knows the documents in this corpus, which is a "
+            "fixed snapshot -- regulations issued or amended after the listed "
+            "date range are absent, and it cannot say so when asked.",
             "Answers are only as accurate as the underlying documents and the "
             "retrieval step; low-similarity queries are refused by design.",
             "Khmer OCR/extraction and chunking can introduce minor text errors.",
+            "Generated answers are scored by an LLM judge, not by humans. The "
+            "judge was measured for self-consistency (85-96% exact agreement on "
+            "a repeat pass) but was never validated against human judgement of "
+            "the answers, so the generator ranking is a defensible automated "
+            "comparison rather than a measured answer-quality result.",
+            "Hallucination counts are an upper bound: they are judged against "
+            "the gold answer, so a detail correctly taken from the source "
+            "document but omitted from the gold answer is still counted. "
+            "Verbose models are the most affected.",
             "Not legal advice -- users are directed to a licensed agent or the "
             "Insurance Regulator of Cambodia (IRC) for binding guidance.",
         ],
@@ -405,6 +441,20 @@ def render_markdown(card):
     if es["gold_questions"]["by_category"]:
         rows = [[c, n] for c, n in sorted(es["gold_questions"]["by_category"].items())]
         md.append(tabulate(rows, headers=["Category", "Questions"], tablefmt="github") + "\n\n")
+    hv = es["gold_questions"].get("human_validation")
+    if hv:
+        md.append("*Human validation of this set* — the gold questions were "
+                  "themselves rated by people, so the yardstick is checked and "
+                  "not merely assumed:\n\n")
+        md.append(tabulate([
+            ["Evaluators",                    hv["evaluators"]],
+            ["Ratings collected",             hv["responses"]],
+            ["Questions rated",               hv["questions_rated"]],
+            ["Questions rated by 2+ people",  hv["questions_with_two_or_more_raters"]],
+            ["Mean rating (1-5)",             hv["combined_mean"]],
+            ["Questions flagged for curation", hv["curation_flags"]],
+        ], headers=["Metric", "Value"], tablefmt="github") + "\n\n")
+
     md.append(f"**Adversarial / safety set** — {es['adversarial']['total']} questions\n\n")
     if es["adversarial"]["by_category"]:
         rows = [[c, d["total"], d["refuse"], d["answer"]]
