@@ -12,8 +12,36 @@ ids into `retrieved_context`, resets the metrics to 0 and adds
 `hallucination: ""`. **0 and `""` mean "not yet judged."**
 
 - **Scope:** 4 models × 100 questions = **400 records.**
-- **The judge must not be the model being judged** (never let SeaLLM judge
-  SeaLLM) — self-preference bias.
+- **One model per session. Never mix models in one session.** A judge that has
+  just read SeaLLM's answers anchors its scale there and starts scoring Llama
+  *relative to SeaLLM* instead of against the rubric. Each answer must be judged
+  only against its own retrieved context and gold answer.
+- **The judge must not be the model being judged** — self-preference bias.
+- **Fresh session per batch.** Records average ~5,700 characters (max ~14,700),
+  so one file is ~570,000 characters — far past any single context window. Ten
+  records per batch, ten batches per model, **40 batches total**. A fresh
+  session each time also stops context accumulating across batches.
+
+---
+
+## Running it
+
+`codex exec` starts a fresh non-interactive session per invocation, which is
+exactly what you want here:
+
+```bash
+MODEL=SeaLLMs-v3-7B-Chat-Q4_K_M
+FILE=reports/generator_model_comparison/$MODEL/generated_answer_results.jsonl
+
+# batch 1 of 10 — repeat with 11-20, 21-30, … 91-100
+codex exec --skip-git-repo-check "$(sed -e "s|{{FILE}}|$FILE|" \
+                                       -e "s|{{START}}|1|" \
+                                       -e "s|{{END}}|10|" \
+                                       docs/llm_judge_prompt.txt)"
+```
+
+Keep the prompt body in `docs/llm_judge_prompt.txt` (copy it out of the fenced
+block below) so the substitution above works.
 
 ---
 
@@ -52,9 +80,18 @@ Substitute `{{FILE}}`, `{{START}}`, `{{END}}`.
 You are an impartial evaluator for a Khmer-language RAG system answering
 questions about Cambodian insurance law.
 
+SCOPE -- read this first.
+This is NOT a coding task. Do not explore the repository. Do not list
+directories, do not search the codebase, do not open README or any source file,
+do not run any script, test or git command. The ONE file named below contains
+everything you need. Touch nothing else.
+
 FILE: {{FILE}}
 It is JSONL, one record per line. Score ONLY lines {{START}} to {{END}}
 inclusive (1-indexed). Leave every other line byte-identical.
+
+Every record is self-contained: retrieved_context holds the actual chunk text
+the system retrieved, so you never need to look up a chunk id anywhere.
 
 For each record in range, fill in "scores" (five integers 1-5), "combined"
 (the weighted average, rounded to 2 decimals), "hallucination" ("true" or
@@ -124,23 +161,17 @@ unescaped. Do not reformat or pretty-print. Do not touch any other file.
 ## After each batch — verify before continuing
 
 The failure mode that matters is silent truncation: a batch that looks scored
-but where later records were never actually read.
+but whose later records were never actually read. Check every batch.
 
 ```bash
-python - <<'EOF'
-import json
-p = "reports/generator_model_comparison/<model>/generated_answer_results.jsonl"
-rs = [json.loads(l) for l in open(p, encoding="utf-8")]
-print("records :", len(rs))                                    # must stay 100
-print("unscored:", sum(1 for r in rs if r["combined"] == 0))
-print("halluc  :", sum(1 for r in rs if r["hallucination"] == "true"))
-bad = [r["question_id"] for r in rs
-       if any(v and not 1 <= v <= 5 for v in r["scores"].values())]
-print("out of range:", bad)
-EOF
+python scripts/check_judge_progress.py \
+  reports/generator_model_comparison/SeaLLMs-v3-7B-Chat-Q4_K_M/generated_answer_results.jsonl
 ```
 
-Record count must never change. Any score outside 1–5 means the judge drifted.
+`records` must stay **100** — if it drops, the judge rewrote the file wrong and
+you should restore it from git (`git checkout <file>`) and redo that batch.
+`scored` must climb by exactly the batch size. Any score outside 1–5 means the
+judge drifted from the rubric.
 
 ---
 
