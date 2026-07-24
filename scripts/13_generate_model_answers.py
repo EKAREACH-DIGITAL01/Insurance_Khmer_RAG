@@ -1208,7 +1208,10 @@ def evaluate_model(
         append_result(label, entry_out, gold_entries)
         results.append(entry_out)
 
-        blank_flag = " [BLANK]" if scored["detail"].get("blank_answer") else ""
+        # This script GENERATES only -- scoring is the LLM judge's job (see
+        # scripts/14 and 15), so there are no quality numbers to report here.
+        # The progress line therefore describes the generation itself.
+        blank_flag = " [BLANK]" if not answer_text.strip() else ""
         # Fast-path / gated answers have no LLM timing -- show a marker instead
         # of a misleading 0.0s / huge tok/s.
         timing_str = (
@@ -1217,12 +1220,8 @@ def evaluate_model(
             else "no-LLM (fast-path/gated, excluded from timing)"
         )
         print(
-            f"    combined={scored['combined']:.3f} | "
-            f"ctx={scored['scores'].get('context_relevance')} "
-            f"faith={scored['scores'].get('faithfulness')} "
-            f"corr={scored['scores'].get('answer_correctness')} "
-            f"rel={scored['scores'].get('answer_relevance')} "
-            f"comp={scored['scores'].get('completeness')} | "
+            f"    chars={len(answer_text)} "
+            f"ctx_chunks={len(context_chunk_ids)} | "
             f"{timing_str}"
             f"{blank_flag}"
         )

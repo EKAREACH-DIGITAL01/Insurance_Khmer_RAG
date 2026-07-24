@@ -174,19 +174,21 @@ def append_message(conv_id, msg):
     """
     now = int(time.time())
     conn = get_db()
-    position = conn.execute(
-        "SELECT COALESCE(MAX(position), -1) + 1 FROM messages WHERE conversation_id = ?",
-        (conv_id,),
-    ).fetchone()[0]
+    # The next position is computed INSIDE the insert rather than by a separate
+    # SELECT MAX(...) first. Two statements leave a gap in which another writer
+    # can read the same maximum and insert the same position -- two tabs open on
+    # one conversation is enough, and duplicate positions make ORDER BY position
+    # ambiguous, so a reloaded conversation can come back out of order.
     conn.execute(
         "INSERT INTO messages (id, conversation_id, position, payload, created_at) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "SELECT ?, ?, COALESCE(MAX(position), -1) + 1, ?, ? "
+        "FROM messages WHERE conversation_id = ?",
         (
             msg["id"],
             conv_id,
-            position,
             json.dumps(msg, ensure_ascii=False, default=_json_default),
             now,
+            conv_id,
         ),
     )
     conn.execute(

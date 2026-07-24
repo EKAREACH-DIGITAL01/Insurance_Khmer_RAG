@@ -100,6 +100,14 @@ MAX_CHUNKS_PER_DOC   = 2   # mirrors app.py:40 -- must stay > 1 (per-article chu
 BM25_TOP_K           = TOP_K
 RRF_K                = 60
 NGRAM_SIZE           = 3
+# Mirrors app.py:69/83/87/92. These were missing here, which left this script's
+# BM25 tokenizer weaker than production's: no article-reference boost and no
+# digit-run extraction, so the fused context it built was not the context the
+# live app builds for the same question.
+DIGIT_RUN_PATTERN    = re.compile(r"[០១២៣៤៥៦៧៨៩0-9]+")
+ARTICLE_REF_PATTERN  = re.compile(r"(មាត្រា|ប្រការ)\s*([០១២៣៤៥៦៧៨៩0-9]+)")
+ARTICLE_REF_BOOST    = 20
+_ARABIC_TO_KHMER     = str.maketrans("0123456789", "០១២៣៤៥៦៧៨៩")
 MAX_TOKENS           = 1024
 MIN_QUESTION_LENGTH  = 8
 OUT_OF_DOMAIN_THRESHOLD = 0.49
@@ -186,10 +194,20 @@ def check_gate_1(question):
 # Retrieval -- mirrors app.py
 # ----------------------------------------------------------------------------
 
+def to_khmer_digits(s):
+    """Mirrors app.py:90 -- the corpus writes provision numbers in Khmer
+    digits, so an Arabic-digit query has to be normalised to match."""
+    return s.translate(_ARABIC_TO_KHMER)
+
+
 def khmer_aware_tokenize(text):
     tokens = []
+    for keyword, ref_num in ARTICLE_REF_PATTERN.findall(text):
+        tokens.extend([keyword + to_khmer_digits(ref_num)] * ARTICLE_REF_BOOST)
     for word in text.split():
         if KHMER_SCRIPT_PATTERN.search(word):
+            for digit_run in DIGIT_RUN_PATTERN.findall(word):
+                tokens.append(digit_run)
             chars = list(word)
             if len(chars) < NGRAM_SIZE:
                 tokens.append(word)
