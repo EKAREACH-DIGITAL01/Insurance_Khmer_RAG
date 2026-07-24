@@ -29,13 +29,13 @@ DOCUMENT_TYPE_KH = {
 # ----------------------------------------------------------------------------
 # Embedding model options
 # ----------------------------------------------------------------------------
-# Duplicated from scripts/13_install_models.py -- this project's scripts/
+# Duplicated from install_models.py -- this project's scripts/
 # are each standalone, self-contained files with no shared utils module.
 # If you change one, change the other.
 #
 # Each model gets its own subfolder under vector_db/, named after its
 # local_dir's own folder name (e.g. vector_db/BAAI-BGE-M3/), so all three
-# can exist side by side and scripts/09_compare_embeddings.py never has
+# can exist side by side and scripts/09_compare_embedding_models.py never has
 # to re-encode the whole corpus to compare them -- it just loads whichever
 # precomputed indices are already here.
 #
@@ -76,7 +76,7 @@ EMBEDDING_MODELS = {
 
 def is_model_installed(model_config):
     """True if this embedding model has been installed by
-    scripts/13_install_models.py. All models now use INSTALLED.json as
+    install_models.py. All models now use INSTALLED.json as
     their marker -- weights live in models/retriever/.cache/ (managed
     by huggingface_hub), not in the marker_dir itself."""
     return (model_config["marker_dir"] / "INSTALLED.json").exists()
@@ -231,8 +231,8 @@ for key, model_config in EMBEDDING_MODELS.items():
 
     if not is_model_installed(model_config):
         print(
-            f"{label} not installed -- run: python scripts/13_install_models.py\n"
-            "Run: python scripts/13_install_models.py"
+            f"{label} not installed -- run: python install_models.py\n"
+            "Run: python install_models.py"
         )
         unavailable_count += 1
         continue
@@ -243,7 +243,7 @@ for key, model_config in EMBEDDING_MODELS.items():
 
     # All three models use plain SentenceTransformer loaded by Hub ID.
     # Weights are served from models/retriever/.cache/ (already downloaded
-    # during 13_install_models.py) -- no network hit after first install.
+    # during install_models.py) -- no network hit after first install.
     kwargs = (
         {"trust_remote_code": True} if model_config["trust_remote_code"] else {}
     )
@@ -341,7 +341,7 @@ print(f"Total build runtime     : {elapsed_time:.2f} sec")
 
 if built_count == 0 and skipped_count == 0:
     raise SystemExit(
-        "\nNo embedding models are installed. Run: python scripts/13_install_models.py"
+        "\nNo embedding models are installed. Run: python install_models.py"
     )
 
 print("\nDone.")

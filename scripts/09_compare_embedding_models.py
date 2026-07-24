@@ -28,13 +28,13 @@ from sentence_transformers import SentenceTransformer
 # from the lexical layer riding alongside it.
 #
 # IMPORTANT: this script no longer encodes the corpus itself. It loads
-# the PRECOMPUTED index + metadata that scripts/07_generate_embeddings.py
+# the PRECOMPUTED index + metadata that scripts/08_generate_embeddings.py
 # already built into vector_db/<model_dir>/ for each installed model --
 # by far the most expensive step (encoding the whole corpus) happens
 # once, offline, in that script, not every time this comparison runs.
 # Only the gold questions (a few hundred short texts) get encoded fresh
 # here, since those need to be embedded as QUERIES at evaluation time
-# regardless. Run scripts/07_generate_embeddings.py first if a model's
+# regardless. Run scripts/08_generate_embeddings.py first if a model's
 # index doesn't exist yet -- this script will tell you exactly which one
 # is missing rather than silently rebuilding it.
 #
@@ -60,7 +60,7 @@ from sentence_transformers import SentenceTransformer
 #     IDs in its metadata don't align with the gold set.
 #
 # Fix: delete vector_db/MiniLM-paraphrase-multilingual-L12-v2/ and
-# re-run scripts/07_generate_embeddings.py to rebuild it fresh alongside
+# re-run scripts/08_generate_embeddings.py to rebuild it fresh alongside
 # the other two models from the same chunk files. Post-rebuild the scores
 # will be genuinely low (MiniLM is a small model and not well-suited to
 # Khmer legal retrieval) but numerically real, which is what the
@@ -84,7 +84,7 @@ REPORTS_DIR = Path("reports/embedding_model_comparison")
 EVAL_KS = list(range(1, 11))
 MAX_K = max(EVAL_KS)
 
-# Duplicated from scripts/13_install_models.py / scripts/07_generate_embeddings.py
+# Duplicated from install_models.py / scripts/08_generate_embeddings.py
 # -- this project's scripts/ are each standalone, self-contained files
 # with no shared utils module. If this changes in one place, change it
 # in all three.
@@ -150,7 +150,7 @@ def vector_db_subfolder(model_config):
 for key, model_config in EMBEDDING_MODELS.items():
     if not is_model_installed(model_config):
         raise FileNotFoundError(
-            f"{model_config['label']} not installed -- run: python scripts/13_install_models.py"
+            f"{model_config['label']} not installed -- run: python install_models.py"
         )
     subfolder = vector_db_subfolder(model_config)
     if not (
@@ -159,7 +159,7 @@ for key, model_config in EMBEDDING_MODELS.items():
     ):
         raise FileNotFoundError(
             f"No precomputed index for {model_config['label']} at {subfolder}/.\n"
-            "Run: python scripts/07_generate_embeddings.py"
+            "Run: python scripts/08_generate_embeddings.py"
         )
 
 gold_files = sorted(EVALUATION_ROOT.rglob("gold_questions.json"))
@@ -177,7 +177,7 @@ def encode_queries(model, model_config, texts, **kwargs):
 
 def load_precomputed(model_config):
     """Loads the FAISS index, chunk metadata, and build-time info that
-    scripts/07_generate_embeddings.py already produced for this model --
+    scripts/08_generate_embeddings.py already produced for this model --
     no encoding happens here."""
     subfolder = vector_db_subfolder(model_config)
 
@@ -224,7 +224,7 @@ def make_retrieve_fn(model, model_config, index, model_chunks):
 
 
 def evaluate_retrieval(retrieve_fn, chunk_lookup, metadata_chunk_ids):
-    """Same gold-question evaluation harness as 09_compare_retrieval_modes.py
+    """Same gold-question evaluation harness as 10_compare_retrieval_modes.py
     (duplicated rather than imported -- see that script's own comment on
     this project's standalone-scripts convention). chunk_lookup and
     metadata_chunk_ids are passed in explicitly rather than read from a
@@ -561,7 +561,7 @@ def write_reports(
         f"Compares {len(model_results)} embedding models (dense-only, no "
         "hybrid/BM25) on the full gold question set, per Internship "
         "Proposal §6.3 / §12. Corpus encoding was precomputed by "
-        "scripts/07_generate_embeddings.py; only the gold questions were "
+        "scripts/08_generate_embeddings.py; only the gold questions were "
         "encoded fresh here.\n\n"
     )
 

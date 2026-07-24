@@ -9,7 +9,7 @@ from tabulate import tabulate
 from rank_bm25 import BM25Okapi
 
 # Set HF_HOME before any HF import -- models live in retriever/.cache/,
-# loaded by Hub ID. See scripts/13_install_models.py for the full explanation.
+# loaded by Hub ID. See install_models.py for the full explanation.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _HF_CACHE_DIR = _PROJECT_ROOT / "models" / "retriever" / ".cache"
 _HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -76,7 +76,7 @@ def reciprocal_rank_fusion(rankings, k=RRF_K):
 if not Path(INDEX_PATH).exists():
     raise FileNotFoundError(
         f"FAISS index not found at {INDEX_PATH}.\n"
-        "Run: python scripts/07_generate_embeddings.py"
+        "Run: python scripts/08_generate_embeddings.py"
     )
 
 print("Loading embedding model...")

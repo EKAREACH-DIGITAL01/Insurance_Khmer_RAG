@@ -439,9 +439,9 @@ aggregates the result.
 | Model | Combined (1–5) | Hallucinated | Truncated |
 |---|---|---|---|
 | **SeaLLM v3 7B** | **4.8815** | **5** | 0 |
-| Sailor2-L 8B | 4.7865 | 16 | 1 |
-| Llama-3.1 8B | 4.4930 | 7 | 9 |
-| Qwen3.5 9B | 4.2280 | 55 | 31 |
+| Sailor2-L 8B | 4.7865 | 16 | 4 |
+| Llama-3.1 8B | 4.4930 | 7 | 26 |
+| Qwen3.5 9B | 4.2280 | 55 | 32 |
 
 **SeaLLM v3 7B is the shipped generator** — it leads on the weighted
 combined score *and* has the lowest hallucination rate.
@@ -513,11 +513,16 @@ The main tunable constants live at the top of `app.py`:
 | `ACTIVE_EMBEDDING_MODEL_DIR` | `"BAAI-BGE-M3"` | Which vector_db subfolder the app loads at startup |
 | `TOP_K` | 10 | How many chunks FAISS retrieves; also shown in the diagnostics page |
 | `CONTEXT_K` | 5 | How many of those actually go into the LLM prompt (<= TOP_K) |
-| `MAX_CHUNKS_PER_DOC` | 1 | Caps near-duplicate chunks from the same document in context |
+| `MAX_CHUNKS_PER_DOC` | 2 | Caps near-duplicate chunks from the same document in context |
 | `RRF_K` | 60 | Reciprocal Rank Fusion constant (Cormack et al. 2009) |
 | `MIN_SCORE` | 0.50 | Below this, answers are flagged "low confidence" in the UI |
 | `OUT_OF_DOMAIN_THRESHOLD` | 0.49 | Below this, generation is skipped and the user gets an instant refusal |
 | `MIN_QUESTION_LENGTH` | 8 | Questions shorter than this are rejected without embedding |
+
+These same knobs are duplicated in `scripts/13_generate_model_answers.py`
+and `scripts/16_evaluate_safety_gates.py` so each script stays runnable
+standalone — change one and update the others, or the reports will
+describe a pipeline the live chatbot no longer runs.
 
 `OUT_OF_DOMAIN_THRESHOLD` was tuned empirically against real chit-chat
 and off-topic test queries — if you change the corpus, re-validate it

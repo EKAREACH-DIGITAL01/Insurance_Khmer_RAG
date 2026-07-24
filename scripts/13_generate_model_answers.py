@@ -1274,7 +1274,7 @@ def main():
     if not Path(INDEX_PATH).exists():
         raise FileNotFoundError(
             f"FAISS index not found at {INDEX_PATH}.\n"
-            "Run: python scripts/07_generate_embeddings.py"
+            "Run: python scripts/08_generate_embeddings.py"
         )
 
     print("Loading embedding model (BGE-M3)...")
@@ -1347,7 +1347,7 @@ def main():
     print(f"{'=' * SEPARATOR_WIDTH}\n")
 
     if not installed:
-        raise SystemExit("No generator models installed. Run: python scripts/13_install_models.py")
+        raise SystemExit("No generator models installed. Run: python install_models.py")
 
     generated_counts = {}
 

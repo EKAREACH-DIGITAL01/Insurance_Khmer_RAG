@@ -868,7 +868,7 @@ def main():
     if not Path(INDEX_PATH).exists():
         raise FileNotFoundError(
             f"FAISS index not found at {INDEX_PATH}.\n"
-            "Run: python scripts/07_generate_embeddings.py"
+            "Run: python scripts/08_generate_embeddings.py"
         )
 
     model_path = LLM_DIR / WINNER_MODEL["local_filename"]

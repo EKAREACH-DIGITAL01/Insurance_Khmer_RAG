@@ -5,7 +5,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 MODEL = os.getenv("CHATBOT_MODEL", "Generator")
 
 # Set HF_HOME before any HF import so all HF assets stay inside the
-# project folder. See scripts/13_install_models.py for the full
+# project folder. See install_models.py for the full
 # explanation of why this must come before the imports below.
 _APP_DIR = os.path.dirname(os.path.abspath(__file__))
 _HF_CACHE_DIR = os.path.join(_APP_DIR, "models", "retriever", ".cache")
@@ -166,7 +166,7 @@ def khmer_aware_tokenize(text):
     exact whole-token match than from being shredded into n-grams.
 
     NOTE: this is a first-pass tokenizer, not validated against a proper
-    Khmer word segmenter. If 08_evaluate_retrieval.py's hybrid numbers
+    Khmer word segmenter. If 10_compare_retrieval_modes.py's hybrid numbers
     don't show a real improvement over dense-only, this tokenizer -- not
     necessarily the hybrid approach itself -- is the first thing to
     re-examine."""
@@ -342,7 +342,7 @@ MAX_USED_SOURCES = 3
 # while leaving normal legal-term reuse (which only repeats a handful of times)
 # largely untouched -- unlike presence_penalty, which flatly penalizes ANY
 # reused token and would distort Khmer legal vocabulary. MUST stay identical to
-# scripts/13_compare_generator_models.py so eval and production generate the
+# scripts/13_generate_model_answers.py so eval and production generate the
 # same way. 0.3 is conservative; raise toward 0.6-0.8 if loops still appear.
 GEN_FREQUENCY_PENALTY = 0.3
 
@@ -370,12 +370,12 @@ SERVER_OUTPUT_HARD_CAP = SERVER_CTX_SIZE - 9000  # ~7384 tokens
 # "does not match the expected peg-native format" when the model samples an
 # output it can't reconcile. It's stochastic, so we re-roll -- but only while
 # NOTHING has been streamed to the UI yet (once tokens are on screen we can't
-# cleanly restart). Kept in sync with scripts/13_compare_generator_models.py.
+# cleanly restart). Kept in sync with scripts/13_generate_model_answers.py.
 GEN_MAX_RETRIES   = 3
 GEN_RETRY_BACKOFF = 2.0
 
 # Which precomputed vector_db/<subfolder>/ the live app loads. Change this
-# one line to switch embedding models -- scripts/07_generate_embeddings.py
+# one line to switch embedding models -- scripts/08_generate_embeddings.py
 # builds all installed models into their own subfolders (vector_db/BAAI-BGE-M3/,
 # vector_db/jinaai-jina-embeddings-v3/, vector_db/MiniLM-paraphrase-multilingual-L12-v2/),
 # so switching here doesn't require rebuilding anything that's already
@@ -1290,7 +1290,7 @@ def resolve_vector_db():
     info accordingly. Tries, in order:
 
       1. New per-model subfolder layout -- vector_db/<ACTIVE_EMBEDDING_MODEL_DIR>/
-         -- what the current scripts/07_generate_embeddings.py builds.
+         -- what the current scripts/08_generate_embeddings.py builds.
       2. Old flat layout with a top-level embedding_model_info.json --
          what an earlier version of scripts/07 built (one model,
          dynamically chosen, no subfolders).
@@ -1325,7 +1325,7 @@ def resolve_vector_db():
         note = (
             f"Found {new_dir}/ but no embedding_model_info.json inside it -- "
             "assuming a non-task-aware model. Re-run "
-            "scripts/07_generate_embeddings.py to fix."
+            "scripts/08_generate_embeddings.py to fix."
         )
         return new_faiss, new_metadata, fallback_info, False, note
 
@@ -1341,7 +1341,7 @@ def resolve_vector_db():
             note = (
                 f"Using a legacy flat vector_db/ layout built before "
                 f"per-model subfolders existed. Re-run "
-                f"scripts/07_generate_embeddings.py to migrate to "
+                f"scripts/08_generate_embeddings.py to migrate to "
                 f"vector_db/{ACTIVE_EMBEDDING_MODEL_DIR}/."
             )
             return old_faiss, old_metadata, info, False, note
@@ -1356,14 +1356,14 @@ def resolve_vector_db():
             "No embedding_model_info.json found anywhere -- assuming "
             "BAAI/bge-m3 (the only option before multiple embedding "
             "models were supported). Re-run "
-            f"scripts/07_generate_embeddings.py to build "
+            f"scripts/08_generate_embeddings.py to build "
             f"vector_db/{ACTIVE_EMBEDDING_MODEL_DIR}/ properly."
         )
         return old_faiss, old_metadata, fallback_info, False, note
 
     raise FileNotFoundError(
         f"No vector_db/ found at either {new_dir}/ or the legacy flat "
-        f"location. Run: python scripts/07_generate_embeddings.py"
+        f"location. Run: python scripts/08_generate_embeddings.py"
     )
 
 
@@ -1397,7 +1397,7 @@ def load_metadata():
 def load_bm25_index(_chunks):
     """Builds the lexical BM25 index in memory at startup, directly from
     the same chunk metadata FAISS already loads. Unlike the FAISS index
-    (built once offline by scripts/07_generate_embeddings.py and shipped
+    (built once offline by scripts/08_generate_embeddings.py and shipped
     as a committed artifact in vector_db/), BM25 over a few hundred chunks
     tokenizes and indexes in well under a second -- there's no real
     benefit to persisting it to disk, and building it fresh here means it
@@ -1522,7 +1522,7 @@ def build_context(results):
 # so the base prompt the other models see stays byte-for-byte unchanged. Keyed
 # on a case-insensitive "sailor" substring so it matches both the eval label
 # ("Sailor2-L 8B") and the app's model id ("Sailor2-L-8B-Chat-Q4_K_M.gguf"). Must
-# stay identical to scripts/13_compare_generator_models.py.
+# stay identical to scripts/13_generate_model_answers.py.
 SAILOR_STYLE_RULES = """
 - Do NOT add a title or heading, do NOT use bold or any markdown formatting, and do NOT cite the source document's name, article/provision number, or any date (for example, do NOT write "(មាត្រា ១)", "(2023-10-17)", or "(តាម គោលការណ៍ណែនាំ...)"). Answer in plain Khmer prose, or a plain numbered/dashed list, exactly as the source presents it.
 - Do NOT write any closing word or tag such as "(ចប់)", "(បញ្ចប់)", or a trailing "៕". End only with ។ on the final sentence.

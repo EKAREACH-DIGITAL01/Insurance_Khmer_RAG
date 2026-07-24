@@ -118,36 +118,67 @@ if not MODEL_PATH.exists():
 print(f"\nStarting {model}...")
 
 
+def active_embedding_model_dir():
+    """Reads ACTIVE_EMBEDDING_MODEL_DIR straight out of app.py's source.
+
+    app.py can't be imported here (importing it executes Streamlit
+    page setup), so the constant is scraped textually instead. Keeping
+    the launcher pointed at the SAME subfolder app.py will load is the
+    whole point of print_embedding_model_status() below."""
+    try:
+        src = (PROJECT_ROOT / "app.py").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = re.search(
+        r'^ACTIVE_EMBEDDING_MODEL_DIR\s*=\s*["\'](.+?)["\']', src, re.M
+    )
+    return m.group(1) if m else None
+
+
 def print_embedding_model_status():
-    """Reads vector_db/embedding_model_info.json (written by
-    scripts/07_generate_embeddings.py) and prints which embedding model
+    """Reads embedding_model_info.json (written by
+    scripts/08_generate_embeddings.py) and prints which embedding model
     actually built the index this session will query against -- the live
     chatbot is only correct if it loads the SAME model app.py's own
     load_embedding_model_info() resolves to, so surfacing this here gives
     a single place to catch a mismatch before it shows up as confusingly
     bad retrieval quality.
 
-    Mirrors app.py's own fallback: if the file doesn't exist (a
-    pre-existing vector_db/ built before multiple embedding models were
-    supported), assumes BGE-M3, since that was the only option that ever
-    existed before this file did."""
-    info_path = PROJECT_ROOT / "vector_db" / "embedding_model_info.json"
+    Mirrors app.py's resolve_vector_db() lookup order: the current
+    per-model subfolder layout (vector_db/<ACTIVE_EMBEDDING_MODEL_DIR>/)
+    first, then the legacy flat layout, then a BGE-M3 assumption for a
+    vector_db/ built before multiple embedding models were supported.
+    Checking only the flat path -- as this used to -- always fell through
+    to the assumption on a current index, reporting BGE-M3 even when
+    app.py was loading something else."""
+    active_dir = active_embedding_model_dir()
 
-    if info_path.exists():
+    candidates = []
+    if active_dir:
+        candidates.append(PROJECT_ROOT / "vector_db" / active_dir / "embedding_model_info.json")
+    candidates.append(PROJECT_ROOT / "vector_db" / "embedding_model_info.json")
+
+    for info_path in candidates:
+        if not info_path.exists():
+            continue
         try:
             info = json.loads(info_path.read_text(encoding="utf-8"))
             print(f"Embedding model  : {info.get('label', 'unknown')}")
-            return
         except (json.JSONDecodeError, OSError) as e:
             print(f"Embedding model  : could not read {info_path} ({e})")
-            return
+        return
 
-    print(
-        "Embedding model  : BAAI/bge-m3 (assumed -- no "
-        "vector_db/embedding_model_info.json found; this is expected for "
-        "a vector_db/ built before scripts/07_generate_embeddings.py "
-        "supported choosing a model)"
-    )
+    if active_dir:
+        print(
+            f"Embedding model  : BAAI/bge-m3 (assumed -- no "
+            f"embedding_model_info.json under vector_db/{active_dir}/ or "
+            f"vector_db/; re-run scripts/08_generate_embeddings.py)"
+        )
+    else:
+        print(
+            "Embedding model  : unknown (could not read "
+            "ACTIVE_EMBEDDING_MODEL_DIR from app.py)"
+        )
 
 
 print_embedding_model_status()
@@ -156,17 +187,57 @@ print_embedding_model_status()
 SERVER_CTX_SIZE = 16384  # must match app.py's SERVER_CTX_SIZE
 
 
+def process_name(pid):
+    """Best-effort executable name for a pid, or None if it can't be read."""
+    try:
+        if OS_NAME == "Windows":
+            out = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
+                capture_output=True, text=True, timeout=10,
+            ).stdout.strip()
+            if out.startswith('"'):
+                return out.split('","')[0].strip('"')
+            return None
+        out = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "comm="],
+            capture_output=True, text=True, timeout=10,
+        ).stdout.strip()
+        return out or None
+    except Exception:
+        return None
+
+
+def is_llama_server(name):
+    """True if a process name looks like llama.cpp's server binary.
+
+    Matches the bare name and full paths, with or without .exe --
+    llama-server, llama-server.exe, /opt/homebrew/bin/llama-server, and
+    the older llama.cpp 'server' binary name all count."""
+    if not name:
+        return False
+    base = Path(name.strip().strip('"')).name.lower()
+    if base.endswith(".exe"):
+        base = base[:-4]
+    return base in {"llama-server", "server"} or base.startswith("llama-server")
+
+
 def free_port_8080():
     """Kill any llama-server already bound to port 8080 before we launch ours.
 
     A stale server left over from a crashed run, or one started by
-    scripts/13_compare_generator_models.py (or a previous chatbot launch), keeps
+    scripts/13_generate_model_answers.py (or a previous chatbot launch), keeps
     the port. Our new process then fails to bind, dies, and the readiness poll
     below silently attaches to the WRONG server -- commonly the bare llama.cpp
     DEFAULT of n_ctx=4096, which then 400s every prompt over 4096 tokens
     ('exceeds the available context size (4096)'). This is exactly what made
     Sailor break. Freeing the port first guarantees we only talk to the server
-    we just started."""
+    we just started.
+
+    Only llama-server processes are killed. Port 8080 is a popular default
+    (dev servers, proxies, Tomcat...), and silently SIGKILLing whatever
+    unrelated process happens to hold it is not something a chatbot
+    launcher should do -- if the holder isn't ours, abort and let the user
+    decide."""
     pids = []
     try:
         if OS_NAME == "Windows":
@@ -192,6 +263,16 @@ def free_port_8080():
     if not pids:
         return
 
+    foreign = [(pid, process_name(pid)) for pid in pids]
+    foreign = [(pid, name) for pid, name in foreign if not is_llama_server(name)]
+    if foreign:
+        detail = ", ".join(f"pid {pid} ({name or 'unknown'})" for pid, name in foreign)
+        raise SystemExit(
+            f"\nPort 8080 is held by a process that is not llama-server: "
+            f"{detail}.\nRefusing to kill it. Stop that process (or free the "
+            f"port) yourself, then re-run."
+        )
+
     print(
         f"WARNING: port 8080 already in use (pid {', '.join(pids)}); killing "
         f"stale server(s) so we don't attach to the wrong context."
@@ -214,7 +295,9 @@ def free_port_8080():
                 capture_output=True, text=True, timeout=10,
             ).stdout.split()
             for pid in still:
-                if pid.isdigit():
+                # Re-check the name: by now the port could have been picked
+                # up by something unrelated, and SIGKILL is unrecoverable.
+                if pid.isdigit() and is_llama_server(process_name(pid)):
                     os.kill(int(pid), 9)
         except Exception:
             pass
@@ -282,8 +365,12 @@ llama_process = subprocess.Popen(
         "q8_0",
         "--cache-type-v",
         "q8_0",
+        # 127.0.0.1, not 0.0.0.0: llama-server is an unauthenticated local
+        # sidecar and app.py only ever talks to it over localhost:8080
+        # (LLAMA_SERVER_URL). Binding all interfaces exposed an open
+        # inference endpoint to anyone on the same network for no benefit.
         "--host",
-        "0.0.0.0",
+        "127.0.0.1",
         "--port",
         "8080",
     ]

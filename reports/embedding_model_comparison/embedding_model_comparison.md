@@ -1,6 +1,6 @@
 # Embedding Model Comparison Report
 
-Compares 3 embedding models (dense-only, no hybrid/BM25) on the full gold question set, per Internship Proposal §6.3 / §12. Corpus encoding was precomputed by scripts/07_generate_embeddings.py; only the gold questions were encoded fresh here.
+Compares 3 embedding models (dense-only, no hybrid/BM25) on the full gold question set, per Internship Proposal §6.3 / §12. Corpus encoding was precomputed by scripts/08_generate_embeddings.py; only the gold questions were encoded fresh here.
 
 ## BAAI/bge-m3
 

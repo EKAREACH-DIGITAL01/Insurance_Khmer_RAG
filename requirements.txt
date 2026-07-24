@@ -1,18 +1,27 @@
-streamlit
-google-genai
-python-dotenv
-pillow
-pdf2image
-sentence-transformers
-transformers
-huggingface-hub
-sentencepiece
-accelerate
-faiss-cpu
-numpy
-torch
-torchvision
-tabulate
-openai
-rank-bm25
-requests
+# Pinned to the exact versions the committed reports under reports/ were
+# produced with. Unpinned, a fresh install picks up whatever is current --
+# transformers / sentence-transformers in particular change embedding and
+# generation behaviour across majors, which silently invalidates the
+# evaluation numbers in README.md.
+#
+# To move forward: bump deliberately, re-run scripts/08 onward, and
+# regenerate the reports.
+
+streamlit==1.58.0
+google-genai==2.10.0
+python-dotenv==1.2.2
+pillow==12.3.0
+pdf2image==1.17.0
+sentence-transformers==5.6.0
+transformers==5.12.1
+huggingface-hub==1.21.0
+sentencepiece==0.2.1
+accelerate==1.14.0
+faiss-cpu==1.14.3
+numpy==2.4.6
+torch==2.12.1
+torchvision==0.27.1
+tabulate==0.10.0
+openai==2.44.0
+rank-bm25==0.2.2
+requests==2.34.2
