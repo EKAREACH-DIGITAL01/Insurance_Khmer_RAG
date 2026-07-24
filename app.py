@@ -3029,13 +3029,17 @@ def document_id_for_chunk(chunk_id):
 def publish_source_pdfs():
     """Exposes the corpus PDFs to the browser and returns {document id: url}.
 
-    Streamlit only serves files under ./static, and the corpus is 195 MB, so
-    the files are HARD LINKED rather than copied -- same bytes, second name,
-    no extra disk. Copying would duplicate the whole corpus on every machine
-    that runs the app. Falls back to a copy if the link can't be made (a
-    different filesystem, or a platform that won't), and skips any document
-    whose PDF is missing rather than failing the page: a missing source should
-    cost that one link, not the answer.
+    Streamlit's static directory is not configurable -- file_util.py pins it to
+    "<script dir>/static" -- so the PDFs have to appear there to be reachable
+    by URL at all; data/01_source_documents can't be served directly.
+
+    They are HARD LINKED rather than copied: same inode, second name, no extra
+    disk for a 195 MB corpus. Symlinks do not work here -- Streamlit rejects a
+    static path that resolves outside the static directory (HTTP 400), which a
+    symlink into data/ does. Falls back to a real copy if the link can't be
+    made (a different filesystem, or a platform that won't), and skips any
+    document whose PDF is missing rather than failing the page: a missing
+    source should cost that one link, not the answer.
 
     cache_resource so the directory is rebuilt once per server start, which is
     also what picks up any newly added source document."""
@@ -3053,6 +3057,23 @@ def publish_source_pdfs():
             src = os.path.join(src_dir, filename)
             dst = os.path.join(static_dir, filename)
             try:
+                # A link that no longer points at the same inode as the source
+                # is stale -- the PDF behind it was replaced -- and would keep
+                # serving the old document. Relink rather than skip.
+                #
+                # The guard is not paranoia: this is the one place in the app
+                # that deletes a file, and it sits a couple of path joins away
+                # from the irreplaceable source corpus. If `dst` ever resolved
+                # outside static/ -- a symlinked static/documents, a doctored
+                # filename -- os.remove would take the original PDF instead of
+                # the link. Verify where the path really points before unlinking.
+                if os.path.exists(dst) and os.stat(dst).st_ino != os.stat(src).st_ino:
+                    if os.path.realpath(dst).startswith(
+                        os.path.realpath(static_dir) + os.sep
+                    ):
+                        os.remove(dst)
+                    else:
+                        continue
                 if not os.path.exists(dst):
                     try:
                         os.link(src, dst)

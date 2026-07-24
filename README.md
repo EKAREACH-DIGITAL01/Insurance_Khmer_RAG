@@ -534,13 +534,19 @@ re-running the script later will pick up exactly the gaps that failed.
 
 ## Source PDF serving
 
-Each document cited under an answer links to its own PDF. Streamlit only
-serves files under `./static`, and the corpus is ~195 MB, so
-`publish_source_pdfs()` in `app.py` **hard links** every PDF from
-`data/01_source_documents/<category>/` into `static/documents/` at startup
-rather than copying it — same inode, second name, no extra disk. The
-directory is rebuilt once per server start, which is also what picks up
-newly added source documents, and `static/` is gitignored.
+Each document cited under an answer links to its own PDF.
+
+Streamlit's static directory is not configurable — `file_util.py` pins it to
+`<script dir>/static` — so `data/01_source_documents/` cannot be served
+directly. `publish_source_pdfs()` in `app.py` therefore **hard links** every
+PDF into `static/documents/` at startup: same inode, second name, **no extra
+disk** for the ~195 MB corpus. It is not a second copy of the data.
+
+Symlinks do not work as a substitute — Streamlit rejects a static path that
+resolves outside the static directory, so a symlink into `data/` returns
+HTTP 400 while a hard link serves normally. The directory is refreshed once
+per server start, which picks up newly added documents and relinks any whose
+source PDF was replaced, and `static/` is gitignored.
 
 This needs `enableStaticServing` in `.streamlit/config.toml`; without it
 the names still render, just without links. A document whose PDF is
