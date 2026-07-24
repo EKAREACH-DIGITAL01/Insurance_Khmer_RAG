@@ -1,6 +1,6 @@
 # Data Card — Khmer Insurance RAG Chatbot
 
-Generated: 2026-07-24 16:14:43
+Generated: 2026-07-24 17:33:30
 
 Retrieval-augmented question answering over Cambodian insurance laws, sub-decrees, prakas and guidance, in Khmer. The assistant answers strictly from the retrieved source documents and refuses out-of-scope, advisory, pricing and recommendation requests.
 
@@ -68,6 +68,7 @@ Retrieval-augmented question answering over Cambodian insurance laws, sub-decree
 
 - **Embedding model:** `BAAI/bge-m3` (Hit@5=0.9658333333333333, Recall@5=0.9658333333333333, MRR@5=0.8684); compared 3 models
 - **Retrieval mode:** `hybrid`
+- **Generator model:** `SeaLLMs-v3-7B-Chat-Q4_K_M` (combined judge score 4.8815/5); compared 4 models
 
 Retrieval mode comparison (macro-avg @5):
 
@@ -79,6 +80,17 @@ Retrieval mode comparison (macro-avg @5):
 | File Hit Rate @5 |  0.9825 |   0.9917 | 0.0092 |
 
 ## 6. Quality Evaluation
+
+### Automated LLM-judge (SeaLLMs-v3-7B-Chat-Q4_K_M, 100 questions)
+
+| Metric             |   Avg (1-5) |
+|--------------------|-------------|
+| Context Relevance  |      4.88   |
+| Faithfulness       |      4.86   |
+| Answer Relevance   |      4.97   |
+| Answer Correctness |      4.84   |
+| Completeness       |      4.9    |
+| **Combined**       |      4.8815 |
 
 ### Safety gates
 

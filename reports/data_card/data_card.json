@@ -1,7 +1,7 @@
 {
   "project": "Khmer Insurance RAG Chatbot",
-  "generated_at": 1784884483,
-  "generated_human": "2026-07-24 16:14:43",
+  "generated_at": 1784889210,
+  "generated_human": "2026-07-24 17:33:30",
   "source_corpus": {
     "total_documents": 49,
     "by_type": {
@@ -166,10 +166,46 @@
         }
       }
     },
-    "generator": null
+    "generator": {
+      "winner": "SeaLLMs-v3-7B-Chat-Q4_K_M",
+      "combined_avg": 4.8815,
+      "scores_avg": {
+        "context_relevance": 4.88,
+        "faithfulness": 4.86,
+        "answer_relevance": 4.97,
+        "answer_correctness": 4.84,
+        "completeness": 4.9
+      },
+      "weights": {
+        "context_relevance": 0.2,
+        "faithfulness": 0.25,
+        "answer_correctness": 0.25,
+        "answer_relevance": 0.15,
+        "completeness": 0.15
+      },
+      "candidates": [
+        "SeaLLMs-v3-7B-Chat-Q4_K_M",
+        "Sailor2-L-8B-Chat-Q4_K_M",
+        "Llama-3.1-8B-Instruct-Q4_K_M",
+        "Qwen3.5-9B-Q4_K_M"
+      ]
+    }
   },
   "quality": {
-    "automated_judge": null,
+    "automated_judge": {
+      "model": "SeaLLMs-v3-7B-Chat-Q4_K_M",
+      "total_questions": 100,
+      "combined_avg": 4.8815,
+      "scores_avg": {
+        "context_relevance": 4.88,
+        "faithfulness": 4.86,
+        "answer_relevance": 4.97,
+        "answer_correctness": 4.84,
+        "completeness": 4.9
+      },
+      "truncated_answers": 0,
+      "blank_answers": 0
+    },
     "safety_gates": {
       "model": "SeaLLM v3 7B",
       "total": 50,

@@ -1,0 +1,155 @@
+{
+  "label": "Llama-3.1-8B-Instruct-Q4_K_M",
+  "total_questions": 100,
+  "judged_questions": 100,
+  "unjudged_questions": 0,
+  "blank_answers": 0,
+  "truncated_answers": 26,
+  "scores_avg": {
+    "context_relevance": 4.92,
+    "faithfulness": 4.55,
+    "answer_relevance": 4.57,
+    "answer_correctness": 4.2,
+    "completeness": 4.24
+  },
+  "combined_avg": 4.493,
+  "hallucination": {
+    "flagged": 7,
+    "judged": 100,
+    "rate": 0.07,
+    "unjudged_flag": 0,
+    "by_category": {
+      "guidance": {
+        "flagged": 5,
+        "judged": 25,
+        "rate": 0.2
+      },
+      "laws": {
+        "flagged": 0,
+        "judged": 25,
+        "rate": 0.0
+      },
+      "prakas": {
+        "flagged": 1,
+        "judged": 25,
+        "rate": 0.04
+      },
+      "sub_decrees": {
+        "flagged": 1,
+        "judged": 25,
+        "rate": 0.04
+      }
+    },
+    "flagged_questions": [
+      {
+        "question_id": "guidance_qid_005",
+        "category": "guidance",
+        "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច ត្រូវឆ្លើយតបទៅអ្នកទាមទារសំណងធានារ៉ាប់រងអំពីការបដិសេធក្នុងរយៈពេលយ៉ាងយូរប៉ុន្មានថ្ងៃ?",
+        "evidence": "១៥ (ដប់ប្រាំ) ថ្ងៃ",
+        "faithfulness": 2,
+        "combined": 3.75
+      },
+      {
+        "question_id": "guidance_qid_009",
+        "category": "guidance",
+        "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច ត្រូវបង់កម្រៃសេវារដ្ឋបាលអ្វីខ្លះ?",
+        "evidence": "២ ០០០ ០០០ (ពីររយពាន់) រៀល",
+        "faithfulness": 1,
+        "combined": 2.1
+      },
+      {
+        "question_id": "guidance_qid_014",
+        "category": "guidance",
+        "question": "បុគ្គលិករបស់ក្រុមហ៊ុនជើងសាធានារ៉ាប់រងដែលមានវិជ្ជាជីវៈជើងសាធានារ៉ាប់រង ដែលបំពានក្រមសីលធម៌កម្រិតស្រាលអាចទទួលរងនូវវិធានការចាត់ដោយក្រុមហ៊ុនជើងសាធានារ៉ាប់រង ដូចម្តេច?",
+        "evidence": "ការ ដាក់ ពាក្យ បណ្តឹង ទៅ តុលាការ",
+        "faithfulness": 2,
+        "combined": 3.45
+      },
+      {
+        "question_id": "guidance_qid_019",
+        "category": "guidance",
+        "question": "តើបុគ្គលការដាក់ពាក្យស្នើសុំការអនុញ្ញាតសាកល្បងត្រូវមានលក្ខណៈវិនិច្ឆ័យដូចម្តេច?",
+        "evidence": "ប្រការ ៧ - ធនាគារជាតិនៃកម្ពុជានឹងជូនដំណឹងជាលាយលក្ខណ៍ អក្សរ អំពី សេចក្តី សម្រេច ផ្តល់ ឬ មិន ផ្តល់ ការ អនុញ្ញាត ជូន គ្រឹះ ស្ថាន ក្នុង រយៈ ពេល យ៉ាង យូរ ៣ (បី) ខែ",
+        "faithfulness": 2,
+        "combined": 2.05
+      },
+      {
+        "question_id": "guidance_qid_020",
+        "category": "guidance",
+        "question": "ក្នុងករណីមានតម្រូវការពន្យារយៈពេលសាកល្បង បុគ្គលបរិស្ថានសាកល្បង អាចធ្វើដូចម្តេច?",
+        "evidence": "១០ (ម្ភៃ) ថ្ងៃ",
+        "faithfulness": 2,
+        "combined": 3.3
+      },
+      {
+        "question_id": "prakas_qid_002",
+        "category": "prakas",
+        "question": "ក្រុមហ៊ុនធានារ៉ាប់រង ត្រូវផ្សព្វផ្សាយរបាយការណ៍ប្រចាំឆ្នាំជាសាធារណៈ យ៉ាងយូរត្រឹមថ្ងៃណា?",
+        "evidence": "១៥ (ដប់ប្រាំ) ថ្ងៃ នៃថ្ងៃធ្វើការ",
+        "faithfulness": 2,
+        "combined": 2.35
+      },
+      {
+        "question_id": "sub_decree_qid_005",
+        "category": "sub_decrees",
+        "question": "តើការចុះកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូច ត្រូវតែធ្វើឡើងជាមួយនឹងក្រុមហ៊ុនធានារ៉ាប់រងបែបណា?",
+        "evidence": "២០ ០០០ ០០០ (ម្ភៃលាន) រៀល",
+        "faithfulness": 2,
+        "combined": 4.0
+      }
+    ],
+    "contradicts_faithfulness": []
+  },
+  "timing_avg": {
+    "first_token_time": 53.7557,
+    "generation_time": 106.2523,
+    "tokens_out": 420.5312,
+    "tokens_per_sec": 8.4432
+  },
+  "per_category": {
+    "guidance": {
+      "questions": 25,
+      "scores": {
+        "context_relevance": 5,
+        "faithfulness": 4,
+        "answer_relevance": 4.28,
+        "answer_correctness": 3.76,
+        "completeness": 3.88
+      },
+      "combined": 4.164
+    },
+    "laws": {
+      "questions": 25,
+      "scores": {
+        "context_relevance": 5,
+        "faithfulness": 4.8,
+        "answer_relevance": 4.64,
+        "answer_correctness": 4.36,
+        "completeness": 4.36
+      },
+      "combined": 4.64
+    },
+    "prakas": {
+      "questions": 25,
+      "scores": {
+        "context_relevance": 4.84,
+        "faithfulness": 4.56,
+        "answer_relevance": 4.44,
+        "answer_correctness": 4.04,
+        "completeness": 4.04
+      },
+      "combined": 4.39
+    },
+    "sub_decrees": {
+      "questions": 25,
+      "scores": {
+        "context_relevance": 4.84,
+        "faithfulness": 4.84,
+        "answer_relevance": 4.92,
+        "answer_correctness": 4.64,
+        "completeness": 4.68
+      },
+      "combined": 4.778
+    }
+  }
+}

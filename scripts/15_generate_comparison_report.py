@@ -337,10 +337,17 @@ def write_comparison(summaries):
     md.append(tabulate(qrows, headers=["Metric"] + labels, tablefmt="github") + "\n\n")
 
     md.append("## Hallucination (separate from the score)\n\n")
-    md.append("A hallucination is any specific fact asserted by the answer that "
-              "does not appear in its retrieved context. Judged independently of "
-              "the five metrics and **never** folded into the combined score — a "
-              "model can rank first and still fabricate.\n\n")
+    md.append("A hallucination is any specific fact asserted by the answer — an "
+              "article number, figure, deadline, institution or procedure — that "
+              "does not appear in `expected_answer`. Judged independently of the "
+              "five metrics and **never** folded into the combined score: a model "
+              "can rank first and still fabricate.\n\n"
+              "> Read these as an **upper bound**. Because the reference is the "
+              "gold answer rather than the retrieved context, a detail correctly "
+              "taken from the source document but omitted from the gold answer is "
+              "still counted. Verbose models are the most exposed. Each flag "
+              "carries the quoted span in the per-model summary, so they can be "
+              "checked individually.\n\n")
     md.append(tabulate(
         [["── Flagged ──"] + [s["hallucination"]["flagged"] for s in ranked],
          ["── Judged ──"]  + [s["hallucination"]["judged"] for s in ranked],

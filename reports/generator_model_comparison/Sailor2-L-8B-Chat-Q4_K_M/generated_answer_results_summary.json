@@ -1,0 +1,227 @@
+{
+  "label": "Sailor2-L-8B-Chat-Q4_K_M",
+  "total_questions": 100,
+  "judged_questions": 100,
+  "unjudged_questions": 0,
+  "blank_answers": 0,
+  "truncated_answers": 4,
+  "scores_avg": {
+    "context_relevance": 4.92,
+    "faithfulness": 4.59,
+    "answer_relevance": 4.86,
+    "answer_correctness": 4.77,
+    "completeness": 4.89
+  },
+  "combined_avg": 4.7865,
+  "hallucination": {
+    "flagged": 16,
+    "judged": 100,
+    "rate": 0.16,
+    "unjudged_flag": 0,
+    "by_category": {
+      "guidance": {
+        "flagged": 2,
+        "judged": 25,
+        "rate": 0.08
+      },
+      "laws": {
+        "flagged": 8,
+        "judged": 25,
+        "rate": 0.32
+      },
+      "prakas": {
+        "flagged": 4,
+        "judged": 25,
+        "rate": 0.16
+      },
+      "sub_decrees": {
+        "flagged": 2,
+        "judged": 25,
+        "rate": 0.08
+      }
+    },
+    "flagged_questions": [
+      {
+        "question_id": "guidance_qid_001",
+        "category": "guidance",
+        "question": "នៅពេលមានហានិភ័យកើតឡើង តើអ្នកត្រូវបានធានារ៉ាប់រងត្រូវជូនដំណឹងទៅក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចតាមមធ្យោបាយអ្វីខ្លះ?",
+        "evidence": "២០២៦ ម៉ោង​ ២៤ (ម្ភៃ​បួន) ម៉ោង",
+        "faithfulness": 3,
+        "combined": 4.25
+      },
+      {
+        "question_id": "guidance_qid_020",
+        "category": "guidance",
+        "question": "ក្នុងករណីមានតម្រូវការពន្យារយៈពេលសាកល្បង បុគ្គលបរិស្ថានសាកល្បង អាចធ្វើដូចម្តេច?",
+        "evidence": "២- **បន្ត​បន្ថែម** : ក្នុង​ករណី​កែប្រែ​ជា​សារវន្ត (ការ​ផ្លាស់ប្តូរ​បច្ចេកវិទ្យា បុគ្គល​ទទួលខុសត្រូវ ឬ​ការ​កែសម្រួល​ផ្សេងៗ) បុគ្គល​បរិស្ថាន​សាកល្បង ត្រូវ​ជូនដំណឹង​ជាមួយ​ព័ត៌មាន​លម្អិត និង​មូលហេតុ",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "law_qid_002",
+        "category": "laws",
+        "question": "តើច្បាប់ស្តីពីពាណិជ្ជកម្មតាមប្រព័ន្ធអេឡិចត្រូនិចមានគោលដៅអ្វីខ្លះ?",
+        "evidence": "៥ ឆ្នាំ សម្រាប់កំណត់ត្រាសកម្មភាព និង ៣ ឆ្នាំ សម្រាប់កំណត់ត្រាហិរញ្ញវត្ថុ",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "law_qid_006",
+        "category": "laws",
+        "question": "បុគ្គលដែលរក្សាព័ត៌មានជាលក្ខណៈឯកជនក្រោមទម្រង់អេឡិចត្រូនិក ត្រូវធ្វើដូចម្តេច?",
+        "evidence": "ពិន័យអន្តរការណ៍ជាប្រាក់ពី ៥ ០០០ ០០០ រៀល ដល់ ២០ ០០០ ០០០ រៀល",
+        "faithfulness": 2,
+        "combined": 3.45
+      },
+      {
+        "question_id": "law_qid_010",
+        "category": "laws",
+        "question": "តើច្បាប់ស្តីពីកិច្ចការពារអ្នកប្រើប្រាស់មានវិសាលភាពអនុវត្តចំពោះបុគ្គលណាខ្លះ?",
+        "evidence": "ពិន័យអន្តរការណ៍ជាប្រាក់ពី ១ ០០០ ០០០ រៀល ដល់ ៥ ០០០ ០០០ រៀល",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "law_qid_013",
+        "category": "laws",
+        "question": "តើគម្រោងលក់បែបពីរ៉ាមីដ គឺជាអ្វី?",
+        "evidence": "ប្រាក់រង្វាន់ពឹងផ្អែកលើការជ្រើសរើសអ្នកចូលរួមបន្ថែម និងអ្នកចូលរួមថ្មីមិនអាចរកអ្នកបន្ថែមទៀតបាន",
+        "faithfulness": 3,
+        "combined": 4.25
+      },
+      {
+        "question_id": "law_qid_016",
+        "category": "laws",
+        "question": "អ.ស.ហ. (អាជ្ញាធរសេវាហិរញ្ញវត្ថុមិនមែនធនាគារ)មានតួនាទីនិងភារកិច្ចដូចម្តេច?",
+        "evidence": "ទោសពិន័យជាប្រាក់ពី ១០ ០០០ ០០០ (ដប់លាន) រៀល ដល់ ៥០ ០០០ ០០០ (ហាសិបលាន) រៀល",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "law_qid_018",
+        "category": "laws",
+        "question": "តើ អ.ស.ហ. (អាជ្ញាធរសេវាហិរញ្ញវត្ថុមិនមែនធនាគារ)មានអង្គភាពក្រោមឱវាទជាសេនាធិការដូចម្តេច?",
+        "evidence": "ពិន័យអន្តរការណ៍ជាប្រាក់ពី ៥ ០០០ ០០០ រៀល ដល់ ២០ ០០០ ០០០ រៀល",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "law_qid_019",
+        "category": "laws",
+        "question": "តើច្បាប់ស្តីពីការធានារ៉ាប់រងគោលដៅអ្វីខ្លះ?",
+        "evidence": "ពិន័យអន្តរការណ៍ជាប្រាក់ពី ២ ០០០ ០០០ រៀល ដល់ ១០ ០០០ ០០០ រៀល",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "law_qid_020",
+        "category": "laws",
+        "question": "តើប្រភេទផលិតផលធានារ៉ាប់រងការទទួលខុសត្រូវរួមមានអ្វីខ្លះ?",
+        "evidence": "មាត្រា ៥៥ និង ៥៦",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "prakas_qid_002",
+        "category": "prakas",
+        "question": "ក្រុមហ៊ុនធានារ៉ាប់រង ត្រូវផ្សព្វផ្សាយរបាយការណ៍ប្រចាំឆ្នាំជាសាធារណៈ យ៉ាងយូរត្រឹមថ្ងៃណា?",
+        "evidence": "ក្នុងរយៈពេល ៣០ ថ្ងៃ",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "prakas_qid_005",
+        "category": "prakas",
+        "question": "កិច្ចសន្យាធានារ៉ាប់រងទូទៅនិងកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូចអាចបញ្ចប់មុនកាលកំណត់បាន ក្នុងករណីដូចម្តេច?",
+        "evidence": "ប្រការ ១៤",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "prakas_qid_006",
+        "category": "prakas",
+        "question": "កិច្ចសន្យាធានារ៉ាប់រងអាយុជីវិតអាចបញ្ចប់មុនកាលកំណត់បាន ក្នុងករណីណាមួយដូចម្តេច?",
+        "evidence": "ប្រការ ១៦",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "prakas_qid_017",
+        "category": "prakas",
+        "question": "គ្រោងលក់បែបពីរ៉ាមីត គឺជាអ្វី?",
+        "evidence": "ប្រការ ៤៥",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "sub_decree_qid_017",
+        "category": "sub_decrees",
+        "question": "អ្នករងការប្តឹងត្រូវឆ្លើយតបដោយការបំភ្លឺ ក្នុងរយៈពេលយ៉ាងយូរប៉ុន្មានថ្ងៃ?",
+        "evidence": "មាត្រា ៩៨",
+        "faithfulness": 3,
+        "combined": 4.1
+      },
+      {
+        "question_id": "sub_decree_qid_025",
+        "category": "sub_decrees",
+        "question": "ដើម្បីចុះកិច្ចសន្យាធានារ៉ាប់រង អ្នកដែលមានបំណងចុះកិច្ចសន្យាធានារ៉ាប់រង ត្រូវធ្វើដូចម្តេច?",
+        "evidence": "មានទឹកប្រាក់ធានា​មិនលើសពី ២០ ០០០ ០០០ (ម្ភៃលាន) រៀល",
+        "faithfulness": 2,
+        "combined": 2.2
+      }
+    ],
+    "contradicts_faithfulness": []
+  },
+  "timing_avg": {
+    "first_token_time": 35.8964,
+    "generation_time": 73.2418,
+    "tokens_out": 407.375,
+    "tokens_per_sec": 11.011
+  },
+  "per_category": {
+    "guidance": {
+      "questions": 25,
+      "scores": {
+        "context_relevance": 5,
+        "faithfulness": 4.8,
+        "answer_relevance": 4.96,
+        "answer_correctness": 4.88,
+        "completeness": 4.92
+      },
+      "combined": 4.902
+    },
+    "laws": {
+      "questions": 25,
+      "scores": {
+        "context_relevance": 5,
+        "faithfulness": 4.24,
+        "answer_relevance": 4.72,
+        "answer_correctness": 4.6,
+        "completeness": 4.92
+      },
+      "combined": 4.656
+    },
+    "prakas": {
+      "questions": 25,
+      "scores": {
+        "context_relevance": 4.84,
+        "faithfulness": 4.64,
+        "answer_relevance": 4.84,
+        "answer_correctness": 4.76,
+        "completeness": 4.92
+      },
+      "combined": 4.782
+    },
+    "sub_decrees": {
+      "questions": 25,
+      "scores": {
+        "context_relevance": 4.84,
+        "faithfulness": 4.68,
+        "answer_relevance": 4.92,
+        "answer_correctness": 4.84,
+        "completeness": 4.8
+      },
+      "combined": 4.806
+    }
+  }
+}
