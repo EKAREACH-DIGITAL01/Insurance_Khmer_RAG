@@ -195,9 +195,15 @@ follows it to the report.
 >
 > The central idea: this system refuses far more often than a normal chatbot,
 > deliberately, because giving wrong legal or financial advice is worse than
-> giving none. Refusal is a designed feature, not a failure. Three checkpoints
-> along the path can stop a question, and each is cheaper than the one after it
-> — that ordering is intentional and should be legible.
+> giving none. Refusal is a designed feature, not a failure. Two checkpoints
+> along the path can stop a question, and the second is far more expensive than
+> the first — that ordering is intentional and should be legible.
+>
+> There are exactly TWO refusal points. Do not invent a third that inspects or
+> blocks the finished answer: no such check exists. Once generation starts, the
+> answer reaches the user. What the system does after generating is *qualify*
+> the answer — a low-confidence banner when retrieval was weak, and a permanent
+> disclaimer — never withhold it.
 >
 > The path:
 >
@@ -214,9 +220,7 @@ follows it to the report.
 > 6. The top five passages are assembled into a prompt.
 > 7. A local LLM generates an answer from those passages only, streamed token by
 >    token, and the user can interrupt it mid-stream.
-> 8. **Checkpoint 3 — costs a full generation.** The answer is checked before it
->    reaches the user.
-> 9. The answer is delivered with three things attached: the list of source
+> 8. The answer is delivered with three things attached: the list of source
 >    documents it drew on, each linking to that document's original PDF; a row of
 >    controls to copy or react to it; and a link to a full diagnostics readout
 >    for that specific answer.
@@ -403,7 +407,7 @@ follows it to the report.
 >
 > The organising idea: every question that will ultimately be refused should be
 > refused as early and as cheaply as possible, so the checks are ordered by what
-> they cost to run.
+> they cost to run. There are two such checks, not three.
 >
 > **Rung 1 — free.** No AI, no search, pure pattern matching on the raw text.
 > It catches four things: text that contains no Khmer script at all; questions
@@ -418,16 +422,24 @@ follows it to the report.
 > even the best-matching passage in the entire corpus is too weak a match, the
 > question is off-topic and is refused here, before any text is generated.
 >
-> **Rung 3 — costs a full generation.** The generated answer is checked before
-> it is shown.
+> **After the rungs — generation.** If a question clears both rungs it is
+> answered, and the answer is shown. There is no third rung: nothing inspects or
+> blocks a finished answer. Where retrieval was weak but not weak enough to
+> refuse, the answer is still shown, carrying a visible low-confidence warning.
+> Show that qualifying an answer and withholding one are different things.
 >
 > Then show how outcomes are scored, because this is how the system was
 > measured: every adversarial test question has an expected behaviour, so each
 > result falls into one of four boxes — correctly refused, correctly answered,
-> wrongly answered, wrongly refused — the four combinations of what was
-> expected against what happened. Convey that the two error boxes are not
-> equally bad: a wrong answer to a pricing or advice question is a real harm,
-> while a needlessly refused question is only an annoyance.
+> wrongly answered, wrongly refused. These are the four cells of a confusion
+> matrix: one axis is what the question *should* have got (refuse or answer),
+> the other is what it actually got (refused or answered), and each cell is the
+> intersection of the two. Do not lay it out as an "expected" column beside an
+> "actual" column — the outcome names are the cells, not the headings.
+>
+> Convey that the two error cells are not equally bad: a wrong answer to a
+> pricing or advice question is a real harm, while a needlessly refused question
+> is only an annoyance.
 >
 > Leave empty space for the counts in each box and for the threshold values.
 
@@ -521,6 +533,14 @@ follows it to the report.
 > starts at the same height as the rail's brand, with no header bar above it;
 > and the input and disclaimer stay fixed while the conversation scrolls behind
 > them.
+>
+> This figure documents a real interface, so it must not show controls the
+> interface does not have. In particular there is **no** pin or favourite
+> control on a conversation row, **no** file attachment or upload in the input,
+> and **no** avatars beside messages. "New conversation" is a plain row in the
+> list, not a large filled button. The four controls under an answer are
+> icon-only with tooltips, not labelled buttons. The source list is document
+> *names* as text links, not icons.
 
 ---
 
@@ -583,7 +603,8 @@ follows it to the report.
 > score each retrieval method gave it, which method surfaced it, the full text
 > of each passage, token counts, and stage-by-stage timings. This view has its
 > own address, so it can be reloaded, bookmarked, or handed to someone else for
-> review.
+> review. That address is a local one carrying the message's identifier — leave
+> space for it rather than inventing a public URL; this system is not hosted.
 >
 > The point to convey: the three levels serve different readers — a user, a
 > lawyer checking the citation, and an examiner auditing the retrieval — and the
