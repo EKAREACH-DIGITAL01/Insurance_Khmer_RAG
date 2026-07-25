@@ -33,9 +33,14 @@ models/retriever/*
 docs/Internship_Report.docx
 
 # Numbered figure copies for the research paper. Every one of these is a
-# duplicate of a diagram regenerated from docs/image_generation_prompts.md;
+# duplicate of a diagram already tracked or regenerable from the prompts brief;
 # the four the README embeds are tracked under assets/readme/ instead.
 assets/research-paper/
+
+# The brief the assets/ diagrams were generated from, numbered to match the
+# research paper's figures. Working notes for writing the report, kept local
+# alongside the figures and the report itself.
+docs/image_generation_prompts.md
 
 # Locally generated human-evaluation databases (incl. WAL sidecar files)
 reports/human_golden_question_evaluation/*.db

@@ -167,8 +167,8 @@ Khmer-Rag-Chatbot/
 ├── static/                          # gitignored; hard links to the source PDFs,
 │   └── documents/                   # rebuilt at startup by publish_source_pdfs()
 │
-├── assets/                          # 20 diagrams, regenerated from
-│   ├── readme/                      #   docs/image_generation_prompts.md
+├── assets/                          # 20 diagrams, generated from a prompts
+│   ├── readme/                      #   brief kept locally with the report
 │   │   ├── demo.gif                 # the 4 diagrams this README embeds,
 │   │   ├── architecture_overview.png#   plus the demo recording
 │   │   ├── chat_request_path.png
