@@ -88,7 +88,7 @@ fig = S.figure(
 )
 # `top` is held well below the subtitle baseline (y = 0.892) so panel headings
 # cannot collide with the figure header -- the previous layout overlapped them.
-grid = fig.add_gridspec(1, 2, left=0.088, right=0.972, bottom=0.235, top=0.665,
+grid = fig.add_gridspec(1, 2, left=0.098, right=0.972, bottom=0.235, top=0.665,
                         width_ratios=[1.38, 1.0], wspace=0.34)
 ax_total = fig.add_subplot(grid[0])
 ax_detail = fig.add_subplot(grid[1])
@@ -120,27 +120,31 @@ for label, key, colour in STAGES:
     left = [a + b for a, b in zip(left, values)]
 
 for i, row in enumerate(rows):
-    ax_total.text(row["total"] + max_total * 0.022, i,
-                  f"{row['total']:.2f}s     {row['prompt_tokens']:,} in / "
-                  f"{row['generated_tokens']} out",
+    trailing = (f"{row['total']:.2f}s     {row['prompt_tokens']:,} in / "
+                f"{row['generated_tokens']} out")
+    if row["cache_hit"]:
+        # The 0.23 s prefill is far too narrow to label inside its segment, so
+        # the number rides here rather than in a floating caption.
+        trailing += "     prefill 0.23 s, not a typical cold answer"
+    ax_total.text(row["total"] + max_total * 0.022, i, trailing,
                   ha="left", va="center", fontsize=S.SZ_NOTE,
-                  fontfamily="sans-serif", color=S.INK_SOFT, zorder=5)
+                  fontfamily="sans-serif",
+                  color=S.PURPLE if row["cache_hit"] else S.INK_SOFT,
+                  fontweight="bold" if row["cache_hit"] else "normal", zorder=5)
 
 ax_total.set_xlim(0, max_total * 1.52)
 ax_total.set_yticks(y)
-ax_total.set_yticklabels([f"Answer {i}" for i in range(1, 5)])
+ax_total.set_yticklabels(
+    [f"Answer {i}" if not rows[i - 1]["cache_hit"]
+     # Kept short: a longer second line runs off the left edge of the canvas,
+     # and the row's trailing annotation carries the full explanation.
+     else f"Answer {i}\ncache hit" for i in range(1, 5)])
+ax_total.get_yticklabels()[3].set_color(S.PURPLE)
 ax_total.invert_yaxis()
 ax_total.set_xlabel("Elapsed time (seconds)", fontsize=S.SZ_AXIS, labelpad=6)
 ax_total.legend(loc="upper left", bbox_to_anchor=(0.0, -0.185), ncol=4,
                 fontsize=S.SZ_NOTE, columnspacing=1.4, handlelength=1.1,
                 handletextpad=0.45, labelcolor=S.INK_SOFT)
-
-# Sits under the short bar inside the cache-hit band, clear of every other mark.
-ax_total.text(0, 3.62,
-              "PROMPT-CACHE HIT — prefill 0.23 s, not a typical cold answer",
-              ha="left", va="center", fontsize=S.SZ_NOTE,
-              fontfamily="sans-serif", fontweight="bold", color=S.PURPLE,
-              zorder=7)
 
 # ---- Panel B: retrieval sub-stages, milliseconds, log scale ------------------
 S.axes(ax_detail, grid="x")
@@ -170,6 +174,10 @@ ax_detail.set_ylim(len(SUBSTAGES) - 0.5, -0.5)
 ax_detail.set_yticks(range(len(SUBSTAGES)))
 ax_detail.set_yticklabels([label for label, _ in SUBSTAGES])
 ax_detail.set_xticks([1e-2, 1e-1, 1, 10, 100, 1000, 1e4])
+# A log axis places minor ticks at 2x, 3x, 4x ... of every decade, and those were
+# drawing a gridline each. One rule per decade is all this figure needs.
+ax_detail.xaxis.set_minor_locator(plt.NullLocator())
+ax_detail.grid(axis="x", which="minor", visible=False)
 ax_detail.xaxis.set_major_formatter(FuncFormatter(
     lambda v, _: ("0.01" if abs(v - 1e-2) < 1e-9 else
                   "0.1" if abs(v - 1e-1) < 1e-9 else f"{v:,.0f}")))
@@ -184,21 +192,24 @@ ax_detail.legend(
 
 tiny_ms = max(r["faiss_search"] + r["rrf_fusion"] + r["build_context"]
               for r in rows) * 1000
-fig.text(0.088, 0.070,
+fig.text(0.098, 0.070,
          f"Embedding the query is nearly all of retrieval: FAISS search, RRF fusion and "
          f"context building together never exceed {tiny_ms:.1f} ms.",
          ha="left", va="bottom", fontsize=S.SZ_NOTE, color=S.INK_FAINT)
-fig.text(0.088, 0.028,
+fig.text(0.098, 0.028,
          f"{chip}, {cores} cores, {ram} GB RAM, macOS, embedding on CPU, "
          f"generator {model} via llama.cpp, n = {len(rows)} answers.",
          ha="left", va="bottom", fontsize=S.SZ_NOTE, color=S.INK_FAINT)
 
 path = S.save(fig, OUT / "chart 04 - fig_latency_breakdown.png")
-for i, row in enumerate(rows, 1):
-    print(f"answer {i}: total={row['total']:.2f}s retrieval={row['retrieval']:.2f}s "
-          f"prefill={row['prefill']:.2f}s decode={row['decode']:.2f}s "
-          f"other={row['other']:.2f}s"
-          + ("  [prompt-cache hit]" if row["cache_hit"] else ""))
-print("retrieval sub-stages (ms): " + json.dumps(
-    {label: [round(r[key] * 1000, 4) for r in rows] for label, key in SUBSTAGES}))
+hardware = (
+    f"{chip}, {cores} cores, {ram} GB RAM, macOS, embedding on CPU, "
+    f"generator {model} via llama.cpp, n = {len(rows)} answers."
+)
+print(json.dumps({
+    "answers": rows,
+    "hardware": hardware,
+    "total_time_x_limits": [0, max_total * 1.52],
+    "retrieval_detail_ms_x_limits": [FLOOR, 2e4],
+}, ensure_ascii=False))
 print("wrote", path)
