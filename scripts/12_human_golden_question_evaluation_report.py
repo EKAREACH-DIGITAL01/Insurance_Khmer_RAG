@@ -41,9 +41,9 @@ GOLD_GLOB = "data/09_evaluation/*/gold_questions.json"
 JSON_OUT = REPORT_DIR / "human_golden_question_evaluation_report.json"
 MD_OUT = REPORT_DIR / "human_golden_question_evaluation_report.md"
 
-# ids 001-025 in every category are human-authored gold questions; anything
-# above that is AI-authored. Kept in sync with scripts/11.
-HUMAN_QID_MAX = 25
+# Ids 001-025 in every category are the CORE set; anything above that is the
+# EXTENDED set. Kept in sync with scripts/11.
+CORE_QID_MAX = 25
 
 # The five metrics, with their per-metric 1..5 label sets (kept in sync with
 # scripts/11 so the distribution tables read the same as the rating UI).
@@ -78,7 +78,7 @@ def parse_question_id(qid):
         num = int(num_str)
     except (ValueError, AttributeError):
         return "unknown", "unknown"
-    return prefix, ("human" if num <= HUMAN_QID_MAX else "ai")
+    return prefix, ("core" if num <= CORE_QID_MAX else "extended")
 
 
 def load_gold():
@@ -146,8 +146,8 @@ def build_report():
 
     gold_ids = set(gold)
     evaluated_ids = set(by_q)
-    human_ids = {q for q in gold_ids if parse_question_id(q)[1] == "human"}
-    ai_ids = {q for q in gold_ids if parse_question_id(q)[1] == "ai"}
+    core_ids = {q for q in gold_ids if parse_question_id(q)[1] == "core"}
+    extended_ids = {q for q in gold_ids if parse_question_id(q)[1] == "extended"}
 
     coverage = {
         "evaluators": len(evaluators),
@@ -157,16 +157,16 @@ def build_report():
         "total_responses": len(responses),
         "responses_per_question_mean": round(
             len(responses) / len(evaluated_ids), 2) if evaluated_ids else 0,
-        "gold_human_authored": len(human_ids),
-        "gold_ai_authored": len(ai_ids),
+        "gold_core_set": len(core_ids),
+        "gold_extended_set": len(extended_ids),
     }
 
     # overall / per-source / per-category means
     overall = metric_means(responses)
-    human_rows = [r for r in responses if parse_question_id(r["question_id"])[1] == "human"]
-    ai_rows = [r for r in responses if parse_question_id(r["question_id"])[1] == "ai"]
-    by_source = {"human_authored": metric_means(human_rows),
-                 "ai_authored": metric_means(ai_rows)}
+    core_rows = [r for r in responses if parse_question_id(r["question_id"])[1] == "core"]
+    extended_rows = [r for r in responses if parse_question_id(r["question_id"])[1] == "extended"]
+    by_tier = {"core_set": metric_means(core_rows),
+               "extended_set": metric_means(extended_rows)}
 
     by_category = {}
     cat_rows = defaultdict(list)
@@ -241,7 +241,7 @@ def build_report():
     return {
         "coverage": coverage,
         "overall_means": overall,
-        "means_by_source": by_source,
+        "means_by_tier": by_tier,
         "means_by_category": by_category,
         "score_distribution": distribution,
         "inter_evaluator_agreement": agreement,
@@ -285,8 +285,8 @@ def render_md(rep):
     md.append(tabulate([
         ["Evaluators", cov["evaluators"]],
         ["Gold questions", cov["gold_questions"]],
-        ["  — human-authored", cov["gold_human_authored"]],
-        ["  — AI-authored", cov["gold_ai_authored"]],
+        ["  — core set", cov["gold_core_set"]],
+        ["  — extended set", cov["gold_extended_set"]],
         ["Questions evaluated", cov["questions_evaluated"]],
 
         ["Total responses", cov["total_responses"]],
@@ -297,15 +297,15 @@ def render_md(rep):
     # means: overall + by source
     md.append("## Metric means (1–5)")
     md.append("")
-    md.append("`combined` = mean of the five metric means. AI-authored vs "
-              "human-authored is the key comparison — it shows whether the "
-              "auto-generated questions hold up.")
+    md.append("`combined` = mean of the five metric means. The core-set vs "
+              "extended-set rows are the key comparison — they show whether the "
+              "two tiers of the gold set hold up equally.")
     md.append("")
     header = ["Scope"] + [lbl for _, lbl, _ in METRICS] + ["Combined"]
     rows = []
     for label, block in [("All", rep["overall_means"]),
-                         ("Human-authored", rep["means_by_source"]["human_authored"]),
-                         ("AI-authored", rep["means_by_source"]["ai_authored"])]:
+                         ("Core set", rep["means_by_tier"]["core_set"]),
+                         ("Extended set", rep["means_by_tier"]["extended_set"])]:
         rows.append([label] + [block.get(k) for k in METRIC_KEYS] + [block.get("combined")])
     for cat, block in rep["means_by_category"].items():
         rows.append([f"cat: {cat}"] + [block.get(k) for k in METRIC_KEYS] + [block.get("combined")])
@@ -404,8 +404,8 @@ def main():
     if rep["overall_means"]["combined"] is not None:
         print("Overall combined mean: "
               f"{rep['overall_means']['combined']}   "
-              f"(human={rep['means_by_source']['human_authored']['combined']}, "
-              f"ai={rep['means_by_source']['ai_authored']['combined']})")
+              f"(core={rep['means_by_tier']['core_set']['combined']}, "
+              f"extended={rep['means_by_tier']['extended_set']['combined']})")
     print(f"Curation flags: {len(rep['curation_flags'])}  |  "
           f"target-answer corrections: {len(rep['target_answer_corrections'])}")
     print(f"\nWrote:\n  {JSON_OUT}\n  {MD_OUT}")

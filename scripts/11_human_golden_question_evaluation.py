@@ -68,9 +68,11 @@ DB_PATH = Path(
 GOLD_GLOB = "data/09_evaluation/*/gold_questions.json"
 
 # question_id format: "<category>_qid_<NNN>" e.g. "guidance_qid_026"
-# For every category, ids 001-025 are human-authored gold questions,
-# everything above that (up to the category's max) is AI-authored.
-HUMAN_QID_MAX = 25
+# Every category opens with ids 001-025 -- the CORE set, written from scratch and
+# defining the target question/answer shape. Ids above that are the EXTENDED set,
+# built to mirror them. The tiers are reported separately so any difference
+# between them is visible rather than assumed.
+CORE_QID_MAX = 25
 
 # Each metric carries its own 5-point label set (still scored 1..5 by position).
 METRICS = [
@@ -180,8 +182,8 @@ def parse_question_id(qid: str):
         num = int(num_str)
     except (ValueError, AttributeError):
         return "unknown", "unknown"
-    source = "human" if num <= HUMAN_QID_MAX else "ai"
-    return prefix, source
+    tier = "core" if num <= CORE_QID_MAX else "extended"
+    return prefix, tier
 
 
 # ----------------------------------------------------------------------------
@@ -466,7 +468,7 @@ def load_questions():
     """
     Loads every gold question from `GOLD_GLOB` and annotates each with a
     derived `category` (from the question_id, falling back to a stored
-    `category` field) and `source` ('human' | 'ai'). The gold entry already
+    `category` field) and `tier` ('core' | 'extended'). The gold entry already
     carries `question`, `context`, and `expected_answer`, so no other input
     is needed. Returned as a dict keyed by question_id for O(1) lookup, plus
     a list that preserves file order for stable default sorting.
@@ -475,11 +477,11 @@ def load_questions():
     by_id = {}
     order = []
     for qid, g in gold.items():
-        cat_from_id, source = parse_question_id(qid)
+        cat_from_id, tier = parse_question_id(qid)
         row = dict(g)
         row["question_id"] = qid
         row["category"] = g.get("category") or cat_from_id
-        row["source"] = source
+        row["tier"] = tier
         row["context"] = g.get("context", "")
         row["expected_answer"] = g.get("expected_answer", "")
         by_id[qid] = row
@@ -894,12 +896,12 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     background: var(--brass-mist);
     border: 1px solid var(--brass-soft);
 }
-.ev-source-pill.human {
+.ev-source-pill.core {
     color: var(--signal);
     background: var(--signal-soft);
     border: 1px solid rgba(46,125,82,0.25);
 }
-.ev-source-pill.ai {
+.ev-source-pill.extended {
     color: var(--indigo);
     background: var(--indigo-mist);
     border: 1px solid rgba(59,76,140,0.25);
@@ -1447,11 +1449,11 @@ def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
 
     # ── Question + answers ───────────────────────────────────────────
     category = question.get("category", "").replace("_", " ").title()
-    source = question.get("source", "unknown")
-    source_label = (
-        "Human-Created"
-        if source == "human"
-        else ("AI-Created" if source == "ai" else "Unknown")
+    tier = question.get("tier", "unknown")
+    tier_label = (
+        "Core set"
+        if tier == "core"
+        else ("Extended set" if tier == "extended" else "Unknown")
     )
     # Escape every model/data-driven string before it goes into an
     # unsafe_allow_html block: a stray "<", ">" or "&" in an answer would
@@ -1483,7 +1485,7 @@ def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
     st.markdown(
         f'<div class="ev-pill-row">'
         f'<span class="ev-category-pill">{category}</span>'
-        f'<span class="ev-source-pill {source}">{source_label}</span>'
+        f'<span class="ev-source-pill {tier}">{tier_label}</span>'
         f"</div>",
         unsafe_allow_html=True,
     )

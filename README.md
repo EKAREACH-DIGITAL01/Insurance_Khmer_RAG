@@ -66,7 +66,7 @@ happen at chat time.
   `scripts/12_human_golden_question_evaluation_report.py` rolls those scores
   and target-answer corrections into a report with per-question curation flags.
 - **Answer generation** — `scripts/13_generate_model_answers.py` runs all four
-  quantized LLMs over the 100 human-authored gold questions and stores each
+  quantized LLMs over the 100 core gold questions and stores each
   answer plus its latency to `reports/generator_model_comparison/`. It generates
   only; it does not score.
 - **LLM-as-judge scoring** — every answer is scored on the five RAGAS metrics
@@ -510,7 +510,7 @@ clear choice for Khmer insurance law retrieval.
 ## Generator Model Comparison — Key Finding
 
 `scripts/13_generate_model_answers.py` runs all four quantized generators
-over the **100 human-authored gold questions**; an LLM judge
+over the **100 core gold questions**; an LLM judge
 (Gemini 3.6 Flash, high effort) then scores each answer against its
 `expected_answer`, and `scripts/15_generate_comparison_report.py`
 aggregates the result.

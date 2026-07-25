@@ -1,1205 +1,1205 @@
 {
-  "coverage": {
-    "evaluators": 11,
-    "gold_questions": 400,
-    "questions_evaluated": 400,
-    "questions_unevaluated": 0,
-    "total_responses": 550,
-    "responses_per_question_mean": 1.38,
-    "gold_human_authored": 100,
-    "gold_ai_authored": 300
+ "coverage": {
+  "evaluators": 11,
+  "gold_questions": 400,
+  "questions_evaluated": 400,
+  "questions_unevaluated": 0,
+  "total_responses": 550,
+  "responses_per_question_mean": 1.38,
+  "gold_core_set": 100,
+  "gold_extended_set": 300
+ },
+ "overall_means": {
+  "clarity": 4.115,
+  "relevance": 4.093,
+  "difficulty": 3.987,
+  "answer_quality": 4.062,
+  "uniqueness": 3.787,
+  "combined": 4.009
+ },
+ "means_by_category": {
+  "guidance": {
+   "clarity": 4.037,
+   "relevance": 4.059,
+   "difficulty": 3.971,
+   "answer_quality": 4.007,
+   "uniqueness": 3.846,
+   "combined": 3.984
   },
-  "overall_means": {
-    "clarity": 4.115,
-    "relevance": 4.093,
-    "difficulty": 3.987,
-    "answer_quality": 4.062,
-    "uniqueness": 3.787,
-    "combined": 4.009
+  "law": {
+   "clarity": 4.189,
+   "relevance": 4.009,
+   "difficulty": 4.072,
+   "answer_quality": 4.054,
+   "uniqueness": 3.892,
+   "combined": 4.043
   },
-  "means_by_source": {
-    "human_authored": {
-      "clarity": 4.122,
-      "relevance": 4.058,
-      "difficulty": 3.974,
-      "answer_quality": 4.115,
-      "uniqueness": 3.75,
-      "combined": 4.004
+  "prakas": {
+   "clarity": 4.168,
+   "relevance": 4.143,
+   "difficulty": 3.99,
+   "answer_quality": 4.097,
+   "uniqueness": 3.709,
+   "combined": 4.021
+  },
+  "sub_decree": {
+   "clarity": 4.037,
+   "relevance": 4.131,
+   "difficulty": 3.916,
+   "answer_quality": 4.075,
+   "uniqueness": 3.748,
+   "combined": 3.981
+  }
+ },
+ "score_distribution": {
+  "clarity": {
+   "1": 11,
+   "2": 15,
+   "3": 67,
+   "4": 264,
+   "5": 193
+  },
+  "relevance": {
+   "1": 9,
+   "2": 11,
+   "3": 84,
+   "4": 262,
+   "5": 184
+  },
+  "difficulty": {
+   "1": 7,
+   "2": 18,
+   "3": 129,
+   "4": 217,
+   "5": 179
+  },
+  "answer_quality": {
+   "1": 8,
+   "2": 15,
+   "3": 106,
+   "4": 227,
+   "5": 194
+  },
+  "uniqueness": {
+   "1": 8,
+   "2": 50,
+   "3": 151,
+   "4": 183,
+   "5": 158
+  }
+ },
+ "inter_evaluator_agreement": {
+  "clarity": 0.427,
+  "relevance": 0.427,
+  "difficulty": 0.49,
+  "answer_quality": 0.533,
+  "uniqueness": 0.593,
+  "_questions_with_overlap": 150
+ },
+ "curation_flags": [
+  {
+   "question_id": "guidance_qid_041",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 1.8,
+   "question": "តើការបំពានក្រមសីលធម៌ត្រូវបានចែកជាប៉ុន្មានកម្រិត?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2,
+     "action": "DROP — off-topic / not an insurance-law question"
     },
-    "ai_authored": {
-      "clarity": 4.112,
-      "relevance": 4.107,
-      "difficulty": 3.992,
-      "answer_quality": 4.041,
-      "uniqueness": 3.802,
-      "combined": 4.011
+    {
+     "metric": "answer_quality",
+     "mean": 1,
+     "action": "FIX — target answer needs legal correction"
+    },
+    {
+     "metric": "clarity",
+     "mean": 2,
+     "action": "REWORD — question is unclear/ambiguous"
+    },
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    },
+    {
+     "metric": "difficulty",
+     "mean": 2,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
     }
+   ]
   },
-  "means_by_category": {
-    "guidance": {
-      "clarity": 4.037,
-      "relevance": 4.059,
-      "difficulty": 3.971,
-      "answer_quality": 4.007,
-      "uniqueness": 3.846,
-      "combined": 3.984
+  {
+   "question_id": "law_qid_007",
+   "category": "law",
+   "source": "human",
+   "n_evaluators": 1,
+   "combined_mean": 2,
+   "question": "តើមាត្រា៣៣នៃច្បាប់ច្បាប់ស្តីពីពាណិជ្ជកម្មតាមប្រព័ន្ធអេឡិចត្រូនិច",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2,
+     "action": "DROP — off-topic / not an insurance-law question"
     },
-    "law": {
-      "clarity": 4.189,
-      "relevance": 4.009,
-      "difficulty": 4.072,
-      "answer_quality": 4.054,
-      "uniqueness": 3.892,
-      "combined": 4.043
+    {
+     "metric": "answer_quality",
+     "mean": 2,
+     "action": "FIX — target answer needs legal correction"
     },
-    "prakas": {
-      "clarity": 4.168,
-      "relevance": 4.143,
-      "difficulty": 3.99,
-      "answer_quality": 4.097,
-      "uniqueness": 3.709,
-      "combined": 4.021
+    {
+     "metric": "clarity",
+     "mean": 1,
+     "action": "REWORD — question is unclear/ambiguous"
     },
-    "sub_decree": {
-      "clarity": 4.037,
-      "relevance": 4.131,
-      "difficulty": 3.916,
-      "answer_quality": 4.075,
-      "uniqueness": 3.748,
-      "combined": 3.981
+    {
+     "metric": "difficulty",
+     "mean": 2,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
     }
+   ]
   },
-  "score_distribution": {
-    "clarity": {
-      "1": 11,
-      "2": 15,
-      "3": 67,
-      "4": 264,
-      "5": 193
+  {
+   "question_id": "prakas_qid_021",
+   "category": "prakas",
+   "source": "human",
+   "n_evaluators": 1,
+   "combined_mean": 2,
+   "question": "ប្រកាសស្តីពីបែបបទ និងនីតិវិធីនៃការធ្វើអធិការកិច្ចធានារ៉ាប់រងកំណត់អំពីអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2,
+     "action": "DROP — off-topic / not an insurance-law question"
     },
-    "relevance": {
-      "1": 9,
-      "2": 11,
-      "3": 84,
-      "4": 262,
-      "5": 184
+    {
+     "metric": "clarity",
+     "mean": 1,
+     "action": "REWORD — question is unclear/ambiguous"
     },
-    "difficulty": {
-      "1": 7,
-      "2": 18,
-      "3": 129,
-      "4": 217,
-      "5": 179
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
     },
-    "answer_quality": {
-      "1": 8,
-      "2": 15,
-      "3": 106,
-      "4": 227,
-      "5": 194
-    },
-    "uniqueness": {
-      "1": 8,
-      "2": 50,
-      "3": 151,
-      "4": 183,
-      "5": 158
+    {
+     "metric": "difficulty",
+     "mean": 2,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
     }
+   ]
   },
-  "inter_evaluator_agreement": {
-    "clarity": 0.427,
-    "relevance": 0.427,
-    "difficulty": 0.49,
-    "answer_quality": 0.533,
-    "uniqueness": 0.593,
-    "_questions_with_overlap": 150
-  },
-  "curation_flags": [
+  {
+   "question_id": "guidance_qid_051",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.2,
+   "question": "តើក្រុមហ៊ុនធានារ៉ាប់រង ត្រូវផ្ទេរហានិភ័យដែលលើសពីកម្រិតរក្សាទុកហានិភ័យទៅណា?",
+   "reasons": [
     {
-      "question_id": "guidance_qid_041",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 1.8,
-      "question": "តើការបំពានក្រមសីលធម៌ត្រូវបានចែកជាប៉ុន្មានកម្រិត?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2,
-          "action": "DROP — off-topic / not an insurance-law question"
-        },
-        {
-          "metric": "answer_quality",
-          "mean": 1,
-          "action": "FIX — target answer needs legal correction"
-        },
-        {
-          "metric": "clarity",
-          "mean": 2,
-          "action": "REWORD — question is unclear/ambiguous"
-        },
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        },
-        {
-          "metric": "difficulty",
-          "mean": 2,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
+     "metric": "relevance",
+     "mean": 2,
+     "action": "DROP — off-topic / not an insurance-law question"
     },
     {
-      "question_id": "law_qid_007",
-      "category": "law",
-      "source": "human",
-      "n_evaluators": 1,
-      "combined_mean": 2,
-      "question": "តើមាត្រា៣៣នៃច្បាប់ច្បាប់ស្តីពីពាណិជ្ជកម្មតាមប្រព័ន្ធអេឡិចត្រូនិច",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2,
-          "action": "DROP — off-topic / not an insurance-law question"
-        },
-        {
-          "metric": "answer_quality",
-          "mean": 2,
-          "action": "FIX — target answer needs legal correction"
-        },
-        {
-          "metric": "clarity",
-          "mean": 1,
-          "action": "REWORD — question is unclear/ambiguous"
-        },
-        {
-          "metric": "difficulty",
-          "mean": 2,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
+     "metric": "answer_quality",
+     "mean": 2,
+     "action": "FIX — target answer needs legal correction"
     },
     {
-      "question_id": "prakas_qid_021",
-      "category": "prakas",
-      "source": "human",
-      "n_evaluators": 1,
-      "combined_mean": 2,
-      "question": "ប្រកាសស្តីពីបែបបទ និងនីតិវិធីនៃការធ្វើអធិការកិច្ចធានារ៉ាប់រងកំណត់អំពីអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2,
-          "action": "DROP — off-topic / not an insurance-law question"
-        },
-        {
-          "metric": "clarity",
-          "mean": 1,
-          "action": "REWORD — question is unclear/ambiguous"
-        },
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        },
-        {
-          "metric": "difficulty",
-          "mean": 2,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
+     "metric": "clarity",
+     "mean": 2,
+     "action": "REWORD — question is unclear/ambiguous"
     },
     {
-      "question_id": "guidance_qid_051",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.2,
-      "question": "តើក្រុមហ៊ុនធានារ៉ាប់រង ត្រូវផ្ទេរហានិភ័យដែលលើសពីកម្រិតរក្សាទុកហានិភ័យទៅណា?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2,
-          "action": "DROP — off-topic / not an insurance-law question"
-        },
-        {
-          "metric": "answer_quality",
-          "mean": 2,
-          "action": "FIX — target answer needs legal correction"
-        },
-        {
-          "metric": "clarity",
-          "mean": 2,
-          "action": "REWORD — question is unclear/ambiguous"
-        },
-        {
-          "metric": "difficulty",
-          "mean": 2,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_052",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.2,
-      "question": "តើក្រុមហ៊ុនធានារ៉ាប់រង ត្រូវប្រើប្រាស់ចំណាត់ថ្នាក់ឥណទានណា ក្នុងករណីក្រុមហ៊ុនធានារ៉ាប់រងបន្តក្រៅប្រទេសមានចំណាត់ថ្នាក់ឥណទានលើសពីមួយ?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 1,
-          "action": "DROP — off-topic / not an insurance-law question"
-        },
-        {
-          "metric": "clarity",
-          "mean": 1,
-          "action": "REWORD — question is unclear/ambiguous"
-        },
-        {
-          "metric": "difficulty",
-          "mean": 2,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_074",
-      "category": "sub_decree",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.2,
-      "question": "តើអនុក្រឹត្យនេះ មានវិសាលភាពអនុវត្តចំពោះអង្គភាពអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2,
-          "action": "DROP — off-topic / not an insurance-law question"
-        },
-        {
-          "metric": "clarity",
-          "mean": 1,
-          "action": "REWORD — question is unclear/ambiguous"
-        },
-        {
-          "metric": "difficulty",
-          "mean": 2,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_002",
-      "category": "guidance",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 2.5,
-      "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចត្រូវឆ្លើយតបបញ្ជាក់ការទទួលបានការជូនដំណឹងអំពីហានិភ័យក្នុងរយៈពេលប៉ុន្មានម៉ោង?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2.5,
-          "action": "DROP — off-topic / not an insurance-law question"
-        },
-        {
-          "metric": "answer_quality",
-          "mean": 2.5,
-          "action": "FIX — target answer needs legal correction"
-        },
-        {
-          "metric": "clarity",
-          "mean": 2.5,
-          "action": "REWORD — question is unclear/ambiguous"
-        },
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_027",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 2.5,
-      "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច ត្រូវពន្យល់អ្នកទាមទារសំណងធានារ៉ាប់រងអំពីអ្វី?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        },
-        {
-          "metric": "difficulty",
-          "mean": 1.5,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_067",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.6,
-      "question": "តើក្នុងដំណាក់កាលសាកល្បង បុគ្គលបរិស្ថានសាកល្បង ត្រូវមានវិធានការការពារអតិថិជនអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2,
-          "action": "DROP — off-topic / not an insurance-law question"
-        },
-        {
-          "metric": "answer_quality",
-          "mean": 2,
-          "action": "FIX — target answer needs legal correction"
-        },
-        {
-          "metric": "clarity",
-          "mean": 2,
-          "action": "REWORD — question is unclear/ambiguous"
-        },
-        {
-          "metric": "difficulty",
-          "mean": 2,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_003",
-      "category": "law",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 2.7,
-      "question": "តើវិសាលភាពនៃច្បាប់ស្តីពីពាណិជ្ជកម្មតាមប្រព័ន្ធអេឡិចត្រូនិចមិនអនុវត្តលើសកម្មភាពអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2,
-          "action": "DROP — off-topic / not an insurance-law question"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_037",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.8,
-      "question": "តើបុគ្គលិករបស់ក្រុមហ៊ុនជើងសាធានារ៉ាប់រងដែលមានវិជ្ជាជីវៈជើងសាធានារ៉ាប់រងត្រូវមានសុចរិតភាពនិងភាពស្មោះត្រង់ក្នុងការផ្តល់សេវាជើងសាធានារ៉ាប់រងជូនអតិថិជន ដោយត្រូវប្រកាន់យកនូវអាកប្បកិរិយាដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "clarity",
-          "mean": 2,
-          "action": "REWORD — question is unclear/ambiguous"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_094",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.8,
-      "question": "តើសិក្ខាកាមដែលចាត់ទុកថាប្រឡងជាប់វគ្គបណ្តុះបណ្តាលមូលដ្ឋាន ត្រូវមានកម្រិតពិន្ទុចាប់ពីប៉ុន្មានភាគរយ?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2,
-          "action": "FIX — target answer needs legal correction"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_033",
-      "category": "law",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.8,
-      "question": "តើបុគ្គលណាមួយ មិនត្រូវបង្កើតបង្ខំដោយកម្លាំង ការរំខាន ឬការគំរាមតាមផ្លូវចិត្ត ទាក់ទងនឹងអ្វី?",
-      "reasons": [
-        {
-          "metric": "difficulty",
-          "mean": 2,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_036",
-      "category": "law",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.8,
-      "question": "តើច្បាប់ស្តីពីការរៀបចំ និងការប្រព្រឹត្តទៅនៃអាជ្ញាធរសេវាហិរញ្ញវត្ថុមិនមែនធនាគារ មានវិសាលភាពអនុវត្តចំពោះអ្វី?",
-      "reasons": [
-        {
-          "metric": "difficulty",
-          "mean": 2,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_069",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 2.8,
-      "question": "តើអាណត្តិរបស់អភិបាលឯករាជ្យ ត្រូវមានរយៈពេលប៉ុន្មាន?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2.5,
-          "action": "FIX — target answer needs legal correction"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_070",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.8,
-      "question": "តើក្រុមហ៊ុនធានារ៉ាប់រង អាចផ្តល់កម្ចីជើងសារ ឬកម្ចីទៅឱ្យអភិបាលបានទេ?",
-      "reasons": [
-        {
-          "metric": "clarity",
-          "mean": 2,
-          "action": "REWORD — question is unclear/ambiguous"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_129",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.8,
-      "question": "តើស្ថាប័នណាត្រូវបានចាត់តាំងជាអាណត្តិគាហករបស់ក្រសួងសេដ្ឋកិច្ចនិងហិរញ្ញវត្ថុ សម្រាប់ការបោះផ្សាយមូលបត្ររដ្ឋ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_145",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 2.8,
-      "question": "តើគ្រប់ក្រុមហ៊ុនធានារ៉ាប់រង ត្រូវផ្ញើស្ថិតិអ្វីខ្លះមកក្រសួងសេដ្ឋកិច្ច និងហិរញ្ញវត្ថុ?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2,
-          "action": "FIX — target answer needs legal correction"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_092",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 2.9,
-      "question": "តើបុគ្គលដែលមានបំណងចូលបម្រើការងារផ្តល់សេវាលក់ផលិតផលធានារ៉ាប់រង ត្រូវធ្វើដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2,
-          "action": "FIX — target answer needs legal correction"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_053",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 2.9,
-      "question": "តើក្រុមហ៊ុនធានារ៉ាប់រង និងអន្តរការីធានារ៉ាប់រង មិនត្រូវស្នើសុំឱ្យសាធារណជនឬអ្នកប្រើប្រាស់សេវាធានារ៉ាប់រងធ្វើអ្វី លើឯកសារទទេឬមិនពេញលេញ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        },
-        {
-          "metric": "difficulty",
-          "mean": 2,
-          "action": "REVIEW — difficulty is off (too easy/hard)"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_025",
-      "category": "sub_decree",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 2.9,
-      "question": "ដើម្បីចុះកិច្ចសន្យាធានារ៉ាប់រង អ្នកដែលមានបំណងចុះកិច្ចសន្យាធានារ៉ាប់រង ត្រូវធ្វើដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "clarity",
-          "mean": 1.5,
-          "action": "REWORD — question is unclear/ambiguous"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_004",
-      "category": "sub_decree",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 3.0,
-      "question": "កិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូច សំដៅដល់អ្វី?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2.5,
-          "action": "FIX — target answer needs legal correction"
-        },
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_041",
-      "category": "sub_decree",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3,
-      "question": "តើឯកសណ្ឋាន សញ្ញាសម្គាល់ និងសញ្ញាសក្តិ ត្រូវបានផ្តល់ជូនមន្ត្រីអធិការកិច្ចធានារ៉ាប់រងម្នាក់ៗចំនួនប៉ុន្មាន?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_093",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.1,
-      "question": "តើសមាគមធានារ៉ាប់រងកម្ពុជា ត្រូវរៀបចំអ្វីខ្លះ ទាក់ទងនឹងឯកសារ និងវិធីសាស្ត្របង្រៀន?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_030",
-      "category": "law",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.1,
-      "question": "តើរាល់បុគ្គល មិនត្រូវសន្យាផ្តល់រង្វាន់អំណោយ រង្វាន់ ឬវត្ថុឥតគិតថ្លៃ ក្នុងចេតនាបោកប្រាស់អ្នកប្រើប្រាស់ ពាក់ព័ន្ធនឹងអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2.5,
-          "action": "FIX — target answer needs legal correction"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_049",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.1,
-      "question": "តើក្នុងករណីមានការស្នើសុំកែប្រែលក្ខខណ្ឌណាមួយនៃកិច្ចសន្យាធានារ៉ាប់រងដោយអ្នកប្រើប្រាស់សេវាធានារ៉ាប់រង ក្រុមហ៊ុនធានារ៉ាប់រងត្រូវឆ្លើយតបក្នុងរយៈពេលប៉ុន្មានថ្ងៃ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_016",
-      "category": "sub_decree",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 3.1,
-      "question": "តើលក្ខខណ្ឌតម្រូវនៃការកំណត់ដើមទុនអប្បបរមានិងកម្រិតសធនភាពរបស់ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច ត្រូវកំណត់ដោយអ្វី?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_042",
-      "category": "sub_decree",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.1,
-      "question": "តើបុគ្គលណាដែលបន្លំស្លៀកពាក់ឯកសណ្ឋាន សញ្ញាសម្គាល់ និងសញ្ញាសក្តិរបស់មន្ត្រីអធិការកិច្ចធានារ៉ាប់រង ត្រូវទទួលទោសដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2.5,
-          "action": "FIX — target answer needs legal correction"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_066",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.2,
-      "question": "ក្រោយពីពិនិត្យ និងវាយតម្លៃលើឯកសារតម្រូវ ន.ធ.ក. (និយ័តករធានារ៉ាប់រងកម្ពុជា) មានសិទ្ធិសម្រេចផ្តល់លិខិតអនុញ្ញាត ឬបដិសេធលើពាក្យស្នើសុំក្នុងរយៈពេលប៉ុន្មានថ្ងៃ?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2,
-          "action": "FIX — target answer needs legal correction"
-        },
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_099",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.2,
-      "question": "តើពេលបញ្ចប់កិច្ចសន្យាធានារ៉ាប់រងមុនកាលកំណត់ ម្ចាស់បណ្ណសន្យារ៉ាប់រងមានសិទ្ធិទទួលបានតម្លៃប៉ុន្មាន?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2.5,
-          "action": "FIX — target answer needs legal correction"
-        },
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_004",
-      "category": "prakas",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 3.2,
-      "question": "លិខិតស្នើសុំផ្អាកកិច្ចសន្យាធានារ៉ាប់រង ត្រូវបញ្ជាក់និទ្ទេសអប្បបរមាដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "clarity",
-          "mean": 2.5,
-          "action": "REWORD — question is unclear/ambiguous"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_026",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.2,
-      "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិត ក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច និងក្រុមហ៊ុនធានារ៉ាប់រងបន្ត ត្រូវផ្សព្វផ្សាយជាសាធារណៈនូវរបាយការណ៍ប្រចាំឆ្នាំបែបណា ហើយរបាយការណ៍នោះរួមមានអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_043",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.2,
-      "question": "តើអ្នកជម្រះបញ្ជីក្នុងវិស័យធានារ៉ាប់រង ត្រូវផ្តល់ផែនការស្តីពីកិច្ចជម្រះបញ្ជីជូន ន.ធ.ក. ក្នុងរយៈពេលប៉ុន្មានថ្ងៃ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_119",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.2,
-      "question": "តើអាជ្ញាបណ្ណអាជីវកម្មក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ និងអាយុជីវិត មានសុពលភាពបែបណា?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_054",
-      "category": "sub_decree",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.2,
-      "question": "តើនៅពេលដែលក្រុមហ៊ុនធានារ៉ាប់រងបានធ្វើសំណងរួចហើយ អ្នកត្រូវបានធានារ៉ាប់រងត្រូវធ្វើដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2,
-          "action": "FIX — target answer needs legal correction"
-        },
-        {
-          "metric": "clarity",
-          "mean": 2,
-          "action": "REWORD — question is unclear/ambiguous"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_064",
-      "category": "sub_decree",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.2,
-      "question": "តើអាជ្ញាបណ្ណអាជីវកម្មក្រុមហ៊ុនជើងសាធានារ៉ាប់រងមានប៉ុន្មានប្រភេទ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_075",
-      "category": "sub_decree",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.2,
-      "question": "តើអគ្គលេខាធិការដ្ឋាន មាននាយកដ្ឋានចំណុះប៉ុន្មាន និងមានអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2.5,
-          "action": "DROP — off-topic / not an insurance-law question"
-        },
-        {
-          "metric": "clarity",
-          "mean": 2.5,
-          "action": "REWORD — question is unclear/ambiguous"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_008",
-      "category": "guidance",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 3.3,
-      "question": "តើគោលការណ៍ស្តីពីការទទួល និងដោះស្រាយសំណងធានារ៉ាប់រងត្រូវបញ្ជាក់ចំណុចអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_027",
-      "category": "law",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.3,
-      "question": "តើសំណើ ស្នើការ និងកិច្ចសន្យា អាចធ្វើឡើងតាមមធ្យោបាយអ្វី?",
-      "reasons": [
-        {
-          "metric": "answer_quality",
-          "mean": 2.5,
-          "action": "FIX — target answer needs legal correction"
-        },
-        {
-          "metric": "clarity",
-          "mean": 2.5,
-          "action": "REWORD — question is unclear/ambiguous"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_003",
-      "category": "prakas",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 3.3,
-      "question": "ភាគីដែលមានបំណងបន្តកិច្ចសន្យាធានារ៉ាប់រង ត្រូវស្នើសុំដោយវិធីណា?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_100",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.4,
-      "question": "តើកំណត់សំអាង គឺជាអ្វី និងត្រូវបញ្ជាក់ខ្លឹមសារអប្បបរមាអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_019",
-      "category": "prakas",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 3.4,
-      "question": "ប្រកាសស្តីពីវិធាន និងគោលការណ៍ណែនាំនៃការធានារ៉ាប់រងបន្តកំណត់អំពីអ្វី?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_023",
-      "category": "sub_decree",
-      "source": "human",
-      "n_evaluators": 1,
-      "combined_mean": 3.4,
-      "question": "បណ្ណសន្យារ៉ាប់រង ត្រូវកំណត់លក្ខខណ្ឌទូទៅនិង/ឬលក្ខខណ្ឌពិសេសនៃកិច្ចសន្យាធានារ៉ាប់រងដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_049",
-      "category": "sub_decree",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.4,
-      "question": "តើការធានារ៉ាប់រងមានប្រសិទ្ធភាពចាប់ពីពេលណា?",
-      "reasons": [
-        {
-          "metric": "clarity",
-          "mean": 2,
-          "action": "REWORD — question is unclear/ambiguous"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_034",
-      "category": "law",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.5,
-      "question": "តើបុគ្គលណាមួយ មិនត្រូវលក់ទំនិញដែលមានភ្ជាប់សេចក្តីបរិយាយពាណិជ្ជកម្មបែបណា?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2.5,
-          "action": "DROP — off-topic / not an insurance-law question"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_051",
-      "category": "law",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.5,
-      "question": "តើនៅពេលដែលក្រុមហ៊ុនធានារ៉ាប់រងបានធ្វើសំណងរួចហើយ អ្នកត្រូវបានធានារ៉ាប់រងត្រូវធ្វើដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_004",
-      "category": "guidance",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 3.6,
-      "question": "ក្នុងករណីដែលការស្នើសុំទាមទារសំណងធានារ៉ាប់រង មិនមានឯកសារតម្រូវគ្រប់គ្រាន់ ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចត្រូវធ្វើដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_053",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.6,
-      "question": "តើការក្លែងបន្លំធានារ៉ាប់រង សំដៅដល់អ្វី?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2,
-          "action": "DROP — off-topic / not an insurance-law question"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_019",
-      "category": "law",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 3.6,
-      "question": "តើច្បាប់ស្តីពីការធានារ៉ាប់រងគោលដៅអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_020",
-      "category": "prakas",
-      "source": "human",
-      "n_evaluators": 1,
-      "combined_mean": 3.6,
-      "question": "របាយការណ៍សង្ខេបអំពីការធានារ៉ាប់រងបន្ត ត្រូវមានព័ត៌មានអប្បបរមា ដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_042",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.6,
-      "question": "តើអ្នកជម្រះបញ្ជីក្នុងវិស័យធានារ៉ាប់រង ត្រូវតែជានរណា?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_046",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.6,
-      "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ ក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិត ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច និងអន្តរការីធានារ៉ាប់រង ត្រូវលាតត្រដាងព័ត៌មានដូចម្តេច ក្នុងការផ្សព្វផ្សាយផលិតផលធានារ៉ាប់រង?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_058",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.6,
-      "question": "តើបុគ្គលដែលមិនសុខចិត្តនឹងសេចក្តីសម្រេចដាក់ទណ្ឌកម្ម មានសិទ្ធិប្តឹងទៅនរណា និងក្នុងរយៈពេលប៉ុន្មានថ្ងៃ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_060",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.6,
-      "question": "តើការធានារ៉ាប់រងបន្ត សំដៅដល់អ្វី?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_095",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.6,
-      "question": "តើបុគ្គលដែលមានបំណងប្រកបអាជីវកម្មជើងសាធានារ៉ាប់រងជាក្រុមហ៊ុន អាចស្នើសុំអាជ្ញាបណ្ណតាមប្រភេទណាខ្លះ?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_149",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.6,
-      "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច ត្រូវបង់កម្រៃអាជ្ញាបណ្ណ និងកម្រៃវិញ្ញាបនបត្រប្រចាំឆ្នាំប៉ុន្មាន?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "sub_decree_qid_026",
-      "category": "sub_decree",
-      "source": "ai",
-      "n_evaluators": 2,
-      "combined_mean": 3.7,
-      "question": "តើនិយ័តករធានារ៉ាប់រងកម្ពុជា មានសមត្ថកិច្ចអ្វីខ្លះ ទាក់ទងនឹងការធ្វើអាជីវកម្មធានារ៉ាប់រងខ្នាតតូច?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2.5,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "guidance_qid_047",
-      "category": "guidance",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 3.8,
-      "question": "តើបណ្ណសន្យារ៉ាប់រងខ្នាតតូច ត្រូវមានមាតិកាអប្បបរមាអ្វីខ្លះ?",
-      "reasons": [
-        {
-          "metric": "clarity",
-          "mean": 1,
-          "action": "REWORD — question is unclear/ambiguous"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_011",
-      "category": "law",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 3.8,
-      "question": "តើសមាគមអ្នកប្រើប្រាស់មានតួនាទីនិងភារកិច្ចដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2.5,
-          "action": "DROP — off-topic / not an insurance-law question"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_023",
-      "category": "law",
-      "source": "human",
-      "n_evaluators": 1,
-      "combined_mean": 3.8,
-      "question": "ក្រៅពីនិទ្ទេសចាំបាច់ក្នុងកិច្ចសន្យាធានារ៉ាប់រង បណ្ណសន្យាធានារ៉ាប់រងអាយុជីវិតត្រូវបញ្ជាក់ដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
-    },
-    {
-      "question_id": "law_qid_014",
-      "category": "law",
-      "source": "human",
-      "n_evaluators": 2,
-      "combined_mean": 4.0,
-      "question": "តើបុគ្គលណាមួយដែលមិនសុខចិត្តនឹងសេចក្តីសម្រេចរបស់គណៈកម្មាធិការជាតិការពារអ្នកប្រើប្រាស់អាចធ្វើដូចម្តេច?",
-      "reasons": [
-        {
-          "metric": "relevance",
-          "mean": 2.5,
-          "action": "DROP — off-topic / not an insurance-law question"
-        }
-      ]
-    },
-    {
-      "question_id": "prakas_qid_116",
-      "category": "prakas",
-      "source": "ai",
-      "n_evaluators": 1,
-      "combined_mean": 4,
-      "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ សំដៅដល់អ្វី?",
-      "reasons": [
-        {
-          "metric": "uniqueness",
-          "mean": 2,
-          "action": "DEDUPE — redundant with another question"
-        }
-      ]
+     "metric": "difficulty",
+     "mean": 2,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
     }
-  ],
-  "target_answer_corrections": []
+   ]
+  },
+  {
+   "question_id": "guidance_qid_052",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.2,
+   "question": "តើក្រុមហ៊ុនធានារ៉ាប់រង ត្រូវប្រើប្រាស់ចំណាត់ថ្នាក់ឥណទានណា ក្នុងករណីក្រុមហ៊ុនធានារ៉ាប់រងបន្តក្រៅប្រទេសមានចំណាត់ថ្នាក់ឥណទានលើសពីមួយ?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 1,
+     "action": "DROP — off-topic / not an insurance-law question"
+    },
+    {
+     "metric": "clarity",
+     "mean": 1,
+     "action": "REWORD — question is unclear/ambiguous"
+    },
+    {
+     "metric": "difficulty",
+     "mean": 2,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_074",
+   "category": "sub_decree",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.2,
+   "question": "តើអនុក្រឹត្យនេះ មានវិសាលភាពអនុវត្តចំពោះអង្គភាពអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2,
+     "action": "DROP — off-topic / not an insurance-law question"
+    },
+    {
+     "metric": "clarity",
+     "mean": 1,
+     "action": "REWORD — question is unclear/ambiguous"
+    },
+    {
+     "metric": "difficulty",
+     "mean": 2,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_002",
+   "category": "guidance",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 2.5,
+   "question": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចត្រូវឆ្លើយតបបញ្ជាក់ការទទួលបានការជូនដំណឹងអំពីហានិភ័យក្នុងរយៈពេលប៉ុន្មានម៉ោង?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2.5,
+     "action": "DROP — off-topic / not an insurance-law question"
+    },
+    {
+     "metric": "answer_quality",
+     "mean": 2.5,
+     "action": "FIX — target answer needs legal correction"
+    },
+    {
+     "metric": "clarity",
+     "mean": 2.5,
+     "action": "REWORD — question is unclear/ambiguous"
+    },
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_027",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 2.5,
+   "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច ត្រូវពន្យល់អ្នកទាមទារសំណងធានារ៉ាប់រងអំពីអ្វី?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    },
+    {
+     "metric": "difficulty",
+     "mean": 1.5,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_067",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.6,
+   "question": "តើក្នុងដំណាក់កាលសាកល្បង បុគ្គលបរិស្ថានសាកល្បង ត្រូវមានវិធានការការពារអតិថិជនអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2,
+     "action": "DROP — off-topic / not an insurance-law question"
+    },
+    {
+     "metric": "answer_quality",
+     "mean": 2,
+     "action": "FIX — target answer needs legal correction"
+    },
+    {
+     "metric": "clarity",
+     "mean": 2,
+     "action": "REWORD — question is unclear/ambiguous"
+    },
+    {
+     "metric": "difficulty",
+     "mean": 2,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_003",
+   "category": "law",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 2.7,
+   "question": "តើវិសាលភាពនៃច្បាប់ស្តីពីពាណិជ្ជកម្មតាមប្រព័ន្ធអេឡិចត្រូនិចមិនអនុវត្តលើសកម្មភាពអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2,
+     "action": "DROP — off-topic / not an insurance-law question"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_037",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.8,
+   "question": "តើបុគ្គលិករបស់ក្រុមហ៊ុនជើងសាធានារ៉ាប់រងដែលមានវិជ្ជាជីវៈជើងសាធានារ៉ាប់រងត្រូវមានសុចរិតភាពនិងភាពស្មោះត្រង់ក្នុងការផ្តល់សេវាជើងសាធានារ៉ាប់រងជូនអតិថិជន ដោយត្រូវប្រកាន់យកនូវអាកប្បកិរិយាដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "clarity",
+     "mean": 2,
+     "action": "REWORD — question is unclear/ambiguous"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_094",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.8,
+   "question": "តើសិក្ខាកាមដែលចាត់ទុកថាប្រឡងជាប់វគ្គបណ្តុះបណ្តាលមូលដ្ឋាន ត្រូវមានកម្រិតពិន្ទុចាប់ពីប៉ុន្មានភាគរយ?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2,
+     "action": "FIX — target answer needs legal correction"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_033",
+   "category": "law",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.8,
+   "question": "តើបុគ្គលណាមួយ មិនត្រូវបង្កើតបង្ខំដោយកម្លាំង ការរំខាន ឬការគំរាមតាមផ្លូវចិត្ត ទាក់ទងនឹងអ្វី?",
+   "reasons": [
+    {
+     "metric": "difficulty",
+     "mean": 2,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_036",
+   "category": "law",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.8,
+   "question": "តើច្បាប់ស្តីពីការរៀបចំ និងការប្រព្រឹត្តទៅនៃអាជ្ញាធរសេវាហិរញ្ញវត្ថុមិនមែនធនាគារ មានវិសាលភាពអនុវត្តចំពោះអ្វី?",
+   "reasons": [
+    {
+     "metric": "difficulty",
+     "mean": 2,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_069",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 2.8,
+   "question": "តើអាណត្តិរបស់អភិបាលឯករាជ្យ ត្រូវមានរយៈពេលប៉ុន្មាន?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2.5,
+     "action": "FIX — target answer needs legal correction"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_070",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.8,
+   "question": "តើក្រុមហ៊ុនធានារ៉ាប់រង អាចផ្តល់កម្ចីជើងសារ ឬកម្ចីទៅឱ្យអភិបាលបានទេ?",
+   "reasons": [
+    {
+     "metric": "clarity",
+     "mean": 2,
+     "action": "REWORD — question is unclear/ambiguous"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_129",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.8,
+   "question": "តើស្ថាប័នណាត្រូវបានចាត់តាំងជាអាណត្តិគាហករបស់ក្រសួងសេដ្ឋកិច្ចនិងហិរញ្ញវត្ថុ សម្រាប់ការបោះផ្សាយមូលបត្ររដ្ឋ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_145",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 2.8,
+   "question": "តើគ្រប់ក្រុមហ៊ុនធានារ៉ាប់រង ត្រូវផ្ញើស្ថិតិអ្វីខ្លះមកក្រសួងសេដ្ឋកិច្ច និងហិរញ្ញវត្ថុ?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2,
+     "action": "FIX — target answer needs legal correction"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_092",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 2.9,
+   "question": "តើបុគ្គលដែលមានបំណងចូលបម្រើការងារផ្តល់សេវាលក់ផលិតផលធានារ៉ាប់រង ត្រូវធ្វើដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2,
+     "action": "FIX — target answer needs legal correction"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_053",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 2.9,
+   "question": "តើក្រុមហ៊ុនធានារ៉ាប់រង និងអន្តរការីធានារ៉ាប់រង មិនត្រូវស្នើសុំឱ្យសាធារណជនឬអ្នកប្រើប្រាស់សេវាធានារ៉ាប់រងធ្វើអ្វី លើឯកសារទទេឬមិនពេញលេញ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    },
+    {
+     "metric": "difficulty",
+     "mean": 2,
+     "action": "REVIEW — difficulty is off (too easy/hard)"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_025",
+   "category": "sub_decree",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 2.9,
+   "question": "ដើម្បីចុះកិច្ចសន្យាធានារ៉ាប់រង អ្នកដែលមានបំណងចុះកិច្ចសន្យាធានារ៉ាប់រង ត្រូវធ្វើដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "clarity",
+     "mean": 1.5,
+     "action": "REWORD — question is unclear/ambiguous"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_004",
+   "category": "sub_decree",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 3.0,
+   "question": "កិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូច សំដៅដល់អ្វី?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2.5,
+     "action": "FIX — target answer needs legal correction"
+    },
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_041",
+   "category": "sub_decree",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3,
+   "question": "តើឯកសណ្ឋាន សញ្ញាសម្គាល់ និងសញ្ញាសក្តិ ត្រូវបានផ្តល់ជូនមន្ត្រីអធិការកិច្ចធានារ៉ាប់រងម្នាក់ៗចំនួនប៉ុន្មាន?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_093",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.1,
+   "question": "តើសមាគមធានារ៉ាប់រងកម្ពុជា ត្រូវរៀបចំអ្វីខ្លះ ទាក់ទងនឹងឯកសារ និងវិធីសាស្ត្របង្រៀន?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_030",
+   "category": "law",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.1,
+   "question": "តើរាល់បុគ្គល មិនត្រូវសន្យាផ្តល់រង្វាន់អំណោយ រង្វាន់ ឬវត្ថុឥតគិតថ្លៃ ក្នុងចេតនាបោកប្រាស់អ្នកប្រើប្រាស់ ពាក់ព័ន្ធនឹងអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2.5,
+     "action": "FIX — target answer needs legal correction"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_049",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.1,
+   "question": "តើក្នុងករណីមានការស្នើសុំកែប្រែលក្ខខណ្ឌណាមួយនៃកិច្ចសន្យាធានារ៉ាប់រងដោយអ្នកប្រើប្រាស់សេវាធានារ៉ាប់រង ក្រុមហ៊ុនធានារ៉ាប់រងត្រូវឆ្លើយតបក្នុងរយៈពេលប៉ុន្មានថ្ងៃ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_016",
+   "category": "sub_decree",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 3.1,
+   "question": "តើលក្ខខណ្ឌតម្រូវនៃការកំណត់ដើមទុនអប្បបរមានិងកម្រិតសធនភាពរបស់ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច ត្រូវកំណត់ដោយអ្វី?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_042",
+   "category": "sub_decree",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.1,
+   "question": "តើបុគ្គលណាដែលបន្លំស្លៀកពាក់ឯកសណ្ឋាន សញ្ញាសម្គាល់ និងសញ្ញាសក្តិរបស់មន្ត្រីអធិការកិច្ចធានារ៉ាប់រង ត្រូវទទួលទោសដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2.5,
+     "action": "FIX — target answer needs legal correction"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_066",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.2,
+   "question": "ក្រោយពីពិនិត្យ និងវាយតម្លៃលើឯកសារតម្រូវ ន.ធ.ក. (និយ័តករធានារ៉ាប់រងកម្ពុជា) មានសិទ្ធិសម្រេចផ្តល់លិខិតអនុញ្ញាត ឬបដិសេធលើពាក្យស្នើសុំក្នុងរយៈពេលប៉ុន្មានថ្ងៃ?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2,
+     "action": "FIX — target answer needs legal correction"
+    },
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_099",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.2,
+   "question": "តើពេលបញ្ចប់កិច្ចសន្យាធានារ៉ាប់រងមុនកាលកំណត់ ម្ចាស់បណ្ណសន្យារ៉ាប់រងមានសិទ្ធិទទួលបានតម្លៃប៉ុន្មាន?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2.5,
+     "action": "FIX — target answer needs legal correction"
+    },
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_004",
+   "category": "prakas",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 3.2,
+   "question": "លិខិតស្នើសុំផ្អាកកិច្ចសន្យាធានារ៉ាប់រង ត្រូវបញ្ជាក់និទ្ទេសអប្បបរមាដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "clarity",
+     "mean": 2.5,
+     "action": "REWORD — question is unclear/ambiguous"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_026",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.2,
+   "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិត ក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច និងក្រុមហ៊ុនធានារ៉ាប់រងបន្ត ត្រូវផ្សព្វផ្សាយជាសាធារណៈនូវរបាយការណ៍ប្រចាំឆ្នាំបែបណា ហើយរបាយការណ៍នោះរួមមានអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_043",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.2,
+   "question": "តើអ្នកជម្រះបញ្ជីក្នុងវិស័យធានារ៉ាប់រង ត្រូវផ្តល់ផែនការស្តីពីកិច្ចជម្រះបញ្ជីជូន ន.ធ.ក. ក្នុងរយៈពេលប៉ុន្មានថ្ងៃ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_119",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.2,
+   "question": "តើអាជ្ញាបណ្ណអាជីវកម្មក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ និងអាយុជីវិត មានសុពលភាពបែបណា?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_054",
+   "category": "sub_decree",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.2,
+   "question": "តើនៅពេលដែលក្រុមហ៊ុនធានារ៉ាប់រងបានធ្វើសំណងរួចហើយ អ្នកត្រូវបានធានារ៉ាប់រងត្រូវធ្វើដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2,
+     "action": "FIX — target answer needs legal correction"
+    },
+    {
+     "metric": "clarity",
+     "mean": 2,
+     "action": "REWORD — question is unclear/ambiguous"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_064",
+   "category": "sub_decree",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.2,
+   "question": "តើអាជ្ញាបណ្ណអាជីវកម្មក្រុមហ៊ុនជើងសាធានារ៉ាប់រងមានប៉ុន្មានប្រភេទ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_075",
+   "category": "sub_decree",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.2,
+   "question": "តើអគ្គលេខាធិការដ្ឋាន មាននាយកដ្ឋានចំណុះប៉ុន្មាន និងមានអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2.5,
+     "action": "DROP — off-topic / not an insurance-law question"
+    },
+    {
+     "metric": "clarity",
+     "mean": 2.5,
+     "action": "REWORD — question is unclear/ambiguous"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_008",
+   "category": "guidance",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 3.3,
+   "question": "តើគោលការណ៍ស្តីពីការទទួល និងដោះស្រាយសំណងធានារ៉ាប់រងត្រូវបញ្ជាក់ចំណុចអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_027",
+   "category": "law",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.3,
+   "question": "តើសំណើ ស្នើការ និងកិច្ចសន្យា អាចធ្វើឡើងតាមមធ្យោបាយអ្វី?",
+   "reasons": [
+    {
+     "metric": "answer_quality",
+     "mean": 2.5,
+     "action": "FIX — target answer needs legal correction"
+    },
+    {
+     "metric": "clarity",
+     "mean": 2.5,
+     "action": "REWORD — question is unclear/ambiguous"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_003",
+   "category": "prakas",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 3.3,
+   "question": "ភាគីដែលមានបំណងបន្តកិច្ចសន្យាធានារ៉ាប់រង ត្រូវស្នើសុំដោយវិធីណា?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_100",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.4,
+   "question": "តើកំណត់សំអាង គឺជាអ្វី និងត្រូវបញ្ជាក់ខ្លឹមសារអប្បបរមាអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_019",
+   "category": "prakas",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 3.4,
+   "question": "ប្រកាសស្តីពីវិធាន និងគោលការណ៍ណែនាំនៃការធានារ៉ាប់រងបន្តកំណត់អំពីអ្វី?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_023",
+   "category": "sub_decree",
+   "source": "human",
+   "n_evaluators": 1,
+   "combined_mean": 3.4,
+   "question": "បណ្ណសន្យារ៉ាប់រង ត្រូវកំណត់លក្ខខណ្ឌទូទៅនិង/ឬលក្ខខណ្ឌពិសេសនៃកិច្ចសន្យាធានារ៉ាប់រងដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_049",
+   "category": "sub_decree",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.4,
+   "question": "តើការធានារ៉ាប់រងមានប្រសិទ្ធភាពចាប់ពីពេលណា?",
+   "reasons": [
+    {
+     "metric": "clarity",
+     "mean": 2,
+     "action": "REWORD — question is unclear/ambiguous"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_034",
+   "category": "law",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.5,
+   "question": "តើបុគ្គលណាមួយ មិនត្រូវលក់ទំនិញដែលមានភ្ជាប់សេចក្តីបរិយាយពាណិជ្ជកម្មបែបណា?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2.5,
+     "action": "DROP — off-topic / not an insurance-law question"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_051",
+   "category": "law",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.5,
+   "question": "តើនៅពេលដែលក្រុមហ៊ុនធានារ៉ាប់រងបានធ្វើសំណងរួចហើយ អ្នកត្រូវបានធានារ៉ាប់រងត្រូវធ្វើដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_004",
+   "category": "guidance",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 3.6,
+   "question": "ក្នុងករណីដែលការស្នើសុំទាមទារសំណងធានារ៉ាប់រង មិនមានឯកសារតម្រូវគ្រប់គ្រាន់ ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចត្រូវធ្វើដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_053",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.6,
+   "question": "តើការក្លែងបន្លំធានារ៉ាប់រង សំដៅដល់អ្វី?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2,
+     "action": "DROP — off-topic / not an insurance-law question"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_019",
+   "category": "law",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 3.6,
+   "question": "តើច្បាប់ស្តីពីការធានារ៉ាប់រងគោលដៅអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_020",
+   "category": "prakas",
+   "source": "human",
+   "n_evaluators": 1,
+   "combined_mean": 3.6,
+   "question": "របាយការណ៍សង្ខេបអំពីការធានារ៉ាប់រងបន្ត ត្រូវមានព័ត៌មានអប្បបរមា ដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_042",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.6,
+   "question": "តើអ្នកជម្រះបញ្ជីក្នុងវិស័យធានារ៉ាប់រង ត្រូវតែជានរណា?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_046",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.6,
+   "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ ក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិត ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច និងអន្តរការីធានារ៉ាប់រង ត្រូវលាតត្រដាងព័ត៌មានដូចម្តេច ក្នុងការផ្សព្វផ្សាយផលិតផលធានារ៉ាប់រង?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_058",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.6,
+   "question": "តើបុគ្គលដែលមិនសុខចិត្តនឹងសេចក្តីសម្រេចដាក់ទណ្ឌកម្ម មានសិទ្ធិប្តឹងទៅនរណា និងក្នុងរយៈពេលប៉ុន្មានថ្ងៃ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_060",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.6,
+   "question": "តើការធានារ៉ាប់រងបន្ត សំដៅដល់អ្វី?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_095",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.6,
+   "question": "តើបុគ្គលដែលមានបំណងប្រកបអាជីវកម្មជើងសាធានារ៉ាប់រងជាក្រុមហ៊ុន អាចស្នើសុំអាជ្ញាបណ្ណតាមប្រភេទណាខ្លះ?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_149",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.6,
+   "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច ត្រូវបង់កម្រៃអាជ្ញាបណ្ណ និងកម្រៃវិញ្ញាបនបត្រប្រចាំឆ្នាំប៉ុន្មាន?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "sub_decree_qid_026",
+   "category": "sub_decree",
+   "source": "ai",
+   "n_evaluators": 2,
+   "combined_mean": 3.7,
+   "question": "តើនិយ័តករធានារ៉ាប់រងកម្ពុជា មានសមត្ថកិច្ចអ្វីខ្លះ ទាក់ទងនឹងការធ្វើអាជីវកម្មធានារ៉ាប់រងខ្នាតតូច?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2.5,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "guidance_qid_047",
+   "category": "guidance",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 3.8,
+   "question": "តើបណ្ណសន្យារ៉ាប់រងខ្នាតតូច ត្រូវមានមាតិកាអប្បបរមាអ្វីខ្លះ?",
+   "reasons": [
+    {
+     "metric": "clarity",
+     "mean": 1,
+     "action": "REWORD — question is unclear/ambiguous"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_011",
+   "category": "law",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 3.8,
+   "question": "តើសមាគមអ្នកប្រើប្រាស់មានតួនាទីនិងភារកិច្ចដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2.5,
+     "action": "DROP — off-topic / not an insurance-law question"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_023",
+   "category": "law",
+   "source": "human",
+   "n_evaluators": 1,
+   "combined_mean": 3.8,
+   "question": "ក្រៅពីនិទ្ទេសចាំបាច់ក្នុងកិច្ចសន្យាធានារ៉ាប់រង បណ្ណសន្យាធានារ៉ាប់រងអាយុជីវិតត្រូវបញ្ជាក់ដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  },
+  {
+   "question_id": "law_qid_014",
+   "category": "law",
+   "source": "human",
+   "n_evaluators": 2,
+   "combined_mean": 4.0,
+   "question": "តើបុគ្គលណាមួយដែលមិនសុខចិត្តនឹងសេចក្តីសម្រេចរបស់គណៈកម្មាធិការជាតិការពារអ្នកប្រើប្រាស់អាចធ្វើដូចម្តេច?",
+   "reasons": [
+    {
+     "metric": "relevance",
+     "mean": 2.5,
+     "action": "DROP — off-topic / not an insurance-law question"
+    }
+   ]
+  },
+  {
+   "question_id": "prakas_qid_116",
+   "category": "prakas",
+   "source": "ai",
+   "n_evaluators": 1,
+   "combined_mean": 4,
+   "question": "តើក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ សំដៅដល់អ្វី?",
+   "reasons": [
+    {
+     "metric": "uniqueness",
+     "mean": 2,
+     "action": "DEDUPE — redundant with another question"
+    }
+   ]
+  }
+ ],
+ "target_answer_corrections": [],
+ "means_by_tier": {
+  "core_set": {
+   "clarity": 4.122,
+   "relevance": 4.058,
+   "difficulty": 3.974,
+   "answer_quality": 4.115,
+   "uniqueness": 3.75,
+   "combined": 4.004
+  },
+  "extended_set": {
+   "clarity": 4.112,
+   "relevance": 4.107,
+   "difficulty": 3.992,
+   "answer_quality": 4.041,
+   "uniqueness": 3.802,
+   "combined": 4.011
+  }
+ }
 }

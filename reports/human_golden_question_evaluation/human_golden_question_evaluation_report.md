@@ -8,21 +8,21 @@ Human validation of the gold question set collected by `scripts/11_human_golden_
 |-------------------------------------|---------|
 | Evaluators                          |   11    |
 | Gold questions                      |  400    |
-| — human-authored                    |  100    |
-| — AI-authored                       |  300    |
+| — core set                    |  100    |
+| — extended set                       |  300    |
 | Questions evaluated                 |  400    |
 | Total responses                     |  550    |
 | Mean responses / evaluated question |    1.38 |
 
 ## Metric means (1–5)
 
-`combined` = mean of the five metric means. AI-authored vs human-authored is the key comparison — it shows whether the auto-generated questions hold up.
+`combined` = mean of the five metric means. The core-set vs extended-set rows are the key comparison — they show whether the two tiers of the gold set hold up equally.
 
 | Scope           |   Clarity |   Relevance |   Difficulty |   Answer Quality |   Uniqueness |   Combined |
 |-----------------|-----------|-------------|--------------|------------------|--------------|------------|
 | All             |     4.115 |       4.093 |        3.987 |            4.062 |        3.787 |      4.009 |
-| Human-authored  |     4.122 |       4.058 |        3.974 |            4.115 |        3.75  |      4.004 |
-| AI-authored     |     4.112 |       4.107 |        3.992 |            4.041 |        3.802 |      4.011 |
+| Core set  |     4.122 |       4.058 |        3.974 |            4.115 |        3.75  |      4.004 |
+| Extended set     |     4.112 |       4.107 |        3.992 |            4.041 |        3.802 |      4.011 |
 | cat: guidance   |     4.037 |       4.059 |        3.971 |            4.007 |        3.846 |      3.984 |
 | cat: law        |     4.189 |       4.009 |        4.072 |            4.054 |        3.892 |      4.043 |
 | cat: prakas     |     4.168 |       4.143 |        3.99  |            4.097 |        3.709 |      4.021 |

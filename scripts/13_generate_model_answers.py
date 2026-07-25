@@ -1302,35 +1302,35 @@ def main():
     if not gold_files:
         raise ValueError("No gold_questions.json files found under data/09_evaluation/.")
 
-    # Only the first 25 questions of each category are purely human-authored
-    # (question, expected_chunks, AND expected_answer). Question 26 onward were
-    # AI-generated and contain bad questions / hallucinated answers, so they are
-    # excluded from model comparison. We key off the trailing number in
-    # question_id (e.g. law_qid_026) rather than list position so the cut-off
-    # holds even if the files are reordered.
-    HUMAN_AUTHORED_LIMIT = 25
+    # Only the first 25 questions of each category belong to the CORE set, where
+    # the question, expected_chunks and expected_answer were each written and
+    # checked individually. Question 26 onward form the EXTENDED set, whose
+    # quality is uneven -- it contains weak questions and some answers that do
+    # not hold up -- so it is excluded from generator comparison. We key off the
+    # trailing number in question_id (e.g. law_qid_026) rather than list position
+    # so the cut-off holds even if the files are reordered.
+    CORE_SET_LIMIT = 25
     _QID_NUM_PATTERN = re.compile(r"(\d+)\s*$")
 
-    def is_human_authored(q):
+    def is_core_set(q):
         match = _QID_NUM_PATTERN.search(str(q.get("question_id", "")))
-        return bool(match) and int(match.group(1)) <= HUMAN_AUTHORED_LIMIT
+        return bool(match) and int(match.group(1)) <= CORE_SET_LIMIT
 
-    # Every model is evaluated on the SAME set: the 100 purely human-authored
-    # gold questions (first 25 per category). The AI-authored questions are not
-    # used for generator comparison.
+    # Every model is evaluated on the SAME set: the 100 core gold questions
+    # (first 25 per category). The extended set is not used here.
     gold_entries = []
     for gf in gold_files:
         category = gf.parent.name
         with open(gf, "r", encoding="utf-8") as f:
             questions = json.load(f)
         for q in questions:
-            if is_human_authored(q):
+            if is_core_set(q):
                 gold_entries.append({**q, "category": category})
 
     mode_label = (
         "DRY RUN (1 question per model)"
         if DRY_RUN
-        else f"FULL RUN ({len(gold_entries)} human-authored questions per model)"
+        else f"FULL RUN ({len(gold_entries)} core gold questions per model)"
     )
 
     installed = {k: v for k, v in LLM_MODELS.items() if is_installed(v)}

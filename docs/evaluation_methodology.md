@@ -39,9 +39,11 @@ everything downstream.
 
 The shared yardstick for evaluations 1, 2, 4 and 5 is the **gold question set** in
 `data/09_evaluation/<category>/gold_questions.json` — **400 questions** across four
-categories (`guidance`, `law`, `prakas`, `sub_decree`), of which **100 are
-human-authored** (question ids `001–025` per category) and **300 are AI-authored**
-(ids above `025`). Each gold entry carries:
+categories (`guidance`, `law`, `prakas`, `sub_decree`), split into two tiers: a
+**core set of 100** (question ids `001–025` per category), each question and
+answer written and checked individually, and an **extended set of 300** (ids
+above `025`) of more uneven quality. Generator comparison uses the core set only;
+retrieval evaluation uses all 400. Each gold entry carries:
 
 ```
 question_id · question · expected_chunks · context · expected_answer
@@ -186,8 +188,8 @@ trimmed, legally-vetted set.
 
 ## 4. Answer Generation — `scripts/13_generate_model_answers.py`
 
-**Purpose.** Run every installed generator LLM over the **100 human-authored
-gold questions** (25 × 4 categories), retrieving context exactly as `app.py`
+**Purpose.** Run every installed generator LLM over the **100 core gold
+questions** (25 × 4 categories), retrieving context exactly as `app.py`
 does, and store each generated answer. This script **does not score or rank
 anything** — it only produces the answers that stage 5 judges.
 
