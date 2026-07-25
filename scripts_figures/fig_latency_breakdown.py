@@ -14,21 +14,19 @@ cache, so prefill cost 0.23 s instead of 34-58 s. It is labelled as such rather
 than dropped -- it is the honest illustration of what prefill costs, but it is
 NOT a typical cold answer and must never be averaged in silently.
 """
-import json, sqlite3, subprocess
+import json, sqlite3, subprocess, sys
 from pathlib import Path
-import matplotlib
-matplotlib.use("Agg")
+
+sys.path.insert(0, str(Path(__file__).parent))
+import _style as S
+S.use()
 import matplotlib.pyplot as plt
 
 OUT = Path("assets/research-paper")
-INK, INK_MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
-# dataviz slots 1-4 (validated; slots 3-4 WARN on contrast -> segments carry
-# visible value labels, which satisfies the relief rule)
-C_RETR, C_PREFILL, C_DECODE, C_OTHER = "#2a78d6", "#eb6834", "#1baf7a", "#eda100"
-C_EMBED, C_BM25, C_FAISS, C_FUSE, C_CTX = "#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#4a3aa7"
+DB = "chat_history.db"
 
 rows = []
-with sqlite3.connect("chat_history.db") as c:
+with sqlite3.connect(DB) as c:
     for (p,) in c.execute("select payload from messages order by created_at"):
         d = json.loads(p)["diag"]
         prefill = d["first_token_time"]
@@ -39,98 +37,93 @@ with sqlite3.connect("chat_history.db") as c:
             retr=retr, prefill=prefill, decode=decode,
             other=d["total_time"] - (retr + prefill + decode),
             total=d["total_time"], tokens=d["generated_tokens"],
-            ptokens=d["prompt_tokens"],
-            embed=d["embed_time"], faiss=d["search_time"], bm25=d["bm25_time"],
-            fuse=d["fusion_time"], ctx=d["context_time"],
+            ptokens=d["prompt_tokens"], embed=d["embed_time"], bm25=d["bm25_time"],
+            # FAISS search, RRF fusion and context building are sub-millisecond to
+            # a few ms each; kept as one segment because three slivers that size
+            # are indistinguishable from the bar edge.
+            rest=d["search_time"] + d["fusion_time"] + d["context_time"],
             cache_hit=prefill < 1.0,
         ))
 
-model = Path(json.loads(next(iter(
-    sqlite3.connect("chat_history.db").execute("select payload from messages")))[0]
-)["diag"]["model"]).name
-chip = subprocess.run(["sysctl","-n","machdep.cpu.brand_string"],
-                      capture_output=True, text=True).stdout.strip()
-ram = int(subprocess.run(["sysctl","-n","hw.memsize"],
-                         capture_output=True, text=True).stdout) // 1073741824
-cores = subprocess.run(["sysctl","-n","hw.ncpu"],
-                       capture_output=True, text=True).stdout.strip()
+with sqlite3.connect(DB) as c:
+    model = Path(json.loads(
+        c.execute("select payload from messages").fetchone()[0])["diag"]["model"]).name
+
+
+def sysctl(k):
+    return subprocess.run(["sysctl", "-n", k], capture_output=True, text=True).stdout.strip()
+
+
+chip, cores = sysctl("machdep.cpu.brand_string"), sysctl("hw.ncpu")
+ram = int(sysctl("hw.memsize")) // 1073741824
 
 labels = [f"Answer {i+1}" + ("\n(prompt-cache hit)" if r["cache_hit"] else "")
           for i, r in enumerate(rows)]
-y = range(len(rows))
+y = list(range(len(rows)))
 
-fig, (axl, axr) = plt.subplots(1, 2, figsize=(11.6, 3.5),
-                               gridspec_kw={"width_ratios": [1.55, 1]})
+fig, (axl, axr) = plt.subplots(1, 2, figsize=(11.6, 3.4),
+                               gridspec_kw={"width_ratios": [1.6, 1]})
 
 # ---- left: total wall clock -------------------------------------------------
-stack = [("Retrieval", "retr", C_RETR), ("Prefill (to first token)", "prefill", C_PREFILL),
-         ("Decode", "decode", C_DECODE), ("Other", "other", C_OTHER)]
+LSTACK = [("Retrieval", "retr", S.SLATE), ("Prefill (to first token)", "prefill", S.CORAL),
+          ("Decode", "decode", S.TEAL), ("Other", "other", S.OCHRE)]
+S.panel(axl, letter="A", title="Total time per answer", grid="x")
 left = [0.0] * len(rows)
-for name, key, colour in stack:
+tmax = max(r["total"] for r in rows)
+for name, key, colour in LSTACK:
     vals = [r[key] for r in rows]
-    axl.barh(list(y), vals, left=left, color=colour, height=0.62,
-             label=name, zorder=3, edgecolor="white", linewidth=1.4)
+    axl.barh(y, vals, left=left, color=colour, height=0.58, label=name,
+             zorder=3, edgecolor="white", linewidth=1.1)
     for i, v in enumerate(vals):
-        if v / max(r["total"] for r in rows) > 0.055:      # only where it fits
-            axl.annotate(f"{v:.1f}s", (left[i] + v / 2, i), ha="center", va="center",
-                         fontsize=8, color="white", zorder=5, fontweight="bold")
+        if v / tmax > 0.06:
+            axl.annotate(f"{v:.1f}", (left[i] + v / 2, i), ha="center", va="center",
+                         fontsize=S.SZ_ANNOT, color="white", zorder=5)
     left = [a + b for a, b in zip(left, vals)]
 for i, r in enumerate(rows):
-    axl.annotate(f"  {r['total']:.1f}s total · {r['ptokens']:,} prompt tok · "
-                 f"{r['tokens']} generated",
-                 (r["total"], i), va="center", fontsize=8, color=INK_MUTED)
-axl.set_xlim(0, max(r["total"] for r in rows) * 1.46)
-axl.set_xlabel("Wall clock (seconds)", fontsize=9, color=INK_MUTED)
-axl.set_title("Total time per answer", fontsize=10, color=INK, pad=10)
-axl.legend(loc="lower left", bbox_to_anchor=(0, 1.17), frameon=False,
-           fontsize=8.2, labelcolor=INK, ncol=4, columnspacing=1.4,
-           handlelength=1.2, handletextpad=0.5)
+    axl.annotate(f"   {r['total']:.1f}s total  ·  {r['ptokens']:,} prompt tok",
+                 (r["total"], i), va="center", fontsize=S.SZ_ANNOT, color=S.INK_SOFT)
+axl.set_xlim(0, tmax * 1.44)
+axl.set_xlabel(S.smallcaps("Wall clock (seconds)"), fontsize=S.SZ_AXIS_L)
+axl.legend(loc="lower left", bbox_to_anchor=(0, 1.14), ncol=4, columnspacing=1.5,
+           handlelength=1.1, handletextpad=0.5, labelcolor=S.INK_SOFT,
+           fontsize=S.SZ_ANNOT)
 
 # ---- right: retrieval only --------------------------------------------------
-rstack = [("Embed query", "embed", C_EMBED), ("BM25", "bm25", C_BM25),
-          ("FAISS search", "faiss", C_FAISS), ("RRF fuse", "fuse", C_FUSE),
-          ("Build context", "ctx", C_CTX)]
+RSTACK = [("Embed query", "embed", S.SLATE), ("BM25", "bm25", S.CORAL),
+          ("FAISS + RRF + context", "rest", S.TEAL)]
+S.panel(axr, letter="B", title="Retrieval slice, own scale", grid="x")
 left = [0.0] * len(rows)
-for name, key, colour in rstack:
+for name, key, colour in RSTACK:
     vals = [r[key] for r in rows]
-    axr.barh(list(y), vals, left=left, color=colour, height=0.62,
-             label=name, zorder=3, edgecolor="white", linewidth=1.4)
+    axr.barh(y, vals, left=left, color=colour, height=0.58, label=name,
+             zorder=3, edgecolor="white", linewidth=1.1)
     left = [a + b for a, b in zip(left, vals)]
 for i, r in enumerate(rows):
-    axr.annotate(f"  {r['retr']:.2f}s", (r["retr"], i), va="center",
-                 fontsize=8, color=INK_MUTED)
-axr.set_xlim(0, max(r["retr"] for r in rows) * 1.42)
-axr.set_xlabel("Wall clock (seconds)", fontsize=9, color=INK_MUTED)
-axr.set_title("Retrieval slice, on its own scale", fontsize=10, color=INK, pad=10)
-axr.legend(loc="lower left", bbox_to_anchor=(0, 1.17), frameon=False,
-           fontsize=8.2, labelcolor=INK, ncol=3, columnspacing=1.2,
-           handlelength=1.2, handletextpad=0.5)
-_tiny = max(r["faiss"] + r["fuse"] + r["ctx"] for r in rows)
-_note = (f"Embedding the query is nearly all of the retrieval slice: FAISS search, "
-         f"RRF fusion and context building together never exceed {_tiny*1000:.0f} ms.")
+    axr.annotate(f"   {r['retr']:.2f}s", (r["retr"], i), va="center",
+                 fontsize=S.SZ_ANNOT, color=S.INK_SOFT)
+axr.set_xlim(0, max(r["retr"] for r in rows) * 1.40)
+axr.set_xlabel(S.smallcaps("Wall clock (seconds)"), fontsize=S.SZ_AXIS_L)
+axr.legend(loc="lower left", bbox_to_anchor=(0, 1.14), ncol=3, columnspacing=1.5,
+           handlelength=1.1, handletextpad=0.5, labelcolor=S.INK_SOFT,
+           fontsize=S.SZ_ANNOT)
 
 for ax in (axl, axr):
-    ax.set_yticks(list(y))
-    ax.set_yticklabels(labels, fontsize=8.5, color=INK)
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels, fontsize=S.SZ_TICK, color=S.INK)
     ax.invert_yaxis()
-    ax.grid(axis="x", color=GRID, lw=0.6, zorder=0)
-    ax.set_axisbelow(True)
-    ax.tick_params(labelsize=8.5, colors=INK_MUTED, length=3)
-    for s in ("top", "right"):
-        ax.spines[s].set_visible(False)
-    for s in ("left", "bottom"):
-        ax.spines[s].set_color(GRID)
 
-fig.suptitle("Prompt processing, not retrieval, dominates answer latency",
-             fontsize=11.5, color=INK, y=1.13)
-fig.text(0.5, -0.10, _note + "\n" +
-         f"{chip}, {cores} cores, {ram} GB RAM · macOS · embedding on CPU · "
-         f"generator {model} via llama.cpp · n = {len(rows)} answers",
-         ha="center", fontsize=8, color=INK_MUTED)
+S.suptitle(fig, "Prompt processing, not retrieval, dominates answer latency", y=1.17)
+tiny = max(r["rest"] for r in rows) * 1000
+S.footnote(fig,
+           f"Embedding the query is nearly all of the retrieval slice: FAISS search, RRF "
+           f"fusion and context building together never exceed {tiny:.0f} ms.\n"
+           f"{chip}, {cores} cores, {ram} GB RAM  ·  macOS  ·  embedding on CPU  ·  "
+           f"generator {model} via llama.cpp  ·  n = {len(rows)} answers",
+           y=-0.17)
 fig.tight_layout()
 OUT.mkdir(parents=True, exist_ok=True)
 p = OUT / "chart 04 - fig_latency_breakdown.png"
-fig.savefig(p, dpi=300, bbox_inches="tight", facecolor="white")
+fig.savefig(p, dpi=300, bbox_inches="tight")
 print("wrote", p)
 for i, r in enumerate(rows):
     print(f"  answer {i+1}: total={r['total']:.2f}s retrieval={r['retr']:.2f}s "

@@ -24,14 +24,15 @@ import json
 from pathlib import Path
 os.environ["HF_HOME"] = str(Path("models/retriever/.cache").resolve())
 
+import sys
 import faiss, numpy as np
-import matplotlib
-matplotlib.use("Agg")
+sys.path.insert(0, str(Path(__file__).parent))
+import _style as S
+S.use()
 import matplotlib.pyplot as plt
 from sentence_transformers import SentenceTransformer
 
 OUT = Path("assets/research-paper")
-HUE, INK, INK_MUTED, GRID = "#2a78d6", "#0b0b0b", "#52514e", "#e4e3df"
 TOP_K = 10
 # Hit Rate @5 from reports/embedding_model_comparison/ -- printed on each panel so
 # score compression is never mistaken for the cause of ranking failure.
@@ -60,47 +61,48 @@ for label, vdir, prefix in MODELS:
     model = SentenceTransformer(label)
     Q = model.encode([prefix + q for q in questions], normalize_embeddings=True,
                      batch_size=16, show_progress_bar=False)
-    S, _ = ix.search(np.asarray(Q, dtype="float32"), TOP_K)
-    results[label] = S
-    print(f"  {label:42} rank1 mean={S[:,0].mean():.4f}  "
-          f"top-{TOP_K} spread mean={(S[:,0]-S[:,-1]).mean():.4f}")
+    scores, _ = ix.search(np.asarray(Q, dtype="float32"), TOP_K)
+    results[label] = scores
+    print(f"  {label:42} rank1 mean={scores[:,0].mean():.4f}  "
+          f"top-{TOP_K} spread mean={(scores[:,0]-scores[:,-1]).mean():.4f}")
     del model
 
-fig, axes = plt.subplots(1, 3, figsize=(10.6, 3.4), sharey=True)
+PANEL_HUE = [S.TEAL, S.CORAL, S.SLATE]
+# Full HF ids are too long for a tracked small-caps panel title -- the third
+# overflows its panel. The full id stays in the printed output and the JSON.
+SHORT = {"BAAI/bge-m3": "BGE-M3",
+         "intfloat/multilingual-e5-large": "E5-large",
+         "paraphrase-multilingual-MiniLM-L12-v2": "MiniLM-L12"}
+
+fig, axes = plt.subplots(1, 3, figsize=(10.4, 3.5), sharey=True)
 ranks = np.arange(1, TOP_K + 1)
-for ax, (label, vdir, _) in zip(axes, MODELS):
-    S = results[label]
-    ax.grid(axis="y", color=GRID, lw=0.6, zorder=0)
-    ax.set_axisbelow(True)
-    for row in S:                            # one thin line per question
-        ax.plot(ranks, row, color=HUE, lw=0.5, alpha=0.10, zorder=2)
-    ax.plot(ranks, S.mean(axis=0), color="#eb6834", lw=2.2, zorder=4,
-            marker="o", ms=4.5, mew=0)
-    spread = (S[:, 0] - S[:, -1]).mean()
-    ax.set_title(label.split("/")[-1], fontsize=9.5, color=INK, pad=7)
-    ax.annotate(f"mean top-1  {S[:,0].mean():.3f}\n"
+for ax, letter, hue, (label, vdir, _) in zip(axes, "ABC", PANEL_HUE, MODELS):
+    S.panel(ax, letter=letter, title=SHORT[label])
+    arr = results[label]
+    for row in arr:                           # one faint line per gold question
+        ax.plot(ranks, row, color=hue, lw=0.5, alpha=0.055, zorder=2)
+    ax.plot(ranks, arr.mean(axis=0), color=hue, lw=2.0, zorder=4,
+            marker="o", ms=3.8, mew=0, clip_on=False)
+    spread = (arr[:, 0] - arr[:, -1]).mean()
+    ax.annotate(f"mean top-1   {arr[:,0].mean():.3f}\n"
                 f"mean spread  {spread:.3f}\n"
-                f"Hit@5  {HIT5[label]}",
-                xy=(0.96, 0.055), xycoords="axes fraction", ha="right", va="bottom",
-                fontsize=8.5, color=INK_MUTED, linespacing=1.5)
-    ax.set_xlabel(f"Retrieved rank (1-{TOP_K})", fontsize=9, color=INK_MUTED)
+                f"Hit @5       {HIT5[label]}",
+                xy=(0.97, 0.055), xycoords="axes fraction", ha="right",
+                va="bottom", fontsize=S.SZ_ANNOT, color=S.INK_SOFT,
+                linespacing=1.65, family="monospace")
+    ax.set_xlabel(S.smallcaps("Retrieved rank"), fontsize=S.SZ_AXIS_L)
     ax.set_xticks([1, 3, 5, 7, 10])
     ax.set_ylim(0, 1.02)
-    ax.tick_params(labelsize=8.5, colors=INK_MUTED, length=3)
-    for s in ("top", "right"):
-        ax.spines[s].set_visible(False)
-    for s in ("left", "bottom"):
-        ax.spines[s].set_color(GRID)
 
-axes[0].set_ylabel("Cosine similarity to query", fontsize=9, color=INK_MUTED)
+axes[0].set_ylabel(S.smallcaps("Cosine similarity to query"), fontsize=S.SZ_AXIS_L)
 from matplotlib.lines import Line2D
-fig.legend([Line2D([], [], color=HUE, lw=1.4, alpha=0.5),
-            Line2D([], [], color="#eb6834", lw=2.2, marker="o", ms=4.5, mew=0)],
+fig.legend([Line2D([], [], color=S.SLATE, lw=1.2, alpha=0.45),
+            Line2D([], [], color=S.SLATE, lw=2.0, marker="o", ms=3.8, mew=0)],
            [f"One of {len(questions)} gold questions", "Mean across all questions"],
-           loc="lower center", ncol=2, frameon=False, fontsize=9,
-           bbox_to_anchor=(0.5, -0.06), labelcolor=INK)
-fig.suptitle("Query-to-chunk similarity compresses as the embedding model shrinks",
-             fontsize=11.5, color=INK, y=1.02)
+           loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.07),
+           labelcolor=S.INK_SOFT, handlelength=1.8, columnspacing=2.4)
+S.suptitle(fig, "Query-to-chunk similarity compresses as the embedding model shrinks",
+           y=1.04)
 fig.tight_layout()
 OUT.mkdir(parents=True, exist_ok=True)
 p = OUT / "chart 01 - fig_embedding_score_spread.png"
