@@ -171,11 +171,11 @@ def humanize_time_ago(ts: int) -> str:
 
 def parse_question_id(qid: str):
     """
-    'guidance_qid_026' -> ('guidance', 'ai')
-    'law_qid_007'      -> ('law', 'human')
+    'guidance_qid_026' -> ('guidance', 'extended')
+    'law_qid_007'      -> ('law', 'core')
     Falls back to ('unknown', 'unknown') if the id doesn't match the
     expected '<category>_qid_<NNN>' pattern, so a malformed row never
-    crashes the app — it just gets filtered out of human/ai-only modes.
+    crashes the app — it just sorts as an unknown tier.
     """
     try:
         prefix, num_str = qid.rsplit("_qid_", 1)
@@ -735,7 +735,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     font-size: 12px !important;
 }
 
-/* ── Top header: mode badge + submitted/remaining stat chips ─────────── */
+/* ── Top header: submitted/remaining stat chips ──────────────────────── */
 .ev-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 2px; }
 .ev-top-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ev-top-right { display: flex; align-items: center; gap: 8px; }
@@ -864,21 +864,6 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 .slider-status.submitted { color: var(--signal); }
 .slider-status.open      { color: var(--lacquer); }
 
-/* ── Mode badge (own row; progress label sits below it on the left) ── */
-.mode-badge-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.mode-badge {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 4px 12px;
-    border-radius: 99px;
-    font-weight: 600;
-}
-.mode-badge.human { background: var(--signal-soft); color: var(--signal); border: 1px solid rgba(46,125,82,0.25); }
-.mode-badge.ai    { background: var(--indigo-mist); color: var(--indigo); border: 1px solid rgba(59,76,140,0.25); }
-.mode-badge.all   { background: var(--lacquer-mist); color: var(--lacquer); border: 1px solid rgba(156,43,31,0.25); }
-
 /* ── Question block ──────────────────────────────────────────────── */
 .ev-pill-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 .ev-category-pill, .ev-source-pill {
@@ -972,86 +957,6 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 [data-testid="stTextInput"] div[data-baseweb="input"] input::placeholder { text-align: center !important; }
 [data-testid="InputInstructions"] { display: none !important; }
 
-/* ── Mode radio (login page) ──────────────────────────────────────── */
-/* "Choose mode:" label sits to the left of the radio row. Its top padding is
-   tuned to vertically centre it against the radio options, which carry their
-   own internal padding. */
-/* Centre the whole mode line. The row is an inline-flex element that shrinks to
-   its content, and text-align:center on the ancestors centres that inline block
-   on screen — robust regardless of the widget's own width.
-   .st-key-login_mode_radio is the one class we know Streamlit 1.58 emits. */
-/* Force EVERY wrapper from the key class down to the options row to be a
-   centring flex container, so whichever level was holding the line to the left
-   is overridden. */
-.st-key-login_mode_radio,
-.st-key-login_mode_radio > div,
-.st-key-login_mode_radio [data-testid="stRadio"],
-.st-key-login_mode_radio [data-testid="stRadio"] > div {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 100% !important;
-}
-.st-key-login_mode_radio { margin-bottom: -18px !important; }
-/* The options row itself: one non-wrapping line, shrunk to content and centred.
-   The "Choose Gold Question Mode:" caption is the first flex item via ::before. */
-.st-key-login_mode_radio div[role="radiogroup"] {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 16px !important;
-    width: fit-content !important;
-    margin: 0 auto !important;
-    /* small manual nudge to the right of dead-centre */
-    padding-left: 20px !important;
-}
-.st-key-login_mode_radio div[role="radiogroup"]::before {
-    content: "Choose Gold Question Mode:";
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--stone);
-    white-space: nowrap;
-    margin-right: 6px;
-}
-/* align-items:center lines each radio circle up with its label text; the small
-   margin-top nudges the circle down so it isn't sitting slightly high. */
-[data-testid="stRadio"] label { font-family: 'IBM Plex Sans', sans-serif !important; align-items: center !important; white-space: nowrap !important; }
-[data-testid="stRadio"] [role="radiogroup"] label > div:first-child { margin-top: 2px !important; }
-[data-testid="stRadio"] label [data-testid="stMarkdownContainer"] p {
-    font-size: 14px !important;
-    color: var(--stone) !important;
-    margin: 0 !important;
-}
-/* Theme the radio control to the lacquer red instead of Streamlit's default.
-   accent-color covers the native input; the :has() rules below override
-   BaseWeb's own styled circle (ring + filled dot) for full coverage. */
-[data-testid="stRadio"] input[type="radio"] { accent-color: var(--lacquer) !important; }
-/* Unselected ring (covers every nested div + box-shadow ring BaseWeb may use). */
-[data-testid="stRadio"] [role="radiogroup"] label > div:first-child,
-[data-testid="stRadio"] [role="radiogroup"] label > div:first-child div {
-    border-color: var(--brass-soft) !important;
-    box-shadow: none !important;
-}
-/* Selected control — three layers, all kept on-theme (was: lacquer border,
-   ORANGE middle, lacquer dot):
-     • OUTER ring  → lacquer border + box-shadow
-     • MIDDLE fill → soft lacquer mist (the orange band) so it reads as a halo
-     • INNER dot   → solid lacquer */
-[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) > div:first-child {
-    border-color: var(--lacquer) !important;
-    background-color: rgba(156,43,31,0.32) !important;
-    box-shadow: 0 0 0 1px var(--lacquer) !important;
-}
-/* Selected INNER dot: solid lacquer fill. */
-[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) > div:first-child div {
-    background-color: var(--lacquer) !important;
-    border-color: var(--lacquer) !important;
-}
-
 /* ── Begin Evaluation button (login page) — matched to the name input ──── */
 /* Forced to the same 42px height as the text input so the two sit flush on the
    shared row; box-sizing keeps the height honest regardless of padding. */
@@ -1081,28 +986,14 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     margin: 0 0 10px 0;
 }
 .login-explain h4.second { margin-top: 16px; }
-.login-mode-line, .login-metric-line {
+.login-metric-line {
     font-family: 'IBM Plex Sans', sans-serif;
     font-size: 13px;
     color: var(--stone);
     line-height: 1.6;
     margin: 0 0 5px 0;
 }
-.login-mode-line strong, .login-metric-line strong { color: var(--ink); }
-.login-mode-line .tag {
-    display: inline-block;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 9.5px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    padding: 1px 7px;
-    border-radius: 99px;
-    margin-right: 6px;
-    font-weight: 600;
-}
-.login-mode-line .tag.human { background: var(--signal-soft); color: var(--signal); }
-.login-mode-line .tag.ai    { background: var(--indigo-mist); color: var(--indigo); }
-.login-mode-line .tag.all   { background: var(--lacquer-mist); color: var(--lacquer); }
+.login-metric-line strong { color: var(--ink); }
 .login-hint {
     font-family: 'IBM Plex Sans', sans-serif;
     font-size: 12px;
@@ -1345,8 +1236,8 @@ def page_evaluate(evaluator_id, evaluator_name, assignment, by_id):
         )
         return
 
-    # ── Top header: mode badge on the left; submitted / remaining counters
-    #    plus the evaluator name on the right. ──────────────────────────────
+    # ── Top header: submitted / remaining counters plus the evaluator name
+    #    on the right. ───────────────────────────────────────────────────────
     # The slider's value equals its session-state key on every run, so we can
     # resolve the current question (and its submitted state) BEFORE drawing the
     # slider — that lets the status note live up in the header next to the
