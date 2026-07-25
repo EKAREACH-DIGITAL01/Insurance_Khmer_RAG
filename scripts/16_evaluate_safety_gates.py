@@ -131,10 +131,8 @@ KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
 BOLD  = "\033[1m"
 GREEN = "\033[92m"
 RED   = "\033[91m"
-YELLOW = "\033[93m"
 RESET = "\033[0m"
 SEPARATOR_WIDTH = 105
-SEPARATOR = "=" * SEPARATOR_WIDTH
 
 # ----------------------------------------------------------------------------
 # Winner model -- change this to the winner from script 10

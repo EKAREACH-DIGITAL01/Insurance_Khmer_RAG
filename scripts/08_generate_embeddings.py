@@ -59,7 +59,10 @@ EMBEDDING_MODELS = {
         # (not a kwarg to .encode()): "passage: " for corpus documents and
         # "query: " for live questions. This is distinct from jina's LoRA
         # adapter switching -- it's a pure text transformation, handled
-        # explicitly in encode_documents() and encode_queries() below.
+        # explicitly in encode_documents() below. This script only embeds the
+        # corpus, so only doc_prefix is applied here; query_prefix is kept as
+        # the record of the query-side convention, applied by whoever encodes
+        # questions (scripts/09, app.py).
         "doc_prefix": "passage: ",
         "query_prefix": "query: ",
     },
@@ -88,13 +91,6 @@ def encode_documents(model, model_config, texts, **kwargs):
     literal prefixes and retrieval quality degrades noticeably without them."""
     if model_config.get("doc_prefix"):
         texts = [model_config["doc_prefix"] + t for t in texts]
-    return model.encode(texts, **kwargs)
-
-
-def encode_queries(model, model_config, texts, **kwargs):
-    """Encodes search queries. For e5-style models, prepends 'query: ' prefix."""
-    if model_config.get("query_prefix"):
-        texts = [model_config["query_prefix"] + t for t in texts]
     return model.encode(texts, **kwargs)
 
 
