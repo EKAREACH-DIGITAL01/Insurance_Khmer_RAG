@@ -99,7 +99,13 @@ dense (FAISS), pure lexical (BM25), or **hybrid** fusion of the two.
 - **Dense** — BGE-M3 cosine over the FAISS index.
 - **BM25** — `rank_bm25.BM25Okapi` with a **Khmer-aware tokenizer** that
   character-**n-grams** (n = 3) Khmer-script words (which have no spaces) while
-  lower-casing Latin words.
+  lower-casing Latin words. Two additions carry the lexical signal that plain
+  n-gramming loses: every maximal **digit run** (Khmer ០-៩ or ASCII) is pulled
+  out of a Khmer-script token as its own term, so an article number survives
+  regardless of spacing; and an explicit **provision reference** ("មាត្រា ១០",
+  "ប្រការ ៤") is emitted as one compound token, repeated `ARTICLE_REF_BOOST = 20`
+  times so the near-unique match outweighs the n-gram noise from shared
+  document-title grams.
 - **Hybrid** — **Reciprocal Rank Fusion (RRF)**, `RRF_K = 60`, fusing the dense
   and BM25 rankings.
 
@@ -111,9 +117,12 @@ K = 5 for the headline comparison.
 and `.md`.
 
 **What happens next.** The winning mode (**Hybrid / RRF**) is the retrieval path
-used by the live `app.py` and reproduced byte-for-byte inside `scripts/13` and
-`scripts/16`, so downstream generator scores reflect the retrieval the client
-actually gets.
+used by the live `app.py` and reproduced byte-for-byte inside `scripts/10`,
+`scripts/13` and `scripts/16`, so both this comparison and the downstream
+generator scores reflect the retrieval the client actually gets. The tokenizer
+and its constants are duplicated across all four files and must stay identical;
+they have drifted twice, and each time the measurement — never production — was
+the side that silently diverged.
 
 ---
 
