@@ -472,17 +472,28 @@ The macro-averaged @5 results across all four document categories are:
 **Why MiniLM scores near-zero on Hit Rate, Recall, and MRR:**
 MiniLM-L12-v2 (118M parameters, 384-dim embeddings) is too small and
 insufficiently trained on Khmer script to produce semantically
-discriminative embeddings for Khmer legal text. In practice it assigns
-near-identical cosine similarity scores to every chunk in the corpus
-regardless of relevance — empirically confirmed: all top-10 retrieved
-chunks score between **0.9587 and 0.9706** for a typical Khmer insurance
-law question, a spread of only ~0.012. This score compression makes the
-ranking essentially random, so the correct chunks are almost never ranked
-in the top 5.
+discriminative embeddings for Khmer legal text.
 
-By contrast, BGE-M3 produces well-spread scores (**0.6509–0.7718** for
-the same question), reflecting genuine semantic discrimination that
-enables reliable retrieval.
+Its scores are also heavily compressed. All top-10 retrieved chunks fall
+between **0.9587 and 0.9706** for a typical Khmer insurance law question —
+a spread of ~0.012 — where BGE-M3 spans **0.6509–0.7718** on the same
+question. Measured across all 400 gold questions, the mean top-1-to-top-10
+spread is **0.021** for MiniLM against **0.104** for BGE-M3.
+
+**Compression alone does not explain the failure, and it should not be
+quoted as the cause.** multilingual-e5-large compresses just as hard — mean
+spread **0.020**, only 0.001 narrower than MiniLM's 0.021 — yet it reaches
+Hit Rate @5 of **0.6633** against MiniLM's **0.0108**. A 0.001 difference in
+spread alongside a 65-point difference in Hit @5 rules compression out as the
+mechanism: a narrow band of scores is plainly compatible with usable
+retrieval. What separates the two is whether the *ordering within* that band
+carries signal — e5's residual ordering is informative, MiniLM's is not.
+Compression is a symptom of the capacity and Khmer-coverage gap, not the
+route by which ranking fails.
+
+This is plotted per model and per rank, with Hit @5 on each panel, in
+`chart 01 - fig_embedding_score_spread.png` (see
+`scripts_figures/fig_embedding_score_spread.py`).
 
 The non-zero File Hit Rate @5 for MiniLM (0.16 macro-avg) confirms the
 model is not completely blind — it occasionally retrieves chunks from the
