@@ -1,131 +1,204 @@
-"""fig_latency_breakdown -- where a single answer's wall-clock time actually goes.
+"""Wall-clock answer latency and retrieval sub-stages from chat_history.db.
 
-Read from the real diagnostics payloads persisted in chat_history.db by the live
-app; nothing is synthesised. Hardware is printed on the figure, because a timing
-chart without its machine is unreadable.
+Every value is read from the diagnostics payloads the live app persisted; nothing
+is synthesised or averaged. Answer 4 was a prompt-cache hit -- llama.cpp still
+held the identical prompt in its KV cache, so its prefill cost 0.23 s instead of
+34-58 s. It is kept and labelled, never blended into a cold-answer figure.
 
-Two panels, because the stages differ by three orders of magnitude and a single
-stacked bar would render FAISS search (0.1 ms) as nothing:
-  left  -- total wall clock per answer: retrieval, prefill, decode, other
-  right -- the retrieval slice on its own scale
-
-One answer is a prompt-cache HIT: llama.cpp had the identical prompt in its KV
-cache, so prefill cost 0.23 s instead of 34-58 s. It is labelled as such rather
-than dropped -- it is the honest illustration of what prefill costs, but it is
-NOT a typical cold answer and must never be averaged in silently.
+Two panels, because the stages span five orders of magnitude: RRF fusion runs in
+~0.02 ms against a ~50 s prefill. Panel A is seconds; panel B is milliseconds on
+a log axis, as grouped bars rather than scattered markers.
 """
-import json, sqlite3, subprocess, sys
+from __future__ import annotations
+
+import json
+import re
+import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import _style as S
+
 S.use()
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.ticker import FuncFormatter
 
 OUT = Path("assets/research-paper")
-DB = "chat_history.db"
+DB = Path("chat_history.db")
 
 rows = []
-with sqlite3.connect(DB) as c:
-    for (p,) in c.execute("select payload from messages order by created_at"):
-        d = json.loads(p)["diag"]
-        prefill = d["first_token_time"]
-        retr = (d["embed_time"] + d["search_time"] + d["bm25_time"]
-                + d["fusion_time"] + d["context_time"])
-        decode = d["generation_time"] - prefill
-        rows.append(dict(
-            retr=retr, prefill=prefill, decode=decode,
-            other=d["total_time"] - (retr + prefill + decode),
-            total=d["total_time"], tokens=d["generated_tokens"],
-            ptokens=d["prompt_tokens"], embed=d["embed_time"], bm25=d["bm25_time"],
-            # FAISS search, RRF fusion and context building are sub-millisecond to
-            # a few ms each; kept as one segment because three slivers that size
-            # are indistinguishable from the bar edge.
-            rest=d["search_time"] + d["fusion_time"] + d["context_time"],
-            cache_hit=prefill < 1.0,
-        ))
+diagnostics = []
+with sqlite3.connect(DB) as connection:
+    payloads = connection.execute(
+        "select payload from messages order by created_at"
+    ).fetchall()
 
-with sqlite3.connect(DB) as c:
-    model = Path(json.loads(
-        c.execute("select payload from messages").fetchone()[0])["diag"]["model"]).name
+for (payload,) in payloads:
+    diag = json.loads(payload)["diag"]
+    diagnostics.append(diag)
+    prefill = diag["first_token_time"]
+    retrieval = (diag["embed_time"] + diag["search_time"] + diag["bm25_time"]
+                 + diag["fusion_time"] + diag["context_time"])
+    decode = diag["generation_time"] - prefill
+    rows.append({
+        "retrieval": retrieval, "prefill": prefill, "decode": decode,
+        "other": diag["total_time"] - (retrieval + prefill + decode),
+        "total": diag["total_time"], "prompt_tokens": diag["prompt_tokens"],
+        "generated_tokens": diag["generated_tokens"],
+        "embed_query": diag["embed_time"], "bm25": diag["bm25_time"],
+        "faiss_search": diag["search_time"], "rrf_fusion": diag["fusion_time"],
+        "build_context": diag["context_time"], "cache_hit": prefill < 1.0,
+    })
+
+assert len(rows) == 4
+assert [i for i, row in enumerate(rows) if row["cache_hit"]] == [3]
+model = Path(diagnostics[0]["model"]).name
+assert all(Path(d["model"]).name == model for d in diagnostics)
+assert all(d["embedding_device"] == "cpu" for d in diagnostics)
 
 
-def sysctl(k):
-    return subprocess.run(["sysctl", "-n", k], capture_output=True, text=True).stdout.strip()
+def system_profile() -> tuple[str, str, str]:
+    """Mac hardware, with system_profiler as a sandbox-safe fallback."""
+    def sysctl(key: str) -> str:
+        return subprocess.run(["sysctl", "-n", key],
+                              capture_output=True, text=True).stdout.strip()
+
+    chip, cores, memory = (sysctl("machdep.cpu.brand_string"),
+                           sysctl("hw.ncpu"), sysctl("hw.memsize"))
+    if chip and cores and memory:
+        return chip, cores, str(int(memory) // 1_073_741_824)
+    profile = subprocess.run(
+        ["system_profiler", "SPHardwareDataType", "-detailLevel", "mini"],
+        capture_output=True, text=True).stdout
+    chip_m = re.search(r"^\s*Chip:\s*(.+)$", profile, re.MULTILINE)
+    cores_m = re.search(r"^\s*Total Number of Cores:\s*(\d+)", profile, re.MULTILINE)
+    mem_m = re.search(r"^\s*Memory:\s*(\d+)\s*GB", profile, re.MULTILINE)
+    assert chip_m and cores_m and mem_m, "unable to read Mac hardware"
+    return chip_m.group(1), cores_m.group(1), mem_m.group(1)
 
 
-chip, cores = sysctl("machdep.cpu.brand_string"), sysctl("hw.ncpu")
-ram = int(sysctl("hw.memsize")) // 1073741824
+chip, cores, ram = system_profile()
 
-labels = [f"Answer {i+1}" + ("\n(prompt-cache hit)" if r["cache_hit"] else "")
-          for i, r in enumerate(rows)]
+fig = S.figure(
+    "Prompt prefill dominates cold-answer latency",
+    "Answer 4 reused an identical prompt in llama.cpp's KV cache and is shown separately.",
+)
+# `top` is held well below the subtitle baseline (y = 0.892) so panel headings
+# cannot collide with the figure header -- the previous layout overlapped them.
+grid = fig.add_gridspec(1, 2, left=0.088, right=0.972, bottom=0.235, top=0.665,
+                        width_ratios=[1.38, 1.0], wspace=0.34)
+ax_total = fig.add_subplot(grid[0])
+ax_detail = fig.add_subplot(grid[1])
+
+# ---- Panel A: whole-answer wall clock ---------------------------------------
+S.axes(ax_total, grid="x")
+S.panel_heading(ax_total, "A", "Wall clock by answer",
+                "Seconds, stages stacked", y=1.07)
+
 y = list(range(len(rows)))
+ax_total.axhspan(2.5, 3.5, color=S.CACHE_WASH, zorder=0)
 
-fig, (axl, axr) = plt.subplots(1, 2, figsize=(11.6, 3.4),
-                               gridspec_kw={"width_ratios": [1.6, 1]})
-
-# ---- left: total wall clock -------------------------------------------------
-LSTACK = [("Retrieval", "retr", S.SLATE), ("Prefill (to first token)", "prefill", S.CORAL),
-          ("Decode", "decode", S.TEAL), ("Other", "other", S.OCHRE)]
-S.panel(axl, letter="A", title="Total time per answer", grid="x")
+STAGES = [("Retrieval", "retrieval", S.BLUE), ("Prefill", "prefill", S.VERMILION),
+          ("Decode", "decode", S.TEAL), ("Other", "other", S.LIGHT_GREY)]
+max_total = max(row["total"] for row in rows)
 left = [0.0] * len(rows)
-tmax = max(r["total"] for r in rows)
-for name, key, colour in LSTACK:
-    vals = [r[key] for r in rows]
-    axl.barh(y, vals, left=left, color=colour, height=0.58, label=name,
-             zorder=3, edgecolor="white", linewidth=1.1)
-    for i, v in enumerate(vals):
-        if v / tmax > 0.06:
-            axl.annotate(f"{v:.1f}", (left[i] + v / 2, i), ha="center", va="center",
-                         fontsize=S.SZ_ANNOT, color="white", zorder=5)
-    left = [a + b for a, b in zip(left, vals)]
-for i, r in enumerate(rows):
-    axl.annotate(f"   {r['total']:.1f}s total  ·  {r['ptokens']:,} prompt tok",
-                 (r["total"], i), va="center", fontsize=S.SZ_ANNOT, color=S.INK_SOFT)
-axl.set_xlim(0, tmax * 1.44)
-axl.set_xlabel(S.smallcaps("Wall clock (seconds)"), fontsize=S.SZ_AXIS_L)
-axl.legend(loc="lower left", bbox_to_anchor=(0, 1.14), ncol=4, columnspacing=1.5,
-           handlelength=1.1, handletextpad=0.5, labelcolor=S.INK_SOFT,
-           fontsize=S.SZ_ANNOT)
+for label, key, colour in STAGES:
+    values = [row[key] for row in rows]
+    ax_total.barh(y, values, left=left, height=0.5, color=colour,
+                  edgecolor=S.PAPER, linewidth=0.6, label=label, zorder=3)
+    for i, value in enumerate(values):
+        # Label only a segment wide enough to hold the text. Anything narrower
+        # spilled over its neighbour in the previous version.
+        if value / max_total >= 0.11:
+            ax_total.text(left[i] + value / 2, i, f"{value:.1f}s",
+                          ha="center", va="center", fontsize=S.SZ_NOTE,
+                          fontfamily="sans-serif", fontweight="bold",
+                          color=S.PAPER, zorder=5)
+    left = [a + b for a, b in zip(left, values)]
 
-# ---- right: retrieval only --------------------------------------------------
-RSTACK = [("Embed query", "embed", S.SLATE), ("BM25", "bm25", S.CORAL),
-          ("FAISS + RRF + context", "rest", S.TEAL)]
-S.panel(axr, letter="B", title="Retrieval slice, own scale", grid="x")
-left = [0.0] * len(rows)
-for name, key, colour in RSTACK:
-    vals = [r[key] for r in rows]
-    axr.barh(y, vals, left=left, color=colour, height=0.58, label=name,
-             zorder=3, edgecolor="white", linewidth=1.1)
-    left = [a + b for a, b in zip(left, vals)]
-for i, r in enumerate(rows):
-    axr.annotate(f"   {r['retr']:.2f}s", (r["retr"], i), va="center",
-                 fontsize=S.SZ_ANNOT, color=S.INK_SOFT)
-axr.set_xlim(0, max(r["retr"] for r in rows) * 1.40)
-axr.set_xlabel(S.smallcaps("Wall clock (seconds)"), fontsize=S.SZ_AXIS_L)
-axr.legend(loc="lower left", bbox_to_anchor=(0, 1.14), ncol=3, columnspacing=1.5,
-           handlelength=1.1, handletextpad=0.5, labelcolor=S.INK_SOFT,
-           fontsize=S.SZ_ANNOT)
+for i, row in enumerate(rows):
+    ax_total.text(row["total"] + max_total * 0.022, i,
+                  f"{row['total']:.2f}s     {row['prompt_tokens']:,} in / "
+                  f"{row['generated_tokens']} out",
+                  ha="left", va="center", fontsize=S.SZ_NOTE,
+                  fontfamily="sans-serif", color=S.INK_SOFT, zorder=5)
 
-for ax in (axl, axr):
-    ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=S.SZ_TICK, color=S.INK)
-    ax.invert_yaxis()
+ax_total.set_xlim(0, max_total * 1.52)
+ax_total.set_yticks(y)
+ax_total.set_yticklabels([f"Answer {i}" for i in range(1, 5)])
+ax_total.invert_yaxis()
+ax_total.set_xlabel("Elapsed time (seconds)", fontsize=S.SZ_AXIS, labelpad=6)
+ax_total.legend(loc="upper left", bbox_to_anchor=(0.0, -0.185), ncol=4,
+                fontsize=S.SZ_NOTE, columnspacing=1.4, handlelength=1.1,
+                handletextpad=0.45, labelcolor=S.INK_SOFT)
 
-S.suptitle(fig, "Prompt processing, not retrieval, dominates answer latency", y=1.17)
-tiny = max(r["rest"] for r in rows) * 1000
-S.footnote(fig,
-           f"Embedding the query is nearly all of the retrieval slice: FAISS search, RRF "
-           f"fusion and context building together never exceed {tiny:.0f} ms.\n"
-           f"{chip}, {cores} cores, {ram} GB RAM  ·  macOS  ·  embedding on CPU  ·  "
-           f"generator {model} via llama.cpp  ·  n = {len(rows)} answers",
-           y=-0.17)
-fig.tight_layout()
-OUT.mkdir(parents=True, exist_ok=True)
-p = OUT / "chart 04 - fig_latency_breakdown.png"
-fig.savefig(p, dpi=300, bbox_inches="tight")
-print("wrote", p)
-for i, r in enumerate(rows):
-    print(f"  answer {i+1}: total={r['total']:.2f}s retrieval={r['retr']:.2f}s "
-          f"prefill={r['prefill']:.2f}s decode={r['decode']:.2f}s"
-          + ("  [prompt-cache hit]" if r["cache_hit"] else ""))
+# Sits under the short bar inside the cache-hit band, clear of every other mark.
+ax_total.text(0, 3.62,
+              "PROMPT-CACHE HIT — prefill 0.23 s, not a typical cold answer",
+              ha="left", va="center", fontsize=S.SZ_NOTE,
+              fontfamily="sans-serif", fontweight="bold", color=S.PURPLE,
+              zorder=7)
+
+# ---- Panel B: retrieval sub-stages, milliseconds, log scale ------------------
+S.axes(ax_detail, grid="x")
+S.panel_heading(ax_detail, "B", "Retrieval, expanded",
+                "Milliseconds, log scale, no averaging", y=1.07)
+
+SUBSTAGES = [("Embed query", "embed_query"), ("BM25", "bm25"),
+             ("FAISS search", "faiss_search"), ("RRF fusion", "rrf_fusion"),
+             ("Build context", "build_context")]
+ANSWER_COLOUR = [S.BLUE, S.VERMILION, S.TEAL, S.PURPLE]
+BAR_H = 0.18
+FLOOR = 1e-3  # log axes have no zero; bars are drawn from this left edge
+
+for stage_index, (stage_label, key) in enumerate(SUBSTAGES):
+    for answer_index, row in enumerate(rows):
+        value_ms = row[key] * 1000.0
+        offset = (answer_index - 1.5) * BAR_H
+        ax_detail.barh(stage_index + offset, value_ms - FLOOR, left=FLOOR,
+                       height=BAR_H * 0.8, color=ANSWER_COLOUR[answer_index],
+                       edgecolor=S.PAPER, linewidth=0.35, zorder=3)
+    if stage_index:
+        ax_detail.axhline(stage_index - 0.5, color=S.GRID, lw=0.7, zorder=1)
+
+ax_detail.set_xscale("log")
+ax_detail.set_xlim(FLOOR, 2e4)
+ax_detail.set_ylim(len(SUBSTAGES) - 0.5, -0.5)
+ax_detail.set_yticks(range(len(SUBSTAGES)))
+ax_detail.set_yticklabels([label for label, _ in SUBSTAGES])
+ax_detail.set_xticks([1e-2, 1e-1, 1, 10, 100, 1000, 1e4])
+ax_detail.xaxis.set_major_formatter(FuncFormatter(
+    lambda v, _: ("0.01" if abs(v - 1e-2) < 1e-9 else
+                  "0.1" if abs(v - 1e-1) < 1e-9 else f"{v:,.0f}")))
+ax_detail.set_xlabel("Elapsed time (milliseconds, log scale)",
+                     fontsize=S.SZ_AXIS, labelpad=6)
+ax_detail.legend(
+    handles=[Line2D([], [], color=ANSWER_COLOUR[i], lw=5,
+                    label=f"Answer {i + 1}") for i in range(4)],
+    loc="upper left", bbox_to_anchor=(0.0, -0.185), ncol=4, fontsize=S.SZ_NOTE,
+    columnspacing=1.2, handlelength=1.0, handletextpad=0.45,
+    labelcolor=S.INK_SOFT)
+
+tiny_ms = max(r["faiss_search"] + r["rrf_fusion"] + r["build_context"]
+              for r in rows) * 1000
+fig.text(0.088, 0.070,
+         f"Embedding the query is nearly all of retrieval: FAISS search, RRF fusion and "
+         f"context building together never exceed {tiny_ms:.1f} ms.",
+         ha="left", va="bottom", fontsize=S.SZ_NOTE, color=S.INK_FAINT)
+fig.text(0.088, 0.028,
+         f"{chip}, {cores} cores, {ram} GB RAM, macOS, embedding on CPU, "
+         f"generator {model} via llama.cpp, n = {len(rows)} answers.",
+         ha="left", va="bottom", fontsize=S.SZ_NOTE, color=S.INK_FAINT)
+
+path = S.save(fig, OUT / "chart 04 - fig_latency_breakdown.png")
+for i, row in enumerate(rows, 1):
+    print(f"answer {i}: total={row['total']:.2f}s retrieval={row['retrieval']:.2f}s "
+          f"prefill={row['prefill']:.2f}s decode={row['decode']:.2f}s "
+          f"other={row['other']:.2f}s"
+          + ("  [prompt-cache hit]" if row["cache_hit"] else ""))
+print("retrieval sub-stages (ms): " + json.dumps(
+    {label: [round(r[key] * 1000, 4) for r in rows] for label, key in SUBSTAGES}))
+print("wrote", path)

@@ -1,116 +1,296 @@
-"""fig_embedding_score_spread -- why BGE-M3 ranks and MiniLM cannot.
+"""Query-to-chunk score spread for three embedding models.
 
-Replaces the originally specced `fig_embedding_space` (a 2-D projection of chunk
-embeddings). That figure would NOT have shown the effect it was meant to explain:
-measured over chunk-to-chunk pairs, MiniLM's spread (p95-p5 = 0.226) is
-essentially BGE-M3's (0.235), so a chunk-only projection shows no collapse.
-
-The compression is in the QUERY->chunk direction. For each gold question this
-plots the similarity of the top-10 retrieved chunks against rank.
-
-Read this figure with care: compression alone does NOT explain ranking failure.
-e5-large compresses as hard as MiniLM (mean top-10 spread 0.020 vs 0.021) and
-still reaches Hit@5 = 0.663 against MiniLM's 0.011. What separates them is
-whether the ordering inside that narrow band carries signal, not how wide the
-band is. Hit@5 is printed on each panel so the figure cannot be read as
-"flatter => worse".
-
-Encodes the gold questions with each model (e5 gets its required "query: "
-prefix) and searches that model's own FAISS index. Raw numbers are written
-alongside the PNG so the figure is auditable.
+The stored ten-point mean curves are read from the research-paper JSON.  The
+400 per-question curves are independently recomputed by encoding every gold
+question and searching each model's own FAISS index.  E5 keeps its required
+``query: `` prefix.
 """
-import os
-import json
-from pathlib import Path
-os.environ["HF_HOME"] = str(Path("models/retriever/.cache").resolve())
+from __future__ import annotations
 
+import gc
+import json
+import os
+import subprocess
 import sys
-import faiss, numpy as np
+import tempfile
+from pathlib import Path
+
+os.environ["HF_HOME"] = str(Path("models/retriever/.cache").resolve())
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+
+import numpy as np
+
+# faiss MUST be imported before sentence_transformers (i.e. before torch). Both
+# link an OpenMP runtime, and on macOS arm64 loading torch's first makes faiss
+# search segfault mid-run -- it crashed here right after the first model's 400
+# queries encoded. Capping faiss to one search thread is not sufficient on its
+# own; the import order is what fixes it. Order-sensitive: do not sort.
+import faiss
+
+# Single search thread on top of the import order: deterministic for these flat
+# indexes and leaves every score unchanged.
+faiss.omp_set_num_threads(1)
+
 sys.path.insert(0, str(Path(__file__).parent))
 import _style as S
+
 S.use()
 import matplotlib.pyplot as plt
-from sentence_transformers import SentenceTransformer
+from matplotlib.lines import Line2D
+
 
 OUT = Path("assets/research-paper")
+SOURCE = OUT / "chart 01 - fig_embedding_score_spread.json"
+HIT_SOURCE = Path(
+    "reports/embedding_model_comparison/embedding_model_comparison.json"
+)
 TOP_K = 10
-# Hit Rate @5 from reports/embedding_model_comparison/ -- printed on each panel so
-# score compression is never mistaken for the cause of ranking failure.
-HIT5 = dict(zip(
-    json.loads(Path("reports/embedding_model_comparison/embedding_model_comparison.json")
-               .read_text())["comparison"]["headers"][1:],
-    json.loads(Path("reports/embedding_model_comparison/embedding_model_comparison.json")
-               .read_text())["comparison"]["rows"][0][1:]))
 
-# query_prefix mirrors scripts/08's model config -- e5 was trained with it and
-# omitting it would handicap e5 unfairly.
+# query_prefix mirrors the retriever model configuration.  Omitting the prefix
+# would handicap e5 and change the measurement.
 MODELS = [
-    ("BAAI/bge-m3",                            "BAAI-BGE-M3",                           ""),
-    ("intfloat/multilingual-e5-large",         "multilingual-e5-large",                 "query: "),
-    ("paraphrase-multilingual-MiniLM-L12-v2",  "MiniLM-paraphrase-multilingual-L12-v2", ""),
+    ("BAAI/bge-m3", "BAAI-BGE-M3", "", "BGE-M3", S.TEAL),
+    (
+        "intfloat/multilingual-e5-large",
+        "multilingual-e5-large",
+        "query: ",
+        "Multilingual E5-large",
+        S.VERMILION,
+    ),
+    (
+        "paraphrase-multilingual-MiniLM-L12-v2",
+        "MiniLM-paraphrase-multilingual-L12-v2",
+        "",
+        "Multilingual MiniLM-L12",
+        S.BLUE,
+    ),
 ]
 
-questions = []
-for gf in sorted(Path("data/09_evaluation").rglob("gold_questions.json")):
-    questions += [i["question"] for i in json.loads(gf.read_text())]
-print(f"{len(questions)} gold questions")
 
-results = {}
-for label, vdir, prefix in MODELS:
-    ix = faiss.read_index(f"vector_db/{vdir}/khmer_insurance.index")
-    model = SentenceTransformer(label)
-    Q = model.encode([prefix + q for q in questions], normalize_embeddings=True,
-                     batch_size=16, show_progress_bar=False)
-    scores, _ = ix.search(np.asarray(Q, dtype="float32"), TOP_K)
-    results[label] = scores
-    print(f"  {label:42} rank1 mean={scores[:,0].mean():.4f}  "
-          f"top-{TOP_K} spread mean={(scores[:,0]-scores[:,-1]).mean():.4f}")
-    del model
+stored = json.loads(SOURCE.read_text())
+assert stored["top_k"] == TOP_K
 
-PANEL_HUE = [S.TEAL, S.CORAL, S.SLATE]
-# Full HF ids are too long for a tracked small-caps panel title -- the third
-# overflows its panel. The full id stays in the printed output and the JSON.
-SHORT = {"BAAI/bge-m3": "BGE-M3",
-         "intfloat/multilingual-e5-large": "E5-large",
-         "paraphrase-multilingual-MiniLM-L12-v2": "MiniLM-L12"}
+comparison = json.loads(HIT_SOURCE.read_text())["comparison"]
+hit_row = next(row for row in comparison["rows"] if row[0] == "Hit Rate @5")
+hit5 = dict(zip(comparison["headers"][1:], hit_row[1:]))
 
-fig, axes = plt.subplots(1, 3, figsize=(10.4, 3.5), sharey=True)
+questions: list[str] = []
+for gold_file in sorted(Path("data/09_evaluation").rglob("gold_questions.json")):
+    questions.extend(item["question"] for item in json.loads(gold_file.read_text()))
+assert len(questions) == stored["n_questions"] == 400
+
+def encode_in_child(model_id: str, prefix: str) -> np.ndarray:
+    """Runs the encode in a separate interpreter -- see _encode_queries.py for
+    why torch must never be imported into this process."""
+    with tempfile.TemporaryDirectory() as tmp:
+        q_path, e_path = Path(tmp) / "q.json", Path(tmp) / "e.npy"
+        q_path.write_text(json.dumps(questions, ensure_ascii=False))
+        subprocess.run(
+            [sys.executable, str(Path(__file__).parent / "_encode_queries.py"),
+             model_id, prefix, str(q_path), str(e_path)],
+            check=True, stdout=subprocess.DEVNULL,
+        )
+        return np.load(e_path)
+
+
+scores_by_model: dict[str, np.ndarray] = {}
+for model_id, vector_dir, prefix, _, _ in MODELS:
+    index = faiss.read_index(f"vector_db/{vector_dir}/khmer_insurance.index")
+    embeddings = encode_in_child(model_id, prefix)
+    scores, _ = index.search(embeddings, TOP_K)
+    assert scores.shape == (len(questions), TOP_K)
+
+    # The JSON is the auditable mean series; recomputation supplies the 400
+    # background trajectories and verifies that the saved summary is current.
+    stored_mean = np.asarray(stored["models"][model_id]["mean_by_rank"], dtype=float)
+    np.testing.assert_allclose(
+        scores.mean(axis=0), stored_mean, rtol=0, atol=5e-6,
+        err_msg=f"{model_id}: recomputed means differ from {SOURCE}",
+    )
+    scores_by_model[model_id] = scores
+    del index
+    gc.collect()
+
+
+all_values = np.concatenate([scores.ravel() for scores in scores_by_model.values()])
+stored_values = np.concatenate(
+    [
+        np.asarray(stored["models"][model_id]["mean_by_rank"], dtype=float)
+        for model_id, *_ in MODELS
+    ]
+)
+data_min = float(min(all_values.min(), stored_values.min()))
+data_max = float(max(all_values.max(), stored_values.max()))
+y_pad = max(0.012, (data_max - data_min) * 0.035)
+y_limits = (data_min - y_pad, data_max + y_pad)
+
+fig = S.figure(
+    "Similarity compression does not determine ranking success",
+    "Query-to-chunk cosine similarity at retrieved ranks 1–10; all panels share one scale.",
+)
+grid = fig.add_gridspec(
+    2,
+    3,
+    left=0.07,
+    right=0.975,
+    bottom=0.115,
+    top=0.775,
+    height_ratios=[4.25, 0.92],
+    hspace=0.40,
+    wspace=0.12,
+)
+
 ranks = np.arange(1, TOP_K + 1)
-for ax, letter, hue, (label, vdir, _) in zip(axes, "ABC", PANEL_HUE, MODELS):
-    S.panel(ax, letter=letter, title=SHORT[label])
-    arr = results[label]
-    for row in arr:                           # one faint line per gold question
-        ax.plot(ranks, row, color=hue, lw=0.5, alpha=0.055, zorder=2)
-    ax.plot(ranks, arr.mean(axis=0), color=hue, lw=2.0, zorder=4,
-            marker="o", ms=3.8, mew=0, clip_on=False)
-    spread = (arr[:, 0] - arr[:, -1]).mean()
-    ax.annotate(f"mean top-1   {arr[:,0].mean():.3f}\n"
-                f"mean spread  {spread:.3f}\n"
-                f"Hit @5       {HIT5[label]}",
-                xy=(0.97, 0.055), xycoords="axes fraction", ha="right",
-                va="bottom", fontsize=S.SZ_ANNOT, color=S.INK_SOFT,
-                linespacing=1.65, family="monospace")
-    ax.set_xlabel(S.smallcaps("Retrieved rank"), fontsize=S.SZ_AXIS_L)
-    ax.set_xticks([1, 3, 5, 7, 10])
-    ax.set_ylim(0, 1.02)
+main_axes = []
+for col, (letter, spec) in enumerate(zip("ABC", MODELS)):
+    model_id, _, _, display_name, colour = spec
+    ax = fig.add_subplot(grid[0, col], sharey=main_axes[0] if main_axes else None)
+    main_axes.append(ax)
+    S.axes(ax, grid="y")
+    S.panel_heading(ax, letter, display_name)
 
-axes[0].set_ylabel(S.smallcaps("Cosine similarity to query"), fontsize=S.SZ_AXIS_L)
-from matplotlib.lines import Line2D
-fig.legend([Line2D([], [], color=S.SLATE, lw=1.2, alpha=0.45),
-            Line2D([], [], color=S.SLATE, lw=2.0, marker="o", ms=3.8, mew=0)],
-           [f"One of {len(questions)} gold questions", "Mean across all questions"],
-           loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.07),
-           labelcolor=S.INK_SOFT, handlelength=1.8, columnspacing=2.4)
-S.suptitle(fig, "Query-to-chunk similarity compresses as the embedding model shrinks",
-           y=1.04)
-fig.tight_layout()
-OUT.mkdir(parents=True, exist_ok=True)
-p = OUT / "chart 01 - fig_embedding_score_spread.png"
-fig.savefig(p, dpi=300, bbox_inches="tight", facecolor="white")
-(OUT / "chart 01 - fig_embedding_score_spread.json").write_text(json.dumps(
-    {"top_k": TOP_K, "n_questions": len(questions),
-     "models": {l: {"mean_rank1": float(s[:,0].mean()),
-                    "mean_spread_top1_to_topk": float((s[:,0]-s[:,-1]).mean()),
-                    "mean_by_rank": [float(x) for x in s.mean(axis=0)]}
-                for l, s in results.items()}}, indent=1))
-print("wrote", p)
+    scores = scores_by_model[model_id]
+    for row in scores:
+        ax.plot(
+            ranks,
+            row,
+            color=colour,
+            lw=0.48,
+            alpha=0.045,
+            zorder=1,
+        )
+
+    mean_values = np.asarray(stored["models"][model_id]["mean_by_rank"], dtype=float)
+    ax.plot(
+        ranks,
+        mean_values,
+        color=colour,
+        lw=2.35,
+        marker="o",
+        markersize=4.2,
+        markeredgecolor=S.PAPER,
+        markeredgewidth=0.7,
+        zorder=4,
+    )
+    ax.set_xlim(0.7, 10.3)
+    ax.set_ylim(*y_limits)
+    ax.set_xticks([1, 3, 5, 7, 10])
+    ax.set_xlabel("Retrieved rank", fontsize=S.SZ_AXIS, labelpad=6)
+    # Every panel keeps its own y tick labels. They share one scale, but the
+    # panels sit far enough apart that reading a value in C off A's axis is
+    # genuinely hard.
+    ax.tick_params(labelleft=True)
+
+    # Metrics live in their own band, never over the trajectories.
+    card = fig.add_subplot(grid[1, col])
+    card.set_xlim(0, 1)
+    card.set_ylim(0, 1)
+    card.axis("off")
+    card.add_patch(
+        plt.Rectangle(
+            (0, 0.05),
+            1,
+            0.86,
+            facecolor=S.WASH,
+            edgecolor=S.RULE,
+            linewidth=0.7,
+        )
+    )
+    card.plot([0, 1], [0.91, 0.91], color=colour, lw=2.1, clip_on=False)
+
+    metrics = [
+        ("MEAN TOP-1", stored["models"][model_id]["mean_rank1"], ".3f"),
+        (
+            "MEAN SPREAD",
+            stored["models"][model_id]["mean_spread_top1_to_topk"],
+            ".3f",
+        ),
+        ("HIT@5", hit5[model_id], None),
+    ]
+    for x, (metric_label, value, fmt) in zip((0.17, 0.50, 0.83), metrics):
+        rendered = format(value, fmt) if fmt else str(value)
+        card.text(
+            x,
+            0.61,
+            metric_label,
+            ha="center",
+            va="center",
+            fontsize=S.SZ_METRIC_LABEL,
+            fontfamily="sans-serif",
+            fontweight="bold",
+            color=S.INK_FAINT,
+        )
+        card.text(
+            x,
+            0.30,
+            rendered,
+            ha="center",
+            va="center",
+            fontsize=S.SZ_METRIC_VALUE,
+            fontweight="bold",
+            color=colour if metric_label == "HIT@5" else S.INK,
+        )
+    card.plot([0.335, 0.335], [0.20, 0.70], color=S.RULE, lw=0.6)
+    card.plot([0.665, 0.665], [0.20, 0.70], color=S.RULE, lw=0.6)
+
+main_axes[0].set_ylabel("Cosine similarity to query", fontsize=S.SZ_AXIS, labelpad=8)
+
+fig.legend(
+    handles=[
+        Line2D([], [], color=S.BLUE, lw=0.8, alpha=0.28),
+        Line2D(
+            [],
+            [],
+            color=S.BLUE,
+            lw=2.35,
+            marker="o",
+            markersize=4.2,
+            markeredgecolor=S.PAPER,
+        ),
+    ],
+    labels=[
+        f"One of {len(questions)} gold questions",
+        "Stored mean across all questions",
+    ],
+    loc="lower left",
+    bbox_to_anchor=(0.067, 0.018),
+    ncol=2,
+    columnspacing=2.2,
+    handlelength=2.5,
+    labelcolor=S.INK_SOFT,
+)
+fig.text(
+    0.974,
+    0.037,
+    "Spread is mean rank-1 score minus mean rank-10 score.",
+    ha="right",
+    va="center",
+    fontsize=S.SZ_NOTE,
+    color=S.INK_FAINT,
+)
+
+path = S.save(fig, OUT / "chart 01 - fig_embedding_score_spread.png")
+
+# Print every plotted trajectory and every stored mean value without display
+# rounding, so the complete figure can be audited from stdout.
+plotted = {
+    "ranks": ranks.tolist(),
+    "y_limits": list(y_limits),
+    "models": {
+        model_id: {
+            "question_scores": scores_by_model[model_id].tolist(),
+            "mean_by_rank": stored["models"][model_id]["mean_by_rank"],
+            "mean_rank1": stored["models"][model_id]["mean_rank1"],
+            "mean_spread_top1_to_topk": stored["models"][model_id][
+                "mean_spread_top1_to_topk"
+            ],
+            "hit_at_5": hit5[model_id],
+        }
+        for model_id, *_ in MODELS
+    },
+}
+print(json.dumps(plotted, ensure_ascii=False))
+print("wrote", path)
