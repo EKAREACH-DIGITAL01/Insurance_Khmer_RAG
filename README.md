@@ -491,9 +491,8 @@ carries signal — e5's residual ordering is informative, MiniLM's is not.
 Compression is a symptom of the capacity and Khmer-coverage gap, not the
 route by which ranking fails.
 
-This is plotted per model and per rank, with Hit @5 on each panel, in
-`chart 01 - fig_embedding_score_spread.png` (see
-`scripts_figures/fig_embedding_score_spread.py`).
+This is plotted per model and per rank, with Hit @5 on each panel, as
+`chart 01 - fig_embedding_score_spread.png` among the report figures.
 
 The non-zero File Hit Rate @5 for MiniLM (0.16 macro-avg) confirms the
 model is not completely blind — it occasionally retrieves chunks from the
