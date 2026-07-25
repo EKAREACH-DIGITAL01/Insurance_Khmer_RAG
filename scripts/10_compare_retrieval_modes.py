@@ -35,13 +35,31 @@ MAX_K = max(EVAL_KS)
 RRF_K = 60
 NGRAM_SIZE = 3
 
-KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
+KHMER_SCRIPT_PATTERN = re.compile(r"[ក-៿]")
+# Mirrors app.py:69/83/87/92. These were missing here, so this script's BM25 was
+# weaker than production's -- no article-reference boost, no digit-run
+# extraction -- which understated the hybrid arm of the very comparison this
+# script exists to measure. Kept byte-identical to app.py and scripts/13/16.
+DIGIT_RUN_PATTERN = re.compile(r"[០១២៣៤៥៦៧៨៩0-9]+")
+ARTICLE_REF_PATTERN = re.compile(r"(មាត្រា|ប្រការ)\s*([០១២៣៤៥៦៧៨៩0-9]+)")
+ARTICLE_REF_BOOST = 20
+_ARABIC_TO_KHMER = str.maketrans("0123456789", "០១២៣៤៥៦៧៨៩")
+
+
+def to_khmer_digits(s):
+    """Mirrors app.py:90 -- the corpus writes provision numbers in Khmer
+    digits, so an Arabic-digit query has to be normalised to match."""
+    return s.translate(_ARABIC_TO_KHMER)
 
 
 def khmer_aware_tokenize(text):
     tokens = []
+    for keyword, ref_num in ARTICLE_REF_PATTERN.findall(text):
+        tokens.extend([keyword + to_khmer_digits(ref_num)] * ARTICLE_REF_BOOST)
     for word in text.split():
         if KHMER_SCRIPT_PATTERN.search(word):
+            for digit_run in DIGIT_RUN_PATTERN.findall(word):
+                tokens.append(digit_run)
             chars = list(word)
             if len(chars) < NGRAM_SIZE:
                 tokens.append(word)
