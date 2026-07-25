@@ -167,16 +167,15 @@ Khmer-Rag-Chatbot/
 ├── static/                          # gitignored; hard links to the source PDFs,
 │   └── documents/                   # rebuilt at startup by publish_source_pdfs()
 │
-├── assets/                          # 20 diagrams, generated from a prompts
-│   ├── readme/                      #   brief kept locally with the report
-│   │   ├── demo.gif                 # the 4 diagrams this README embeds,
-│   │   ├── architecture_overview.png#   plus the demo recording
+├── assets/
+│   ├── readme/                      # the 4 diagrams this README embeds,
+│   │   ├── demo.gif                 #   plus the demo recording
+│   │   ├── architecture_overview.png
 │   │   ├── chat_request_path.png
 │   │   ├── hybrid_retrieval_rrf.png
 │   │   └── evaluation_framework.png
-│   ├── research-paper/              # gitignored; all 20 diagrams, numbered
-│   │   ├── figure 01 - scope_boundary.png
-│   │   └── ...                      #   in report-chapter order for citing
+│   ├── research-paper/              # gitignored; the report's figure set
+│   │   └── ...
 │   └── logo/
 │       ├── favicon.png
 │       ├── irc-logo-transparent.png
