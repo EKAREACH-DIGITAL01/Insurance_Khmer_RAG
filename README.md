@@ -187,8 +187,7 @@ Khmer-Rag-Chatbot/
 │   ├── evaluation_methodology.md
 │   ├── generation_robustness_and_parity.md  # eval/app.py parity + generation fixes
 │   ├── gold_questions_methodology.md
-│   ├── llm_judge_prompt.md              # RAGAS + hallucination judging rubric
-│   └── project_proposal.md
+│   └── llm_judge_prompt.md              # RAGAS + hallucination judging rubric
 │
 ├── data/
 │   ├── 01_source_documents/         # Raw PDFs, by category

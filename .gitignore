@@ -37,16 +37,11 @@ docs/Internship_Report.docx
 # the four the README embeds are tracked under assets/readme/ instead.
 assets/research-paper/
 
-# The scripts that plot the report's result figures and write its result tables.
-# Local working material for writing the report, like
-# docs/image_generation_prompts.md and the numbered figures they produce; the
-# finished output lives in assets/research-paper/, also ignored.
-scripts_figures/
-
-# The brief the assets/ diagrams were generated from, numbered to match the
-# research paper's figures. Working notes for writing the report, kept local
-# alongside the figures and the report itself.
+# Working notes for writing the report, kept local alongside the figures and the
+# report itself: the brief the assets/ diagrams were generated from, and the
+# project proposal that preceded the work.
 docs/image_generation_prompts.md
+docs/project_proposal.md
 
 # Locally generated human-evaluation databases (incl. WAL sidecar files)
 reports/human_golden_question_evaluation/*.db

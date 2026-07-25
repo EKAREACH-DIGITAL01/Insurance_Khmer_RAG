@@ -25,8 +25,3 @@ tabulate==0.10.0
 openai==2.44.0
 rank-bm25==0.2.2
 requests==2.34.2
-
-# Figures only -- used by the local plotting scripts that draw the report's
-# result charts. Nothing in the pipeline imports it, so a version bump here
-# cannot affect any number under reports/.
-matplotlib==3.11.1
