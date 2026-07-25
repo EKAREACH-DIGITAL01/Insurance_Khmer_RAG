@@ -1,6 +1,6 @@
 # Khmer Insurance Law Assistant
 
-![Khmer Insurance Law Assistant demo — asking a Khmer question about insurance law, the live retrieval-and-generation progress ladder, an out-of-domain refusal, and a cited answer](assets/demo.gif)
+![Khmer Insurance Law Assistant demo — asking a Khmer question about insurance law, the live retrieval-and-generation progress ladder, an out-of-domain refusal, and a cited answer](assets/readme/demo.gif)
 
 A retrieval-augmented generation (RAG) chatbot that answers questions about
 Cambodian insurance law in Khmer, grounded entirely in a curated corpus of
@@ -85,7 +85,7 @@ happen at chat time.
 
 ## Architecture
 
-![Khmer Insurance Law Assistant — architecture: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–17), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/architecture_overview.png)
+![Khmer Insurance Law Assistant — architecture: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–17), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/readme/architecture_overview.png)
 
 The diagram above reads in three stages:
 
@@ -104,7 +104,7 @@ The diagram above reads in three stages:
 
 ### One question's path through Stage C
 
-![One question's journey: the free input-rule gate, hybrid retrieval, the relevance gate, then streamed generation — with the answer always delivered and qualified rather than withheld](assets/chat_request_path.png)
+![One question's journey: the free input-rule gate, hybrid retrieval, the relevance gate, then streamed generation — with the answer always delivered and qualified rather than withheld](assets/readme/chat_request_path.png)
 
 Both refusal points fire **before** generation, cheapest first. Nothing
 inspects or blocks a finished answer: once generation starts the answer is
@@ -113,7 +113,7 @@ permanent disclaimer in every case.
 
 ### Hybrid retrieval
 
-![Semantic and lexical search run independently over the same corpus and are fused by Reciprocal Rank Fusion on rank position, so passages both methods rank highly rise to the top](assets/hybrid_retrieval_rrf.png)
+![Semantic and lexical search run independently over the same corpus and are fused by Reciprocal Rank Fusion on rank position, so passages both methods rank highly rise to the top](assets/readme/hybrid_retrieval_rrf.png)
 
 Khmer legal text defeats each method alone: semantic search misses exact
 statutory terminology, lexical search misses paraphrased questions. RRF scores
@@ -168,14 +168,19 @@ Khmer-Rag-Chatbot/
 │   └── documents/                   # rebuilt at startup by publish_source_pdfs()
 │
 ├── assets/                          # 20 diagrams, regenerated from
-│   ├── architecture_overview.png     #   docs/image_generation_prompts.md
-│   ├── chat_request_path.png         #   (4 used in this README, the rest
-│   ├── hybrid_retrieval_rrf.png      #    are report figures)
-│   ├── evaluation_framework.png
-│   ├── ...
-│   ├── favicon.png
-│   ├── irc-logo-transparent.png
-│   └── logo.png
+│   ├── readme/                      #   docs/image_generation_prompts.md
+│   │   ├── demo.gif                 # the 4 diagrams this README embeds,
+│   │   ├── architecture_overview.png#   plus the demo recording
+│   │   ├── chat_request_path.png
+│   │   ├── hybrid_retrieval_rrf.png
+│   │   └── evaluation_framework.png
+│   ├── research-paper/              # gitignored; all 20 diagrams, numbered
+│   │   ├── figure 01 - scope_boundary.png
+│   │   └── ...                      #   in report-chapter order for citing
+│   └── logo/
+│       ├── favicon.png
+│       ├── irc-logo-transparent.png
+│       └── logo.png
 │
 ├── docs/
 │   ├── adversarial_test_set.md
@@ -404,7 +409,7 @@ indices are already in `vector_db/`.
 
 ## Evaluation Framework
 
-![Everything measures against one validated gold set: 11 evaluators produced 550 ratings over 400 questions, and their corrections flow back into the set before the retrieval, generation and safety tracks use it](assets/evaluation_framework.png)
+![Everything measures against one validated gold set: 11 evaluators produced 550 ratings over 400 questions, and their corrections flow back into the set before the retrieval, generation and safety tracks use it](assets/readme/evaluation_framework.png)
 
 The gold question set is the measuring stick, so it was validated before it
 measured anything. Note that the generation track is judged by a machine while

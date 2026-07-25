@@ -451,8 +451,8 @@ WELCOME_SUBLINE = "តើមានអ្វីខ្ញុំអាចជួយ�
 # into the line above: that one asks what the user needs, and a sentence doing
 # both jobs buries the question.
 WELCOME_HINT = "សូមសួរអំពីច្បាប់ អនុក្រឹត្ត សេចក្តីប្រកាស និងសេចក្តីណែនាំ។"
-IRC_LOGO_PATH = os.path.join(_APP_DIR, "assets", "logo.png")
-FAVICON_PATH = os.path.join(_APP_DIR, "assets", "favicon.png")
+IRC_LOGO_PATH = os.path.join(_APP_DIR, "assets", "logo", "logo.png")
+FAVICON_PATH = os.path.join(_APP_DIR, "assets", "logo", "favicon.png")
 
 
 def image_data_uri(path, mime_type):

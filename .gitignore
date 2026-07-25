@@ -32,6 +32,11 @@ models/retriever/*
 # Ignore Internship Report
 docs/Internship_Report.docx
 
+# Numbered figure copies for the research paper. Every one of these is a
+# duplicate of a diagram regenerated from docs/image_generation_prompts.md;
+# the four the README embeds are tracked under assets/readme/ instead.
+assets/research-paper/
+
 # Locally generated human-evaluation databases (incl. WAL sidecar files)
 reports/human_golden_question_evaluation/*.db
 reports/human_golden_question_evaluation/*.db-*
@@ -41,7 +46,7 @@ reports/human_golden_question_evaluation/*.db-*
 static/
 
 # Screen-recording source for the README demo. 84 MB at 3326x2160 -- the
-# committed assets/demo.gif is generated from it, so the source itself has no
+# committed assets/readme/demo.gif is generated from it, so the source itself has no
 # reason to be in git history forever.
 *.mp4
 

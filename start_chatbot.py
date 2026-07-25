@@ -443,7 +443,7 @@ def patch_streamlit_browser_chrome(title, favicon_path):
 
 patch_streamlit_browser_chrome(
     "Khmer Insurance Law Assistant",
-    PROJECT_ROOT / "assets" / "favicon.png",
+    PROJECT_ROOT / "assets" / "logo" / "favicon.png",
 )
 
 print("Launching Streamlit...")
