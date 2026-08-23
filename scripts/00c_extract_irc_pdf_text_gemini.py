@@ -52,9 +52,9 @@ def is_pdf_record(record):
     return "pdf" in content_type or path.endswith(".pdf") or url.endswith(".pdf")
 
 
-def load_pdf_records(only_url_contains=None, limit=None):
+def load_pdf_records(only_url_contains=None, limit=None, shard_count=1, shard_index=0):
     manifest = load_json(MANIFEST_PATH, {})
-    records = []
+    all_records = []
     for record in manifest.get("files", []):
         if not is_pdf_record(record):
             continue
@@ -64,9 +64,14 @@ def load_pdf_records(only_url_contains=None, limit=None):
         url = record.get("url") or str(pdf_path)
         if only_url_contains and only_url_contains not in url:
             continue
-        records.append(record)
-        if limit and len(records) >= limit:
-            break
+        all_records.append(record)
+    records = [
+        record
+        for index, record in enumerate(all_records)
+        if index % shard_count == shard_index
+    ]
+    if limit:
+        records = records[:limit]
     return records
 
 
@@ -169,60 +174,78 @@ def generate_ocr_response(client, model, image):
     )
 
 
+def is_quota_error(exc):
+    message = str(exc)
+    return "RESOURCE_EXHAUSTED" in message or "429" in message
+
+
 def extract_page_with_timeout(executor, client, model, image_path, timeout):
     with Image.open(image_path) as image:
         future = executor.submit(generate_ocr_response, client, model, image)
-        return future.result(timeout=timeout)
+        try:
+            return future.result(timeout=timeout)
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
 
-def ocr_pages(page_paths, doc_id, clients, model, request_timeout):
+def ocr_pages(page_paths, doc_id, clients, model, request_timeout, max_consecutive_quota_errors):
     processed = 0
     skipped = 0
     failed = 0
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    try:
-        for image_path in page_paths:
-            page_number = int(image_path.stem.split("_")[1])
-            output_path = raw_page_path(doc_id, page_number)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            if output_path.exists():
-                skipped += 1
-                continue
+    consecutive_quota_errors = 0
+    for image_path in page_paths:
+        page_number = int(image_path.stem.split("_")[1])
+        output_path = raw_page_path(doc_id, page_number)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        if output_path.exists():
+            skipped += 1
+            continue
 
-            client = clients[(processed + failed) % len(clients)]
-            print(f"Gemini OCR: {doc_id} page {page_number}")
-            start = time.time()
-            try:
-                response = extract_page_with_timeout(
-                    executor,
-                    client,
-                    model,
-                    image_path,
-                    request_timeout,
-                )
-            except concurrent.futures.TimeoutError:
-                print(f"Timeout after {request_timeout}s: {doc_id} page {page_number}")
-                failed += 1
-                continue
-            except Exception as exc:
-                print(f"Gemini error on {doc_id} page {page_number}: {exc}")
-                failed += 1
-                continue
-
-            save_json(
-                output_path,
-                {
-                    "document_id": doc_id,
-                    "page": page_number,
-                    "raw_text": response.text or "",
-                    "model": model,
-                    "usage_metadata": str(getattr(response, "usage_metadata", "")),
-                },
+        client = clients[(processed + failed) % len(clients)]
+        print(f"Gemini OCR: {doc_id} page {page_number}")
+        start = time.time()
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        try:
+            response = extract_page_with_timeout(
+                executor,
+                client,
+                model,
+                image_path,
+                request_timeout,
             )
-            processed += 1
-            print(f"Saved OCR page in {time.time() - start:.2f}s")
-    finally:
-        executor.shutdown(wait=False, cancel_futures=True)
+        except concurrent.futures.TimeoutError:
+            print(f"Timeout after {request_timeout}s: {doc_id} page {page_number}")
+            consecutive_quota_errors = 0
+            failed += 1
+            continue
+        except Exception as exc:
+            print(f"Gemini error on {doc_id} page {page_number}: {exc}")
+            if is_quota_error(exc):
+                consecutive_quota_errors += 1
+                if consecutive_quota_errors >= max_consecutive_quota_errors:
+                    print(
+                        "Stopping OCR for this document after "
+                        f"{consecutive_quota_errors} consecutive quota errors."
+                    )
+                    return processed, skipped, failed + 1
+            else:
+                consecutive_quota_errors = 0
+            failed += 1
+            continue
+
+        save_json(
+            output_path,
+            {
+                "document_id": doc_id,
+                "page": page_number,
+                "raw_text": response.text or "",
+                "model": model,
+                "usage_metadata": str(getattr(response, "usage_metadata", "")),
+            },
+        )
+        processed += 1
+        consecutive_quota_errors = 0
+        print(f"Saved OCR page in {time.time() - start:.2f}s")
 
     return processed, skipped, failed
 
@@ -276,11 +299,14 @@ def parse_args():
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--dpi", type=int, default=220)
     parser.add_argument("--request-timeout", type=int, default=120)
+    parser.add_argument("--max-consecutive-quota-errors", type=int, default=5)
     parser.add_argument("--conversion-batch-size", type=int, default=20)
     parser.add_argument("--conversion-thread-count", type=int, default=4)
     parser.add_argument("--limit-pdfs", type=int)
     parser.add_argument("--max-pages-per-pdf", type=int)
     parser.add_argument("--only-url-contains")
+    parser.add_argument("--shard-count", type=int, default=1)
+    parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--convert-only", action="store_true")
     parser.add_argument("--merge-only", action="store_true")
     return parser.parse_args()
@@ -289,6 +315,10 @@ def parse_args():
 def main():
     args = parse_args()
     load_dotenv()
+    if args.shard_count < 1:
+        raise ValueError("--shard-count must be at least 1")
+    if args.shard_index < 0 or args.shard_index >= args.shard_count:
+        raise ValueError("--shard-index must be between 0 and shard-count - 1")
 
     key_text = os.getenv("GEMINI_API_KEYS") or os.getenv("GEMINI_API_KEY") or ""
     api_keys = [key.strip() for key in key_text.split(",") if key.strip()]
@@ -297,8 +327,13 @@ def main():
     records = load_pdf_records(
         only_url_contains=args.only_url_contains,
         limit=args.limit_pdfs,
+        shard_count=args.shard_count,
+        shard_index=args.shard_index,
     )
-    print(f"PDF records selected: {len(records)}")
+    print(
+        f"PDF records selected: {len(records)} "
+        f"(shard {args.shard_index + 1}/{args.shard_count})"
+    )
 
     scraped_at = datetime.now(timezone.utc).isoformat()
     total_processed = 0
@@ -336,6 +371,7 @@ def main():
             clients=clients,
             model=args.model,
             request_timeout=args.request_timeout,
+            max_consecutive_quota_errors=args.max_consecutive_quota_errors,
         )
         total_processed += processed
         total_skipped += skipped

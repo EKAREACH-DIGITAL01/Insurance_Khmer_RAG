@@ -3050,25 +3050,29 @@
     "document_name": "ច្បាប់ - a3a51ab7-188c-4c0c-8d5b-07d9b19bd626.pdf",
     "document_type": "website",
     "release_date": "2026-08-23",
-    "source_url": "https://object.irc.gov.kh/irc-public/upload/2022/a3a51ab7-188c-4c0c-8d5b-07d9b19bd626.pdf"
+    "source_url": "https://object.irc.gov.kh/irc-public/upload/2022/a3a51ab7-188c-4c0c-8d5b-07d9b19bd626.pdf",
+    "ocr_method": "Google Gemini API (gemini-3.5-flash)"
   },
   "website_file_763fcebf565e": {
     "document_name": "ច្បាប់ - ecbde545-e5c0-4509-9ae2-09e42aabb154.pdf",
     "document_type": "website",
     "release_date": "2026-08-23",
-    "source_url": "https://object.irc.gov.kh/irc-public/upload/2022/ecbde545-e5c0-4509-9ae2-09e42aabb154.pdf"
+    "source_url": "https://object.irc.gov.kh/irc-public/upload/2022/ecbde545-e5c0-4509-9ae2-09e42aabb154.pdf",
+    "ocr_method": "Google Gemini API (gemini-3.5-flash)"
   },
   "website_file_bc47dd8bf21f": {
     "document_name": "Laws - 4685793d-9ce0-4414-b3df-5936a35557e3.pdf",
     "document_type": "website",
     "release_date": "2026-08-23",
-    "source_url": "https://object.irc.gov.kh/irc-public/upload/2022/4685793d-9ce0-4414-b3df-5936a35557e3.pdf"
+    "source_url": "https://object.irc.gov.kh/irc-public/upload/2022/4685793d-9ce0-4414-b3df-5936a35557e3.pdf",
+    "ocr_method": "Google Gemini API (gemini-3.5-flash)"
   },
   "website_file_3622c726e0ab": {
     "document_name": "Laws - 6d372147-e680-4173-9feb-040e94d9150c.pdf",
     "document_type": "website",
     "release_date": "2026-08-23",
-    "source_url": "https://object.irc.gov.kh/irc-public/upload/2022/6d372147-e680-4173-9feb-040e94d9150c.pdf"
+    "source_url": "https://object.irc.gov.kh/irc-public/upload/2022/6d372147-e680-4173-9feb-040e94d9150c.pdf",
+    "ocr_method": "Google Gemini API (gemini-3.5-flash)"
   },
   "website_file_78fb671a8a7d": {
     "document_name": "Sub Decrees - 2c553702-2c4d-4898-b873-288c7fdb9a28.pdf",
@@ -4593,5 +4597,33 @@
     "document_type": "website",
     "release_date": "2026-08-23",
     "source_url": "https://www.irc.gov.kh/files/cv/Va Vichea/Curriculum Vitae ខ្មែរ-images/0003-min.jpg"
+  },
+  "website_file_812ccdbe1c89": {
+    "document_name": "e5ae338b-b80e-4fdc-9971-a7a5249fdc92.pdf",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://object.irc.gov.kh/irc-public/e5ae338b-b80e-4fdc-9971-a7a5249fdc92.pdf",
+    "ocr_method": "Google Gemini API (gemini-3.5-flash)"
+  },
+  "website_file_99e41e395db5": {
+    "document_name": "cf489960-810f-4eca-a54e-fd2c8417798e.pdf",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://object.irc.gov.kh/irc-public/upload/2022/cf489960-810f-4eca-a54e-fd2c8417798e.pdf",
+    "ocr_method": "Google Gemini API (gemini-3.5-flash)"
+  },
+  "website_file_b9fd5ffe951e": {
+    "document_name": "7077585a-b7ea-4796-a37b-a74fb0f139ec.pdf",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://object.irc.gov.kh/irc-public/upload/2024/7077585a-b7ea-4796-a37b-a74fb0f139ec.pdf",
+    "ocr_method": "Google Gemini API (gemini-3.5-flash)"
+  },
+  "website_file_7e638c6e4cc4": {
+    "document_name": "f1b5dd48-1201-447e-8780-ee746a48df92.pdf",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://object.irc.gov.kh/irc-public/f1b5dd48-1201-447e-8780-ee746a48df92.pdf",
+    "ocr_method": "Google Gemini API (gemini-3.5-flash)"
   }
 }
