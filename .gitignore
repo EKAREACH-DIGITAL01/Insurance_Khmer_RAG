@@ -51,6 +51,8 @@ docs/project_proposal.md
 # Locally generated human-evaluation databases (incl. WAL sidecar files)
 reports/human_golden_question_evaluation/*.db
 reports/human_golden_question_evaluation/*.db-*
+reports/chat_feedback/*.csv
+reports/chat_feedback/*.jsonl
 report_and_slide/*
 
 # Hard links to the source PDFs, generated at startup so Streamlit can serve

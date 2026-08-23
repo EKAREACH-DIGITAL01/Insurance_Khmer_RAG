@@ -21,6 +21,7 @@ import shutil
 import threading
 import time
 import uuid
+from urllib.parse import quote
 
 import numpy as np
 import requests
@@ -53,6 +54,9 @@ MAX_CHUNKS_PER_DOC = 2  # cap near-duplicate chunks from the same document.
                         # collapse (both adjacent articles reach the model) while
                         # adding the least prefill/TTFT; CONTEXT_K still caps the
                         # total, so prompt size stays bounded.
+DOC_FOCUS_LOOKAHEAD = 8
+DOC_FOCUS_MIN_HITS = 3
+DOC_FOCUS_CONTEXT_K = 4
 BM25_TOP_K = TOP_K  # lexical candidate pool size, matched to FAISS's TOP_K
                      # so neither ranker dominates the fused pool just by
                      # having a bigger candidate list to draw from
@@ -365,8 +369,8 @@ GEN_FREQUENCY_PENALTY = 0.6
 # small cap (faster first token, since the server reserves buffers to the cap).
 # Clamped to [floor, hard cap] and further bounded so prompt + output can never
 # exceed the context window.
-MAX_TOKENS_FLOOR    = 384    # enough for legal lists, low enough to avoid demo-time runaways
-GEN_TOKEN_HEADROOM  = 1.0    # answers should stay close to the retrieved source length
+MAX_TOKENS_FLOOR    = 512    # enough for legal lists, low enough to avoid demo-time runaways
+GEN_TOKEN_HEADROOM  = 1.25   # source-backed answers need room for Khmer list wording
 SERVER_CTX_SIZE     = 16384  # must match start_chatbot.py's --ctx-size
 PROMPT_TOKEN_MARGIN = 256    # safety gap so prompt + max_tokens < ctx size
 # Absolute output ceiling independent of any one prompt: leaves room for a large
@@ -520,6 +524,27 @@ st.set_page_config(
     # to chat" control -- the conversation rail is noise there.
     initial_sidebar_state="collapsed" if IS_DIAGNOSTICS else "expanded",
 )
+
+
+def process_feedback_query():
+    """Persist a reaction from the answer action row, then clean the URL."""
+    msg_id = st.query_params.get("feedback_msg")
+    value = st.query_params.get("feedback")
+    if not msg_id or value not in {"up", "down"}:
+        return
+
+    if history.record_feedback(msg_id, value):
+        for msg in st.session_state["messages"]:
+            if str(msg.get("id")) == str(msg_id):
+                msg["feedback"] = value
+                msg["feedback_updated_at"] = int(time.time())
+                break
+
+    st.query_params.clear()
+    st.rerun()
+
+
+process_feedback_query()
 
 
 def ensure_conversation(question):
@@ -2008,7 +2033,7 @@ def choose_max_tokens_live(context_results, prompt_tokens=None):
 
 
 GENERATED_SOURCE_SECTION_PATTERN = re.compile(
-    r"(?:មើលប្រភពឯកសារ|ប្រភពឯកសារ|ប្រភព|Sources?|ឯកសារយោង)\s*[:：]?\s*$",
+    r"^\s*(?:មើលប្រភពឯកសារ|ប្រភពឯកសារ|ប្រភព|Sources?|ឯកសារយោង)(?:\s*[:：-]|$)",
     re.IGNORECASE,
 )
 HTML_ARTIFACT_PATTERN = re.compile(
@@ -2017,7 +2042,58 @@ HTML_ARTIFACT_PATTERN = re.compile(
 )
 
 
-def normalize_answer_text(text):
+def _dedupe_consecutive_lines(lines):
+    deduped = []
+    recent = []
+    for line in lines:
+        key = re.sub(r"\s+", "", line)
+        if key and key in recent[-3:]:
+            continue
+        deduped.append(line)
+        if key:
+            recent.append(key)
+    return deduped
+
+
+def _dedupe_repeated_sentences(text):
+    """Remove short local-model loops without deleting legitimate lists."""
+    pieces = re.split(r"([។៕!?])", text)
+    sentences = []
+    for i in range(0, len(pieces), 2):
+        body = pieces[i]
+        punct = pieces[i + 1] if i + 1 < len(pieces) else ""
+        if body or punct:
+            sentences.append(body + punct)
+
+    out = []
+    recent = []
+    for sentence in sentences:
+        key = re.sub(r"\s+", "", sentence)
+        if len(key) > 30 and key in recent[-4:]:
+            continue
+        out.append(sentence)
+        if key:
+            recent.append(key)
+    return "".join(out)
+
+
+def _trim_to_last_complete_sentence(text):
+    """Hide a dangling tail when generation stopped mid-sentence.
+
+    This does not force a period onto incomplete text. It keeps the last
+    complete Khmer sentence when doing so preserves most of the answer, which
+    reads better and is less misleading during a live demo.
+    """
+    text = text.strip()
+    if not text or text.endswith(("។", "៕", ".", "!", "?")):
+        return text
+    last = max(text.rfind("។"), text.rfind("៕"))
+    if last >= 0 and last >= len(text) * 0.55:
+        return text[: last + 1].strip()
+    return text
+
+
+def normalize_answer_text(text, final=True):
     """Clean model output before display/storage."""
     if not text:
         return ""
@@ -2029,16 +2105,20 @@ def normalize_answer_text(text):
         if GENERATED_SOURCE_SECTION_PATTERN.search(line):
             break
         cleaned_lines.append(line)
+    cleaned_lines = _dedupe_consecutive_lines(cleaned_lines)
     cleaned = "\n".join(cleaned_lines)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"\n\s*\n+", "\n", cleaned)
     cleaned = re.sub(r"(?m)^\s*[-•]\s*$\n?", "", cleaned)
+    cleaned = _dedupe_repeated_sentences(cleaned)
+    if final:
+        cleaned = _trim_to_last_complete_sentence(cleaned)
     return cleaned.strip()
 
 
 def has_repetition_loop(text):
     """Detect runaway repeated spans while streaming."""
-    compact = re.sub(r"\s+", " ", normalize_answer_text(text))
+    compact = re.sub(r"\s+", " ", normalize_answer_text(text, final=False))
     if len(compact) < 220:
         return False
     for size in (45, 65, 90, 120):
@@ -2051,8 +2131,8 @@ def has_repetition_loop(text):
     return len(sentences) >= 5 and len(set(sentences[-5:])) <= 2
 
 
-def render_answer_html(answer):
-    return f'<div class="kc-msg-assistant">{html.escape(normalize_answer_text(answer))}</div>'
+def render_answer_html(answer, final=True):
+    return f'<div class="kc-msg-assistant">{html.escape(normalize_answer_text(answer, final=final))}</div>'
 
 
 def get_loaded_model():
@@ -2546,6 +2626,16 @@ def resolve_provision_lookup(question, context_results):
     return texts or None
 
 
+def context_doc_key(chunk):
+    metadata = chunk.get("metadata", {})
+    return (
+        metadata.get("document_id")
+        or document_id_for_chunk(chunk.get("chunk_id", ""))
+        or metadata.get("document_name")
+        or "unknown"
+    )
+
+
 def select_context_chunks(results):
     """Cap which retrieved chunks actually go into the LLM prompt: at most
     CONTEXT_K total, and no more than MAX_CHUNKS_PER_DOC from any single
@@ -2553,14 +2643,28 @@ def select_context_chunks(results):
     diagnostics stays informative), but redundant near-duplicate chunks
     from the same document were the single biggest driver of prompt size
     (and therefore prefill/first-token time) without adding real coverage."""
+    if results:
+        # When one document clearly dominates the fused ranking, keep the
+        # prompt centered on that document instead of padding it with weaker
+        # neighbours. This makes answers more faithful to the reference and
+        # reduces the local model's tendency to merge unrelated sources.
+        top_doc = context_doc_key(results[0][1])
+        focused = [
+            (score, chunk)
+            for score, chunk in results[:DOC_FOCUS_LOOKAHEAD]
+            if context_doc_key(chunk) == top_doc
+        ]
+        if len(focused) >= DOC_FOCUS_MIN_HITS:
+            return focused[: min(CONTEXT_K, DOC_FOCUS_CONTEXT_K)]
+
     selected = []
     per_doc_count = {}
     for score, chunk in results:
-        doc_name = chunk.get("metadata", {}).get("document_name", "unknown")
-        if per_doc_count.get(doc_name, 0) >= MAX_CHUNKS_PER_DOC:
+        doc_key = context_doc_key(chunk)
+        if per_doc_count.get(doc_key, 0) >= MAX_CHUNKS_PER_DOC:
             continue
         selected.append((score, chunk))
-        per_doc_count[doc_name] = per_doc_count.get(doc_name, 0) + 1
+        per_doc_count[doc_key] = per_doc_count.get(doc_key, 0) + 1
         if len(selected) >= CONTEXT_K:
             break
     return selected
@@ -3325,8 +3429,9 @@ def install_action_row_script():
     click here keeps the gesture in the page where the click happened, so all
     four can be the same kind of element with the same kind of tooltip.
 
-    The reactions toggle a class and nothing more -- see render_message_actions
-    for why there is deliberately no server round trip behind them."""
+    The reactions are ordinary links handled by process_feedback_query(), so
+    they persist in chat_history.db. The small client-side class toggle below
+    only makes the click feel immediate before Streamlit reruns."""
     components.html(
         """
         <script>
@@ -3406,23 +3511,27 @@ def render_message_actions(msg):
     they line up by construction instead of by reconciling three different
     Streamlit layout behaviours, and every one of them gets the same tooltip.
 
-    The reactions are deliberately inert: they light up and nothing else
-    happens. Nothing is recorded, sent, or persisted. Kept because an answer
-    with no way to react to it feels unfinished, but there is no feedback
-    pipeline behind them, and this note is here so nobody wires one up later
-    assuming that was always the intent.
+    The reactions persist to chat_history.db through query params, so demo
+    reviewers can mark answers that need later dataset, retrieval, or prompt
+    work without leaving the chat screen.
     """
     answer = normalize_answer_text(msg.get("answer") or "")
     answer_b64 = base64.b64encode(answer.encode("utf-8")).decode("ascii")
+    msg_id = quote(str(msg["id"]), safe="")
+    feedback = msg.get("feedback")
+    up_cls = "kc-act kc-act-thumb" + (" is-on" if feedback == "up" else "")
+    down_cls = "kc-act kc-act-thumb" + (" is-on" if feedback == "down" else "")
     diag_url = f"?view=diagnostics&amp;msg={html.escape(str(msg['id']))}"
+    up_url = html.escape(f"?feedback_msg={msg_id}&feedback=up")
+    down_url = html.escape(f"?feedback_msg={msg_id}&feedback=down")
     st.markdown(
         f'<div class="kc-actions">'
         f'<button type="button" class="kc-act kc-act-copy" data-copy-b64="{answer_b64}" '
         f'data-tip="ចម្លង" aria-label="ចម្លង">{_ICON_COPY}</button>'
-        f'<button type="button" class="kc-act kc-act-thumb" '
-        f'data-tip="ពេញចិត្ត" aria-label="ពេញចិត្ត">{_ICON_THUMB_UP}</button>'
-        f'<button type="button" class="kc-act kc-act-thumb" '
-        f'data-tip="មិនពេញចិត្ត" aria-label="មិនពេញចិត្ត">{_ICON_THUMB_DOWN}</button>'
+        f'<a class="{up_cls}" href="{up_url}" data-tip="ពេញចិត្ត" '
+        f'aria-label="ពេញចិត្ត" aria-pressed="{str(feedback == "up").lower()}">{_ICON_THUMB_UP}</a>'
+        f'<a class="{down_cls}" href="{down_url}" data-tip="មិនពេញចិត្ត" '
+        f'aria-label="មិនពេញចិត្ត" aria-pressed="{str(feedback == "down").lower()}">{_ICON_THUMB_DOWN}</a>'
         f'<a class="kc-act" href="{diag_url}" target="_blank" rel="noopener" '
         f'data-tip="មើលព័ត៌មានលម្អិត" aria-label="មើលព័ត៌មានលម្អិត">{_ICON_INFO}</a>'
         f"</div>",
@@ -3571,7 +3680,7 @@ def handle_new_question(
     ladder_ph = st.empty()
     answer_ph = st.empty()
     if answer_text:
-        answer_ph.markdown(render_answer_html(answer_text), unsafe_allow_html=True)
+        answer_ph.markdown(render_answer_html(answer_text, final=False), unsafe_allow_html=True)
     ladder_ph.markdown(
         render_ladder_html(current_idx, phase_elapsed), unsafe_allow_html=True
     )
@@ -3625,7 +3734,7 @@ def handle_new_question(
                 scroll_to_bottom()
             elif kind == "token":
                 answer_text += payload
-                answer_ph.markdown(render_answer_html(answer_text), unsafe_allow_html=True)
+                answer_ph.markdown(render_answer_html(answer_text, final=False), unsafe_allow_html=True)
                 if has_repetition_loop(answer_text):
                     stop_event.set()
             elif kind == "done":

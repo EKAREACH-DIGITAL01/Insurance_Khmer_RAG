@@ -58,8 +58,18 @@ def init_db():
             payload         TEXT NOT NULL,
             created_at      INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS feedback_events (
+            id         TEXT PRIMARY KEY,
+            message_id TEXT NOT NULL
+                       REFERENCES messages(id) ON DELETE CASCADE,
+            value      TEXT NOT NULL
+                       CHECK (value IN ('up', 'down')),
+            created_at INTEGER NOT NULL
+        );
         CREATE INDEX IF NOT EXISTS idx_messages_conversation
             ON messages(conversation_id, position);
+        CREATE INDEX IF NOT EXISTS idx_feedback_events_message
+            ON feedback_events(message_id, created_at);
         """
     )
     conn.commit()
@@ -196,3 +206,45 @@ def append_message(conv_id, msg):
     )
     conn.commit()
     conn.close()
+
+
+def record_feedback(msg_id, value):
+    """Stores the latest visible reaction for one answer, plus an event log.
+
+    The message payload keeps the current state so the button stays selected
+    when an old chat is reopened. feedback_events keeps every click so later
+    analysis can tell whether a reviewer changed their mind during testing.
+    """
+    value = str(value or "").strip().lower()
+    if value not in {"up", "down"}:
+        return False
+
+    now = int(time.time())
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT payload FROM messages WHERE id = ?", (str(msg_id),)
+        ).fetchone()
+        if row is None:
+            return False
+
+        payload = json.loads(row["payload"])
+        payload["feedback"] = value
+        payload["feedback_updated_at"] = now
+
+        conn.execute(
+            "UPDATE messages SET payload = ? WHERE id = ?",
+            (
+                json.dumps(payload, ensure_ascii=False, default=_json_default),
+                str(msg_id),
+            ),
+        )
+        conn.execute(
+            "INSERT INTO feedback_events (id, message_id, value, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            (str(uuid.uuid4()), str(msg_id), value, now),
+        )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
