@@ -3375,6 +3375,7 @@ def render_message(msg):
         and not msg.get("out_of_domain")
     ):
         render_used_sources(msg["used_sources"])
+        render_message_actions(msg)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
