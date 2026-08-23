@@ -24,6 +24,7 @@ DOCUMENT_TYPE_KH = {
     "prakas": "ប្រកាស",
     "guidance": "គោលការណ៍ណែនាំ",
     "sub_decree": "អនុក្រឹត្យ",
+    "website": "ទំព័រគេហទំព័រ",
 }
 
 # ----------------------------------------------------------------------------
@@ -167,6 +168,9 @@ for chunk in all_chunks:
     if metadata.get("heading_title"):
         embedding_parts.append(metadata["heading_title"])
 
+    if metadata.get("source_url"):
+        embedding_parts.append(metadata["source_url"])
+
     embedding_parts.append(text)
 
     embedding_text = "\n".join(embedding_parts)
@@ -220,8 +224,15 @@ for key, model_config in EMBEDDING_MODELS.items():
     print(f"MODEL: {label}")
     print(f"{'=' * 70}")
 
-    if faiss_output.exists() and metadata_output.exists():
-        print(f"Already built -- skipping. ({subfolder}/)")
+    existing_outputs = [faiss_output, metadata_output, model_info_output]
+    newest_chunk_mtime = max(path.stat().st_mtime for path in chunk_files)
+    outputs_current = (
+        all(path.exists() for path in existing_outputs)
+        and min(path.stat().st_mtime for path in existing_outputs) >= newest_chunk_mtime
+    )
+
+    if outputs_current:
+        print(f"Already current -- skipping. ({subfolder}/)")
         skipped_count += 1
         continue
 

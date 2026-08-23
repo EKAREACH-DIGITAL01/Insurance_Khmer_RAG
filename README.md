@@ -379,8 +379,11 @@ installer safely skips anything already downloaded.
 ## Running the Chatbot
 
 ```bash
-python start_chatbot.py
+./run_chatbot.sh
 ```
+
+If you prefer to call Python directly after activating `.venv`, use
+`python start_chatbot.py`.
 
 This will:
 1. Check that SeaLLM v3 7B and the `vector_db/BAAI-BGE-M3/` index are
@@ -550,6 +553,7 @@ runs again when adding genuinely new source PDFs.
 
 | Script | What it does | When needed |
 |---|---|---|
+| `00_scrape_irc_website.py` | Crawls `irc.gov.kh`, saves page text for the corpus, and downloads linked files | When refreshing website-derived data |
 | `01_convert_pdf_to_png.py` | Renders PDF pages to PNG | New source PDFs only |
 | `02_extract_text_gemini.py` | OCRs each PNG via Gemini (paid API) | New source PDFs only |
 | `03_clean_pages.py` | Strips OCR artifacts per category | Any rebuild |
@@ -561,6 +565,9 @@ runs again when adding genuinely new source PDFs.
 | `10_compare_retrieval_modes.py` | Measures retrieval quality on gold questions | Any rebuild |
 
 ```bash
+# Optional: add/refresh website-derived IRC pages first
+python scripts/00_scrape_irc_website.py
+
 # Typical rebuild (starting from committed OCR output):
 python scripts/03_clean_pages.py
 python scripts/04_merge_documents.py
@@ -568,8 +575,7 @@ python scripts/05_clean_documents.py
 python scripts/06_chunk_documents.py
 python scripts/07_merge_chunked_documents.py
 
-# Delete existing indices first -- 08 skips models that already have one
-rm -rf vector_db/BAAI-BGE-M3 vector_db/multilingual-e5-large vector_db/MiniLM-paraphrase-multilingual-L12-v2
+# Step 08 rebuilds a model when merged chunks are newer than its index
 python scripts/08_generate_embeddings.py
 
 python scripts/10_compare_retrieval_modes.py

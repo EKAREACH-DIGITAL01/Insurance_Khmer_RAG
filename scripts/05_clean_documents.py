@@ -357,6 +357,12 @@ def expand_abbreviations(text):
     return text
 
 
+def clean_website_document(text):
+    text = re.sub(r"(?m)^\s*(Image|Button:.*|FOLLOW US)\s*$", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
 # Process and clean every merged document
 for input_path in json_files:
     relative_path = input_path.relative_to(input_root)
@@ -427,6 +433,9 @@ for input_path in json_files:
                 # Normalize excessive blank lines
                 text = re.sub(r"\n{3,}", "\n\n", text)
 
+        elif category == "website":
+            text = clean_website_document(text)
+
         text = expand_abbreviations(text)
 
         output_data = {
@@ -435,6 +444,11 @@ for input_path in json_files:
             "total_pages"   : data.get("total_pages", 0),
             "cleaned_text"  : text,
         }
+
+        if data.get("source_url"):
+            output_data["source_url"] = data["source_url"]
+        if data.get("scraped_at"):
+            output_data["scraped_at"] = data["scraped_at"]
 
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(output_data, f, ensure_ascii=False, indent=2)

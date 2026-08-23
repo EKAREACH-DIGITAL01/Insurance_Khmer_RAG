@@ -4,292 +4,2872 @@
     "document_type": "law",
     "release_date": "2022-10-30"
   },
-
   "law_02": {
     "document_name": "ច្បាប់ស្តីពីកិច្ចការពារអ្នកប្រើប្រាស់",
     "document_type": "law",
     "release_date": "2022-10-30"
   },
-
   "law_03": {
     "document_name": "ច្បាប់ស្តីពីការរៀបចំនិងការប្រព្រឹត្តទៅនៃអាជ្ញាធរសេវាហិរញ្ញវត្ថុមិនមែនធនាគារ",
     "document_type": "law",
     "release_date": "2021-11-08"
   },
-
   "law_04": {
     "document_name": "ច្បាប់ស្តីពីការធានារ៉ាប់រង",
     "document_type": "law",
     "release_date": "2021-11-02"
   },
-
   "sub_decree_01": {
     "document_name": "អនុក្រឹត្យស្តីពីការធានារ៉ាប់រងខ្នាតតូច",
     "document_type": "sub_decree",
     "release_date": "2025-01-10"
   },
-
   "sub_decree_02": {
     "document_name": "អនុក្រឹត្យស្តីពីឯកសណ្ឋាន សញ្ញាសម្គាល់ និងសញ្ញាសក្តិរបស់មន្ត្រីអធិការកិច្ចធានារ៉ាប់រង",
     "document_type": "sub_decree",
     "release_date": "2024-08-19"
   },
-
   "sub_decree_03": {
     "document_name": "អនុក្រឹត្យស្តីពីការធានារ៉ាប់រង",
     "document_type": "sub_decree",
     "release_date": "2022-01-03"
   },
-   "sub_decree_04": {
+  "sub_decree_04": {
     "document_name": "អនុក្រឹត្យស្តីពីការរៀបចំនិងការប្រព្រឹត្តទៅរបស់អង្គភាពក្រោមឧ៌វាទរបស់អាជ្ញាធរសេវាហិរញ្ញវត្ថុមិនមែនធនាគារ",
     "document_type": "sub_decree",
     "release_date": "2021-01-08"
   },
-
   "guidance_01": {
     "document_name": "គោលការណ៍ណែនាំស្តីពីការទទួល និងដោះស្រាយសំណងធានារ៉ាប់រងសម្រាប់ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច",
     "document_type": "guidance",
     "release_date": "2026-01-14"
   },
-
   "guidance_02": {
     "document_name": "សេចក្តីណែនាំស្តីពីការបណ្តុះបណ្តាលវិជ្ជាជីវៈជើងសាធារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2026-01-14"
   },
-
   "guidance_03": {
     "document_name": "សេចក្តីណែនាំស្តីពីការដាក់ឱ្យប្រើប្រាស់តារាងអត្រាមរណភាពក្នុងវិស័យធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2025-05-06"
   },
-
-   "guidance_04": {
+  "guidance_04": {
     "document_name": "គោលការណ៍ណែនាំស្តីពីក្រមសីលធម៌បុគ្គលវិជ្ជាជីវៈជើងសាធារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2024-12-10"
   },
-
   "guidance_05": {
     "document_name": "សេចក្តីណែនាំស្តីពីគោលការណ៍អប្បបរមាចំពោះកិច្ចសន្យាធានារ៉ាប់រងខ្នាតតូច",
     "document_type": "guidance",
     "release_date": "2024-09-05"
   },
-
   "guidance_06": {
     "document_name": "សេចក្តីណែនាំស្តីពីពិពិធកម្មនៃការធានារ៉ាប់រងបន្ត",
     "document_type": "guidance",
     "release_date": "2024-08-07"
   },
-
   "guidance_07": {
     "document_name": "គោលការណ៍ណែនាំស្តីពីការការពារការក្លែងបន្លំធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2024-01-30"
   },
-
   "guidance_08": {
     "document_name": "សេចក្តីណែនាំស្តីពីគណនីសាច់ប្រាក់ធានាសាធនភាពតម្រូវរបស់ក្រុមហ៊ុនធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2023-12-28"
   },
-
   "guidance_09": {
     "document_name": "គោលការណ៍ណែនាំស្តីពីការផ្សាយពាណិជ្ជកម្មលើផលិតផលធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2023-12-06"
   },
-
   "guidance_10": {
     "document_name": "គោលការណ៍ណែនាំស្តីពីបរិស្ថានសាកល្បងបច្ចេកវិទ្យាធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2023-10-17"
   },
-
-
-   "guidance_11": {
+  "guidance_11": {
     "document_name": "សេចក្តីណែនាំស្តីពីក្រមសីលធម៌វិជ្ជាជីវៈភ្នាក់ងារធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2023-05-10"
   },
-
   "guidance_12": {
     "document_name": "គោលការណ៍ណែនាំស្តីពីការទទួលនិងដោះស្រាយសំណងធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2023-01-17"
   },
-
   "guidance_13": {
     "document_name": "សេចក្តីណែនាំស្តីពីទម្រង់របាយការណ៍ប្រចាំគ្រាដែលត្រូវផ្តល់ដោយក្រុមហ៊ុនជើងសាធារ៉ាប់រង និងក្រុមហ៊ុនភ្នាក់ងារធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2022-12-21"
   },
-
   "guidance_14": {
     "document_name": "សេចក្តីណែនាំស្តីពីការរាយការណ៍អំពីការបង្កកទ្រព្យសម្បត្តិដោយបុគ្គលរាយការណ៍ក្នុងវិស័យធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2022-04-01"
   },
-
-   "guidance_15": {
+  "guidance_15": {
     "document_name": "សេចក្តីណែនាំអំពីការរៀបចំវគ្គបណ្តុះបណ្តាលភ្នាក់ងារធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2022-01-01"
   },
-
   "guidance_16": {
     "document_name": "សេចក្តីណែនាំស្តីពីគោលការណ៍អប្បបរមាចំពោះកិច្ចសន្យាធានារ៉ាប់រង",
     "document_type": "guidance",
     "release_date": "2022-01-01"
   },
-
-   "prakas_01": {
+  "prakas_01": {
     "document_name": "ប្រកាសស្តីពីការផ្សព្វផ្សាយជាសាធារណៈនូវរបាយការណ៍ប្រចាំឆ្នាំរបស់ក្រុមហ៊ុនធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2026-02-25"
   },
-
   "prakas_02": {
     "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការបន្ត ការផ្អាក និងការបញ្ចប់កិច្ចសន្យាធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2025-06-20"
   },
-
   "prakas_03": {
     "document_name": "ប្រកាសស្តីពីបែបបទ និងនីតិវិធីនៃការដាក់ទណ្ឌកម្មចំពោះបុគ្គលប្រព្រឹត្តល្មើសនឹងច្បាប់ឬលិខិតបទដ្ឋានគតិយុត្តក្នុងវិស័យធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2025-03-12"
   },
-
   "prakas_04": {
     "document_name": "ប្រកាសស្តីពីការទទួលស្គាល់អ្នកជម្រះបញ្ជីក្នុងវិស័យធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2025-03-12"
   },
-
   "prakas_05": {
     "document_name": "ប្រកាសស្តីពីកិច្ចការពារអ្នកប្រើប្រាស់សេវាធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2025-03-12"
   },
-
   "prakas_06": {
     "document_name": "ប្រកាសស្តីពីការដាក់ឱ្យអនុវត្តវិធានទូទៅស្តីពីការគ្រប់គ្រងការធានារ៉ាប់រងអគ្គិភ័យ ការរំខានធុរកិច្ច និងការធានារ៉ាប់រងលើទ្រព្យសម្បត្តិចំពោះគ្រប់ហានិភ័យនិងអត្រាបុព្វលាភធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2025-03-12"
   },
-
   "prakas_07": {
     "document_name": "ប្រកាសស្តីពីវិធាន និងគោលការណ៍ណែនាំនៃការធានារ៉ាប់រងបន្ត",
     "document_type": "prakas",
     "release_date": "2024-08-07"
   },
-
   "prakas_08": {
     "document_name": "ប្រកាសស្តីពីបែបបទ និងនីតិវិធីនៃការធ្វើអធិការកិច្ចធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2024-01-29"
   },
-
   "prakas_09": {
     "document_name": "ប្រកាសស្តីពីអភិបាលកិច្ចក្រុមហ៊ុនធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2024-01-18"
   },
-
   "prakas_10": {
     "document_name": "ប្រកាសស្តីពីការទទួលស្គាល់ក្រុមហ៊ុនផ្តល់សេវាសវនកម្មក្នងវិស័យធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2023-10-19"
   },
-
   "prakas_11": {
     "document_name": "ប្រកាសស្តីពីការកំណត់ទូទៅចំពោះគ្រឹះស្ថានធានារ៉ាប់រង ក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រង និងក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2023-07-18"
   },
-
   "prakas_12": {
     "document_name": "ប្រកាសស្តីពីនីតិវិធី និងវិធាននៃការគណនាប្រាក់បម្រុងបច្ចេកទេសធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2022-12-23"
   },
-
   "prakas_13": {
     "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការផ្តល់អាជ្ញាបណ្ណអាជីវកម្មអន្តរការីធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2022-12-14"
   },
-
   "prakas_14": {
     "document_name": "ប្រកាសស្តីពីការកំណត់កម្រិតសាធនភាពសម្រាប់ក្រុមហ៊ុនធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2022-12-14"
   },
-
   "prakas_15": {
     "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការផ្តល់អាជ្ញាបណ្ណអាជីវកម្មសេវាគាំទ្រអាជីវកម្មធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2022-12-14"
   },
-
   "prakas_16": {
     "document_name": "ប្រកាសស្តីពីការអនុញ្ញាតលើការវិនិយោគសម្រាប់ក្រុមហ៊ុនធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2022-10-27"
   },
-
   "prakas_17": {
     "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការចុះឈ្មោះក្នុងបញ្ជីភ្នាក់ងារធានារ៉ាប់រងជារូបវន្តបុគ្គលតាមប្រព័ន្ធស្វ័យប្រវត្តកម្ម",
     "document_type": "prakas",
     "release_date": "2022-10-27"
   },
-
   "prakas_18": {
     "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌ និងនីតិវិធីនៃការផ្តល់អាជ្ញាបណ្ណអាជីវកម្មធានារ៉ាប់រង",
     "document_type": "prakas",
     "release_date": "2022-06-01"
   },
-
   "prakas_19": {
     "document_name": "ប្រកាសស្តីពីលក្ខខណ្ឌសម្រាប់គ្រឹះស្ថានធនាគារនិងហិរញ្ញវត្ថុក្នុងការធ្វើអាជីវកម្មប៊េងកាសួរេន",
     "document_type": "prakas",
     "release_date": "2022-05-26"
   },
-
   "prakas_20": {
     "document_name": "ប្រកាសស្តីពីការរៀបចំនិងការប្រព្រឹត្តទៅនៃនាយកដ្ឋាន និងអង្គភាពក្រោមឱវាទរបស់និយ័តករធានារ៉ាប់រងកម្ពុជា",
     "document_type": "prakas",
     "release_date": "2022-03-18"
   },
-
   "prakas_21": {
     "document_name": "ប្រកាសស្តីពីសេវាសាធារណៈរបស់និយ័តករធានារ៉ាប់រងកម្ពុជា",
     "document_type": "prakas",
     "release_date": "2022-03-11"
   },
-
   "prakas_22": {
     "document_name": "ប្រកាសស្តីពីការបោះផ្សាយមូលបត្ររដ្ឋ",
     "document_type": "prakas",
     "release_date": "2022-03-09"
   },
-
   "prakas_23": {
     "document_name": "ប្រកាសស្តីពីនីតិវិធីនៃការទទួលបណ្តឹង និងដោះស្រាយវិវាទ",
     "document_type": "prakas",
     "release_date": "2022-01-04"
   },
-
   "prakas_24": {
     "document_name": "ប្រកាសស្តីពីគោលការណ៍ណែនាំគណនេយ្យ",
     "document_type": "prakas",
     "release_date": "2021-11-08"
   },
-
   "prakas_25": {
     "document_name": "ប្រកាសស្តីពីការផ្តល់អាជ្ញាបណ្ណអាជីវកម្មធានារ៉ាប់រងខ្នាតតូច",
     "document_type": "prakas",
     "release_date": "2021-11-02"
+  },
+  "website_db11bf24b06c": {
+    "document_name": "និយ័តករធានារ៉ាប់រងកម្ពុជា - Insurance Regulator of Cambodia",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/"
+  },
+  "website_b5e4b2fc456e": {
+    "document_name": "និយ័តករធានារ៉ាប់រងកម្ពុជា - Insurance Regulator of Cambodia",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en"
+  },
+  "website_339bc9a61a07": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=1"
+  },
+  "website_a70b5a2f456c": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=1"
+  },
+  "website_6e93fa4c0ffe": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=1"
+  },
+  "website_78360f5a1309": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=1"
+  },
+  "website_35aa1cb73530": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=1"
+  },
+  "website_4a3f3eaaf085": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=1"
+  },
+  "website_001022b29dfb": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=18"
+  },
+  "website_00855d4f04ca": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=18"
+  },
+  "website_00b75f1a2402": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=9"
+  },
+  "website_00d7fa745bff": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=19"
+  },
+  "website_01149f5cee8d": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=19"
+  },
+  "website_01227864139b": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=17"
+  },
+  "website_01878f54f8e6": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=8"
+  },
+  "website_01a1b18e07fe": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=25"
+  },
+  "website_01a25f25070a": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=2"
+  },
+  "website_01b12b3baaf5": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=19"
+  },
+  "website_01fb46a58429": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=23"
+  },
+  "website_0216f9345033": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=3"
+  },
+  "website_029efb50db2f": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=17"
+  },
+  "website_040731cfc4ec": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=23"
+  },
+  "website_041985ef914e": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=17"
+  },
+  "website_05c207b04b1c": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=3"
+  },
+  "website_061314f263d7": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=5"
+  },
+  "website_06bcad8fea81": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=23"
+  },
+  "website_078c2a5fc400": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=18"
+  },
+  "website_079e4652db91": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=6"
+  },
+  "website_07bb9f8c5dfc": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=5"
+  },
+  "website_07c3f79653f6": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=21"
+  },
+  "website_0807d29efda9": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=24"
+  },
+  "website_081a5df91be6": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=21"
+  },
+  "website_08d9fb6587bc": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=6"
+  },
+  "website_0bd16140a4b9": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=4"
+  },
+  "website_0bff51375dc3": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=2"
+  },
+  "website_0d1b30391a33": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=15"
+  },
+  "website_0d718ed2efd9": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=4"
+  },
+  "website_0dc54e69a3fe": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=17"
+  },
+  "website_0e61a166e10c": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=5"
+  },
+  "website_0e70062536cd": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=4"
+  },
+  "website_0e8f5144ca43": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=16"
+  },
+  "website_0f672e71829d": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=18"
+  },
+  "website_100bde1a0414": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=21"
+  },
+  "website_104a268da825": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=1"
+  },
+  "website_114e3410f7a3": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=3"
+  },
+  "website_11da2894c7db": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=25"
+  },
+  "website_11fa71e2cca2": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=16"
+  },
+  "website_15a9a193c86e": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=19"
+  },
+  "website_163ee9d7cc3f": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=3"
+  },
+  "website_1647297b1b6f": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=14"
+  },
+  "website_16cf1d5c2220": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=24"
+  },
+  "website_18143b98774f": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=12"
+  },
+  "website_18b6bbfa6042": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=13"
+  },
+  "website_18e92676a664": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=8"
+  },
+  "website_19130f697af3": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=15"
+  },
+  "website_19a5d7dec767": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=24"
+  },
+  "website_19d0ab6a6ff5": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=6"
+  },
+  "website_1a58bc85c0ac": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=14"
+  },
+  "website_1bbd9c6fd526": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=6"
+  },
+  "website_1c10e3bbfb56": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=12"
+  },
+  "website_1c46570f058b": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=10"
+  },
+  "website_1cfdafddc3bc": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=19"
+  },
+  "website_1d117e8a521c": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=21"
+  },
+  "website_1de9259dceba": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=22"
+  },
+  "website_1e003e4ac8b7": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=14"
+  },
+  "website_217e98aac79b": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=14"
+  },
+  "website_22c8fc31cf1c": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=4"
+  },
+  "website_2376dc874991": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=21"
+  },
+  "website_23d7066b523f": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=11"
+  },
+  "website_250d074452a7": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=18"
+  },
+  "website_2513ea5fc957": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=10"
+  },
+  "website_267456916597": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=4"
+  },
+  "website_273b3dff8734": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=17"
+  },
+  "website_27afc8e8e0fb": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=22"
+  },
+  "website_27e5dea29092": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=19"
+  },
+  "website_28380cb8b993": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=10"
+  },
+  "website_28fe6f26cd1a": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=2"
+  },
+  "website_2959b9af4b18": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=3"
+  },
+  "website_295f8c3ba44b": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=12"
+  },
+  "website_29c421644ae2": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=15"
+  },
+  "website_2a58907deee4": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=8"
+  },
+  "website_2c49011371f4": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=13"
+  },
+  "website_2c57e464ee40": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=17"
+  },
+  "website_2c9465c71cc7": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=14"
+  },
+  "website_2d15132e3bd2": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=25"
+  },
+  "website_2d231f9c7075": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=23"
+  },
+  "website_2fb2a09b25df": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=7"
+  },
+  "website_306e927f3af4": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=3"
+  },
+  "website_30a26e990ee5": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=6"
+  },
+  "website_30ea72b9c934": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=21"
+  },
+  "website_3142fe7f03a7": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=8"
+  },
+  "website_316fb966e90c": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=5"
+  },
+  "website_3213b0dc5384": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=13"
+  },
+  "website_32289980ca0a": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=16"
+  },
+  "website_3233d6424a9a": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=22"
+  },
+  "website_35e45221a955": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=7"
+  },
+  "website_36f6171ac7de": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=20"
+  },
+  "website_37a4bd94e1f6": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=7"
+  },
+  "website_383845070a61": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=5"
+  },
+  "website_383f3352dd4a": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=17"
+  },
+  "website_3a7316094091": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=3"
+  },
+  "website_3b5b0a57332a": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=25"
+  },
+  "website_3b6aab31be24": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=15"
+  },
+  "website_3bf3942d85c6": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=3"
+  },
+  "website_3d4e56d6b88f": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=15"
+  },
+  "website_3f379026901d": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=2"
+  },
+  "website_40f7bce05d35": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=22"
+  },
+  "website_4153b2f5324f": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=6"
+  },
+  "website_4262d6f67435": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=16"
+  },
+  "website_42e21409db81": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=2"
+  },
+  "website_433d75271be7": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=17"
+  },
+  "website_43deb3458ba5": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=14"
+  },
+  "website_44004a20b1c4": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=11"
+  },
+  "website_443032685a7a": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=5"
+  },
+  "website_4482ff93b61b": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=20"
+  },
+  "website_45aa9b295674": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=1"
+  },
+  "website_463843712872": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=10"
+  },
+  "website_4642c4f80a9d": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=23"
+  },
+  "website_46d07cf05c9a": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=3"
+  },
+  "website_46ec643b8baa": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=11"
+  },
+  "website_47e25c9060a8": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=15"
+  },
+  "website_4968861316b4": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=14"
+  },
+  "website_498c29a3b78c": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=15"
+  },
+  "website_49c777c4b815": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=21"
+  },
+  "website_49cb87925f8b": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=7"
+  },
+  "website_4a29deca285e": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=18"
+  },
+  "website_4ac67419afae": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=7"
+  },
+  "website_4c6a3195cabb": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=22"
+  },
+  "website_4c6bb4135543": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=22"
+  },
+  "website_4cdfdbd6b47e": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=2"
+  },
+  "website_4e5a20554c79": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=15"
+  },
+  "website_507103807f75": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=10"
+  },
+  "website_507c41628afb": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=9"
+  },
+  "website_51772353d310": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=20"
+  },
+  "website_54a290f8c6af": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=5"
+  },
+  "website_54d56f004e21": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=12"
+  },
+  "website_56c6c58fc076": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=13"
+  },
+  "website_56db6c677a75": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=9"
+  },
+  "website_56f24d4cd53f": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=2"
+  },
+  "website_57e3f3345673": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=14"
+  },
+  "website_57f766343a40": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=3"
+  },
+  "website_5884cd389294": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=5"
+  },
+  "website_5926125c067f": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=11"
+  },
+  "website_5c57f5304aa5": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=3"
+  },
+  "website_5c633f3b912d": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=19"
+  },
+  "website_5d44683abd5b": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=20"
+  },
+  "website_5d72263bc70f": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=16"
+  },
+  "website_5d95265a5f63": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=1"
+  },
+  "website_5e4f37630698": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=14"
+  },
+  "website_5e64c4da44f0": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=8"
+  },
+  "website_611dc8c42631": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=14"
+  },
+  "website_61a9bbefddd3": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=3"
+  },
+  "website_61f18efa89d1": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=15"
+  },
+  "website_626ed493b034": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=13"
+  },
+  "website_6350965651c6": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=9"
+  },
+  "website_63a2a076fad5": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=12"
+  },
+  "website_63b716395133": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=11"
+  },
+  "website_641c70e85f90": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=21"
+  },
+  "website_642dcb39a0c5": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=20"
+  },
+  "website_64869dc2cf99": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=3"
+  },
+  "website_64f1a58d085b": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=7"
+  },
+  "website_664a29c2ccd4": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=3"
+  },
+  "website_66f06cbf9bb1": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=8"
+  },
+  "website_672e45e67d50": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=1"
+  },
+  "website_6773021941bb": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=18"
+  },
+  "website_67a0b55f6f7b": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=13"
+  },
+  "website_6856ba7a9cdd": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=7"
+  },
+  "website_685c17055d6d": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=12"
+  },
+  "website_694960e46a1b": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=2"
+  },
+  "website_694bc1b0687e": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=6"
+  },
+  "website_69b77c7943c3": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=23"
+  },
+  "website_69cce7ed194b": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=14"
+  },
+  "website_6a1c0e9240d9": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=16"
+  },
+  "website_6a5446ea732c": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=21"
+  },
+  "website_6ab10ef3e2cd": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=18"
+  },
+  "website_6abf9fff775e": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=24"
+  },
+  "website_6db77d3dd642": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=1"
+  },
+  "website_6df14bcc1373": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=9"
+  },
+  "website_6f17aee24975": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=10"
+  },
+  "website_6f1f0a976e13": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=10"
+  },
+  "website_70dca769403a": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=24"
+  },
+  "website_70ff28b6dc5c": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=12"
+  },
+  "website_720f00958805": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=24"
+  },
+  "website_72f52d77e21c": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=22"
+  },
+  "website_732a8a9b5c47": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=18"
+  },
+  "website_748fe5976a92": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=16"
+  },
+  "website_74a1696d86b1": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=19"
+  },
+  "website_753f705f9ec1": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=11"
+  },
+  "website_75d4ec602288": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=11"
+  },
+  "website_75e80565f6c0": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=6"
+  },
+  "website_75fa4e6c177d": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=17"
+  },
+  "website_75ff262b0dc6": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=10"
+  },
+  "website_760be1697343": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=16"
+  },
+  "website_761588124950": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=5"
+  },
+  "website_7724d1d90509": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=21"
+  },
+  "website_77a5f82a1317": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=9"
+  },
+  "website_784da0322e2a": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=4"
+  },
+  "website_788629c42c84": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=17"
+  },
+  "website_79cb10fcd3f1": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=7"
+  },
+  "website_79e58c237401": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=14"
+  },
+  "website_7a06fd902f02": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=13"
+  },
+  "website_7a52c6a6455c": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=16"
+  },
+  "website_7acf79b4ddaf": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=2"
+  },
+  "website_7b019f930897": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=22"
+  },
+  "website_7c7970aa4f2c": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=12"
+  },
+  "website_7dd756449ce2": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=5"
+  },
+  "website_7e059cdc858e": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=21"
+  },
+  "website_7eed6b583e14": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=7"
+  },
+  "website_7f4d4ebce8c4": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=13"
+  },
+  "website_7fb416560a90": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=24"
+  },
+  "website_800647ee65c4": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=17"
+  },
+  "website_81700934c3cd": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=15"
+  },
+  "website_8201ead1ca1e": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=13"
+  },
+  "website_8251ede97d2d": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=3"
+  },
+  "website_833172d1088c": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=10"
+  },
+  "website_8389670fbfe5": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=10"
+  },
+  "website_85a3ee94867c": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=20"
+  },
+  "website_85d5f6e8cf5d": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=8"
+  },
+  "website_86333d5c793f": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=12"
+  },
+  "website_864e74f9caa9": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=23"
+  },
+  "website_86ea6543cf3d": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=8"
+  },
+  "website_873cc716850f": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=23"
+  },
+  "website_89c4b956643d": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=13"
+  },
+  "website_89ea389ab128": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=21"
+  },
+  "website_89f5c9d80c8e": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=15"
+  },
+  "website_8a75d8deb31d": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=11"
+  },
+  "website_8bb3ad82c900": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=23"
+  },
+  "website_8be26880939e": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=25"
+  },
+  "website_8cb08a9fc175": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=16"
+  },
+  "website_8cbd7448e2db": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=22"
+  },
+  "website_8d3dc185de1c": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=12"
+  },
+  "website_8e29e231316e": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=2"
+  },
+  "website_8e5d1bb9b598": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=2"
+  },
+  "website_8ecda68a3cb9": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=16"
+  },
+  "website_927ff8f422f6": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=10"
+  },
+  "website_92bba71f2675": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=9"
+  },
+  "website_93299c95a082": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=18"
+  },
+  "website_932a72df9117": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=11"
+  },
+  "website_93335cbfdbc3": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=24"
+  },
+  "website_9370f7aec826": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=14"
+  },
+  "website_95126bfa94f9": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=20"
+  },
+  "website_9608bfc3084a": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=8"
+  },
+  "website_968683732240": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=4"
+  },
+  "website_9789b7dc19fc": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=20"
+  },
+  "website_9795eb35fa08": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=21"
+  },
+  "website_98bc5741e2ba": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=6"
+  },
+  "website_991746652338": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=10"
+  },
+  "website_9938ad1b7048": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=9"
+  },
+  "website_9a6724513da3": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=5"
+  },
+  "website_9cba97ba8af2": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=15"
+  },
+  "website_9d48eb76c071": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=18"
+  },
+  "website_9d875e2269e3": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=19"
+  },
+  "website_9e9a7c18b293": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=8"
+  },
+  "website_9eb897efabe8": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=12"
+  },
+  "website_9ed2a5e72427": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=9"
+  },
+  "website_9f59921d3f0d": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=4"
+  },
+  "website_9f88b1ab8f78": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=11"
+  },
+  "website_9fdc1b34295d": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=6"
+  },
+  "website_9fe15c42212e": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=8"
+  },
+  "website_a0b1f6f979f0": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=4"
+  },
+  "website_a0b31d2966bf": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=12"
+  },
+  "website_a13d92fc2314": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=19"
+  },
+  "website_a146b556e27b": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=4"
+  },
+  "website_a1554bef25e2": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=19"
+  },
+  "website_a194e703d31c": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=13"
+  },
+  "website_a1973bf3e389": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=5"
+  },
+  "website_a1d025c4ef3c": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=8"
+  },
+  "website_a2e0f6292b15": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=24"
+  },
+  "website_a2f6561b60c4": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=25"
+  },
+  "website_a3c90a20cd8f": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=18"
+  },
+  "website_a3f5b26ca35c": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=16"
+  },
+  "website_a40937b1d326": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=9"
+  },
+  "website_a46cfc62640c": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=24"
+  },
+  "website_a580c3780053": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=3"
+  },
+  "website_a5a63740cda8": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=22"
+  },
+  "website_a6148c109675": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=20"
+  },
+  "website_a6481ca2dc2b": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=7"
+  },
+  "website_a83e8c411364": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=25"
+  },
+  "website_a980ab9c595f": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=5"
+  },
+  "website_a992d8792843": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=14"
+  },
+  "website_aa6c82e5fbc8": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=23"
+  },
+  "website_aa817d92bcdf": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=7"
+  },
+  "website_ab1884f2141b": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=12"
+  },
+  "website_ab32f8ef20b0": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=6"
+  },
+  "website_ad3492ccd6b7": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=8"
+  },
+  "website_adb21583d9b7": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=13"
+  },
+  "website_adc1c62a4a0c": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=9"
+  },
+  "website_aee2169a1d32": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=7"
+  },
+  "website_af45ab95b96d": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=2"
+  },
+  "website_af7a26d2e466": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=13"
+  },
+  "website_afc49260313e": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=19"
+  },
+  "website_b032d3ff3983": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=16"
+  },
+  "website_b043b286fb43": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=21"
+  },
+  "website_b0a88056ea48": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=11"
+  },
+  "website_b11b03582faa": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=8"
+  },
+  "website_b17a983f4fed": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=19"
+  },
+  "website_b1a4d1191401": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=6"
+  },
+  "website_b300cbc6c18c": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=9"
+  },
+  "website_b3981b1305c4": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=12"
+  },
+  "website_b484a645a7d6": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=24"
+  },
+  "website_b493473b6f10": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=11"
+  },
+  "website_b57c78581cb2": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=10"
+  },
+  "website_b5a125df4dfc": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=4"
+  },
+  "website_b62306ab96f8": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=21"
+  },
+  "website_b65fc92e294d": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=12"
+  },
+  "website_b6741960568d": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=4"
+  },
+  "website_b7d95ad368ab": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=9"
+  },
+  "website_b88eb1165db4": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=8"
+  },
+  "website_b8f29006c7df": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=18"
+  },
+  "website_b8f9671db608": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=10"
+  },
+  "website_b9108d792f69": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=15"
+  },
+  "website_b9248c0c43dd": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=18"
+  },
+  "website_b96bf94fccae": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=25"
+  },
+  "website_b998de45a01d": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=3"
+  },
+  "website_ba1cb97248d3": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=12"
+  },
+  "website_bade541ed8bd": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=23"
+  },
+  "website_bc1742d31120": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=9"
+  },
+  "website_bc2e2ec9a253": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=2"
+  },
+  "website_bc37092cada9": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=17"
+  },
+  "website_bcc1d22aae99": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=3"
+  },
+  "website_bd17657d2d2a": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=5"
+  },
+  "website_bd2c3927048d": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=16"
+  },
+  "website_bd6dc8a8cc3a": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=5"
+  },
+  "website_be9eb34d6de7": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=16"
+  },
+  "website_bf3a1a545ae2": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=1"
+  },
+  "website_bf9b16615dfe": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=11"
+  },
+  "website_c0ace08c3d27": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=15"
+  },
+  "website_c0d5017ba121": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=7"
+  },
+  "website_c1e5b3e8a9c1": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=7"
+  },
+  "website_c21f28a156d2": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=25"
+  },
+  "website_c2688bea96cf": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=2"
+  },
+  "website_c2ac767a6374": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=20"
+  },
+  "website_c2e905acc339": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=25"
+  },
+  "website_c4aa91962fa1": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=25"
+  },
+  "website_c54a554eb988": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=17"
+  },
+  "website_c59d6be4f021": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=18"
+  },
+  "website_c5a364d8b8af": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=1"
+  },
+  "website_c5e4968e8a66": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=11"
+  },
+  "website_c6ca60358b9e": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=2"
+  },
+  "website_c701d8f0e123": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=13"
+  },
+  "website_c748b956f188": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=20"
+  },
+  "website_c87f911533a8": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=10"
+  },
+  "website_c908ad12a91b": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=24"
+  },
+  "website_c92e841515a4": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=24"
+  },
+  "website_c9c7e306ee4a": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=11"
+  },
+  "website_ca3531f4d2c4": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=2"
+  },
+  "website_ca53081e1a08": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=23"
+  },
+  "website_cac666c7a760": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=25"
+  },
+  "website_cb7eb40829e7": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=19"
+  },
+  "website_cc1da2cf932b": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=4"
+  },
+  "website_ccef1691fe43": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=25"
+  },
+  "website_ce2f1278e953": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=7"
+  },
+  "website_ce53907fe667": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=5"
+  },
+  "website_ce9af5577600": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=20"
+  },
+  "website_cece6fb0a4f7": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=23"
+  },
+  "website_cf00185ec616": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=16"
+  },
+  "website_cf49a693bd92": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=1"
+  },
+  "website_cfce17a44795": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=24"
+  },
+  "website_d005273df781": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=11"
+  },
+  "website_d0330a8b1119": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=13"
+  },
+  "website_d12a5eda9fac": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=9"
+  },
+  "website_d137af09cbf2": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=18"
+  },
+  "website_d18ce981a5af": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=15"
+  },
+  "website_d38f4a8196a9": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=21"
+  },
+  "website_d5919e85121e": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=20"
+  },
+  "website_d592e4709729": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=1"
+  },
+  "website_d5eca10079d0": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=14"
+  },
+  "website_d6bf8442182b": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=7"
+  },
+  "website_d717a9aa820f": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=9"
+  },
+  "website_d71b4d9f35df": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=2"
+  },
+  "website_d90da1bafe87": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=13"
+  },
+  "website_d93c8952684d": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=15"
+  },
+  "website_d9ed1c85942b": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=17"
+  },
+  "website_da78ba26fbef": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=4"
+  },
+  "website_dc07fa100926": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=25"
+  },
+  "website_dd0176f83539": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=4"
+  },
+  "website_dd2a154711cb": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=22"
+  },
+  "website_dd3b26d5e870": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=6"
+  },
+  "website_dd89c7383c3f": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=10"
+  },
+  "website_ddb90da26fc1": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=15"
+  },
+  "website_de910dcc9689": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=16"
+  },
+  "website_df3c5ca6ae95": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=5"
+  },
+  "website_e03d5abd3e16": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=4"
+  },
+  "website_e077ec990a65": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=13"
+  },
+  "website_e0b73baf7306": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=6"
+  },
+  "website_e1683bf17266": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=1"
+  },
+  "website_e1e9523db647": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=6"
+  },
+  "website_e2dc09e5eb74": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=9"
+  },
+  "website_e2e516288fd0": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=8"
+  },
+  "website_e2fc50acc682": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=17"
+  },
+  "website_e33c10d64156": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=9"
+  },
+  "website_e35691e99e88": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=22"
+  },
+  "website_e3e71822c5c4": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=10"
+  },
+  "website_e42f01125ec0": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=12"
+  },
+  "website_e48015789d62": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=5"
+  },
+  "website_e54654d20a3f": {
+    "document_name": "News",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=news&page=12"
+  },
+  "website_e56b4dcaf1d6": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=14"
+  },
+  "website_e65a53a5e381": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=20"
+  },
+  "website_e6e29f47309c": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=22"
+  },
+  "website_e74cdb916057": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=8"
+  },
+  "website_e7c28f9a0f0e": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=8"
+  },
+  "website_e7edd3c07ac8": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=19"
+  },
+  "website_e8f847af2d99": {
+    "document_name": "ការបោះពុម្ពផ្សាយ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=publication&page=17"
+  },
+  "website_e90b019fe4cf": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=6"
+  },
+  "website_e99e4ab4fe08": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=2"
+  },
+  "website_eabf38eca466": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=17"
+  },
+  "website_eb26c96cdb74": {
+    "document_name": "កម្រិតវប្បធម៌",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=education&page=17"
+  },
+  "website_eb2a54502d41": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=23"
+  },
+  "website_ebecd8b56321": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=22"
+  },
+  "website_ec2a316633b7": {
+    "document_name": "Publication",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=10"
+  },
+  "website_ec74f38e3d90": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=15"
+  },
+  "website_ed03d1b8a786": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=7"
+  },
+  "website_ed1db6285d30": {
+    "document_name": "Education",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=education&page=16"
+  },
+  "website_edad2f51ded5": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=event&page=23"
+  },
+  "website_edbf2adbdf4f": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=20"
+  },
+  "website_ee01647142a9": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=7"
+  },
+  "website_ee93a3d69449": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=13"
+  },
+  "website_efe37d83931b": {
+    "document_name": "Monthly Statistics",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=statistics-monthly&page=23"
+  },
+  "website_f17315e01b0e": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=24"
+  },
+  "website_f219ff9ad726": {
+    "document_name": "អនុក្រឹត្យ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=sub-decrees&page=4"
+  },
+  "website_f2baf15068f9": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=22"
+  },
+  "website_f3a4afba2d11": {
+    "document_name": "ស្ថិតិប្រចាំខែ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=statistics-monthly&page=24"
+  },
+  "website_f3cdb0299273": {
+    "document_name": "សេចក្ដី​ណែនាំ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=guidance&page=25"
+  },
+  "website_f6dc87f43321": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=18"
+  },
+  "website_f741bef051d1": {
+    "document_name": "ព័ត៌មានថ្មីៗ",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=news&page=20"
+  },
+  "website_f87540e38a82": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=4"
+  },
+  "website_f8e66c373236": {
+    "document_name": "ប្រកាស",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=prakas&page=11"
+  },
+  "website_f90fb7cbc271": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=6"
+  },
+  "website_fa713bd2c43b": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=19"
+  },
+  "website_fbbc5c24fcbd": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=1"
+  },
+  "website_fc9cd39d2103": {
+    "document_name": "Guidance",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=guidance&page=1"
+  },
+  "website_fd2e9518e7ab": {
+    "document_name": "Prakas",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=prakas&page=18"
+  },
+  "website_fd40e094466d": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=22"
+  },
+  "website_fd70f9e3ed6a": {
+    "document_name": "Sub Decrees",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=sub-decrees&page=14"
+  },
+  "website_fe5f65e8768b": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=14"
+  },
+  "website_ff26a4cbb6a8": {
+    "document_name": "ច្បាប់",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=laws&page=25"
+  },
+  "website_ffcb2429f253": {
+    "document_name": "Event",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/article/list?category=event&page=11"
+  },
+  "website_ffd1ef5d0f1e": {
+    "document_name": "Laws",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://www.irc.gov.kh/en/article/list?category=laws&page=6"
   }
 }

@@ -2991,6 +2991,13 @@ SOURCE_PDF_DIRS = {
     "sub_decree": "sub_decrees",
     "guidance": "guidance",
 }
+DOCUMENT_TYPE_KH = {
+    "law": "ច្បាប់",
+    "prakas": "ប្រកាស",
+    "guidance": "គោលការណ៍ណែនាំ",
+    "sub_decree": "អនុក្រឹត្យ",
+    "website": "ទំព័រគេហទំព័រ",
+}
 
 
 def document_id_for_chunk(chunk_id):
@@ -3069,18 +3076,19 @@ def render_used_sources(used_sources):
     for score, chunk in used_sources:
         metadata = chunk.get("metadata", {})
         name = metadata.get("document_name", "Unknown Document")
+        source_url = metadata.get("source_url")
         doc_id = document_id_for_chunk(chunk["chunk_id"])
-        if not any(d == doc_id for d, _ in seen):
-            seen.append((doc_id, name))
+        if not any(d == doc_id for d, _, _ in seen):
+            seen.append((doc_id, name, source_url))
 
     if not seen:
         return
 
     pdf_urls = publish_source_pdfs()
     items = []
-    for doc_id, name in seen:
+    for doc_id, name, source_url in seen:
         label = html.escape(name)
-        url = pdf_urls.get(doc_id)
+        url = source_url or pdf_urls.get(doc_id)
         # A document with no PDF on disk still gets listed -- it is a real
         # source of the answer -- just without a link to follow.
         items.append(
@@ -3880,9 +3888,13 @@ def render_source_detail(rank, score, chunk):
         ("document", doc_name),
         (
             "type",
-            metadata.get("document_type_kh", metadata.get("document_type", "N/A")),
+            metadata.get(
+                "document_type_kh",
+                DOCUMENT_TYPE_KH.get(metadata.get("document_type"), metadata.get("document_type", "N/A")),
+            ),
         ),
         ("release date", metadata.get("release_date", "N/A")),
+        ("source url", metadata.get("source_url", "N/A")),
         ("chapter", metadata.get("chapter_title", metadata.get("chapter", "N/A"))),
         ("section", metadata.get("section_title", metadata.get("section", "N/A"))),
         ("legal unit", metadata.get("legal_unit", "N/A")),

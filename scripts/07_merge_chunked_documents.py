@@ -6,7 +6,7 @@ output_root = Path("data/08_merged_chunked_documents")
 
 output_root.mkdir(parents=True, exist_ok=True)
 
-categories = ["guidance", "laws", "prakas", "sub_decrees"]
+categories = ["guidance", "laws", "prakas", "sub_decrees", "website"]
 
 total_chunks = 0
 

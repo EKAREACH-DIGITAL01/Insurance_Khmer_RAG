@@ -1,3 +1,6 @@
+# Ignore scraped website cache
+data/00_irc_website_scrape/
+
 # Ignore generated page images
 data/02_page_images/*
 !data/02_page_images/.gitkeep

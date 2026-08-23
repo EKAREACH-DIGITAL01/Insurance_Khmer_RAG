@@ -20,6 +20,7 @@ CATEGORY_CONFIG = {
     "laws":         {"chunking_method": "legal_unit"},
     "prakas":       {"chunking_method": "legal_unit"},
     "sub_decrees":  {"chunking_method": "legal_unit"},
+    "website":      {"chunking_method": "paragraph_window"},
 }
 
 LEGAL_CATEGORIES = {"laws", "prakas", "sub_decrees"}
@@ -201,6 +202,26 @@ def chunk_document(text, category):
     if category in LEGAL_CATEGORIES:
         return legal_unit_chunking(text)
 
+    if category == "website":
+        paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+        chunks = []
+        current = []
+        current_size = 0
+        max_chars = 1400
+
+        for paragraph in paragraphs:
+            if current and current_size + len(paragraph) > max_chars:
+                chunks.append({"content": "\n\n".join(current)})
+                current = []
+                current_size = 0
+            current.append(paragraph)
+            current_size += len(paragraph)
+
+        if current:
+            chunks.append({"content": "\n\n".join(current)})
+
+        return chunks
+
     return []
 
 
@@ -223,7 +244,13 @@ for input_path in json_files:
         continue
 
     category = relative_path.parts[0]
-    config = CATEGORY_CONFIG[category]
+    config = CATEGORY_CONFIG.get(category)
+
+    if not config:
+        print(f"Unsupported category: {category}")
+        skipped_files += 1
+        continue
+
     chunking_method = config["chunking_method"]
     split_chunks = chunk_document(cleaned_text, category)
 
@@ -251,7 +278,7 @@ for input_path in json_files:
                 "chunking_method"   : chunking_method,
             }
 
-        else:
+        elif category == "guidance":
             text = chunk_data["content"]
             metadata = {
                 "document_id"       : data["document_id"],
@@ -263,6 +290,19 @@ for input_path in json_files:
                 "heading_id"        : chunk_data.get("heading_id"),
                 "heading_title"     : chunk_data.get("heading_title"),
                 "parent_h1"         : chunk_data.get("parent_h1"),
+                "chunk_size"        : len(text),
+                "chunking_method"   : chunking_method,
+            }
+
+        else:
+            text = chunk_data["content"]
+            metadata = {
+                "document_id"       : data["document_id"],
+                "document_name"     : doc_meta.get("document_name"),
+                "document_type"     : doc_meta.get("document_type", category),
+                "release_date"      : release_date,
+                "category"          : category,
+                "source_url"        : data.get("source_url") or doc_meta.get("source_url"),
                 "chunk_size"        : len(text),
                 "chunking_method"   : chunking_method,
             }

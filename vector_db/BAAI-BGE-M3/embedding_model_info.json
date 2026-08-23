@@ -1,11 +1,11 @@
 {
   "label": "BAAI/bge-m3",
   "hf_id": "BAAI/bge-m3",
-  "hf_cache_dir": "/Users/benjamin/Documents/Khmer-Rag-Insurance-Chatbot/models/retriever/.cache",
+  "hf_cache_dir": "/Users/samlyheng/Desktop/Khmer-RAG-Insurance-Chatbot/models/retriever/.cache",
   "trust_remote_code": false,
   "task_aware": false,
   "native_hf": false,
   "embedding_dimension": 1024,
-  "build_encode_time_sec": 103.1576,
-  "chunk_count": 1435
+  "build_encode_time_sec": 144.0423,
+  "chunk_count": 1873
 }
