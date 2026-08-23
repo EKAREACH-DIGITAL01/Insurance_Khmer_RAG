@@ -173,8 +173,20 @@ SCOPE_VIOLATION_PATTERNS = [
 ]
 
 
+OFFICIAL_STATISTICS_PATTERN = re.compile(
+    r"(ស្ថិតិ|statistics|ឆ្នាំ|ប្រចាំឆ្នាំ|២០២[០-៩]|202[0-9]|បុព្វលាភធានារ៉ាប់រងដុល)",
+    re.IGNORECASE,
+)
+
+
 def is_scope_violation(text):
-    return any(p.search(text) for p in SCOPE_VIOLATION_PATTERNS)
+    for p in SCOPE_VIOLATION_PATTERNS:
+        if not p.search(text):
+            continue
+        if p.pattern == r"(បុព្វលាភ|ថ្លៃ|តម្លៃ).{0,30}ប៉ុន្មាន" and OFFICIAL_STATISTICS_PATTERN.search(text):
+            continue
+        return True
+    return False
 
 
 def check_gate_1(question):

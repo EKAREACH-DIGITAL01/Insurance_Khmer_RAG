@@ -217,12 +217,24 @@ SCOPE_VIOLATION_PATTERNS = [
 ]
 
 
+OFFICIAL_STATISTICS_PATTERN = re.compile(
+    r"(ស្ថិតិ|statistics|ឆ្នាំ|ប្រចាំឆ្នាំ|២០២[០-៩]|202[0-9]|បុព្វលាភធានារ៉ាប់រងដុល)",
+    re.IGNORECASE,
+)
+
+
 def contains_khmer_script(text):
     return bool(KHMER_SCRIPT_PATTERN.search(text))
 
 
 def is_scope_violation(text):
-    return any(pattern.search(text) for pattern in SCOPE_VIOLATION_PATTERNS)
+    for pattern in SCOPE_VIOLATION_PATTERNS:
+        if not pattern.search(text):
+            continue
+        if pattern.pattern == r"(បុព្វលាភ|ថ្លៃ|តម្លៃ).{0,30}ប៉ុន្មាន" and OFFICIAL_STATISTICS_PATTERN.search(text):
+            continue
+        return True
+    return False
 
 
 def gate_question(question, faiss_results=None):

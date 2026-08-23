@@ -299,14 +299,8 @@ SCOPE_VIOLATION_PATTERNS = [
     # license fee" is fine; "how much must I pay per month" is not, since
     # nothing in the corpus states a personal monthly figure to retrieve).
     re.compile(r"ត្រូវ(បង់|ចំណាយ|ខាត).{0,10}ប៉ុន្មាន"),
-    # "how much is the premium/price/cost" -- pricing and premium
-    # questions generally, not just personal-payment framing. Per the
-    # Internship Proposal's explicit scope boundary (no premium
-    # calculation), this blocks "how much is the premium" even when the
-    # corpus contains a real statutory rate that would otherwise be
-    # retrieved -- reciting a rate as if it answers "how much" risks the
-    # exact rate-vs-amount conflation the build_prompt() rules separately
-    # warn against, so it's safer to redirect than to answer here.
+    # Personal/product premium questions stay out of scope; official
+    # statistics questions are allowed by is_scope_violation().
     re.compile(r"(បុព្វលាភ|ថ្លៃ|តម្លៃ).{0,30}ប៉ុន្មាន"),
     # First-person "should I <do X>, yes or no?" -- a personal decision the
     # user wants the assistant to make for them (e.g. "should I file a claim
@@ -325,6 +319,12 @@ SCOPE_VIOLATION_PATTERNS = [
 ]
 
 
+OFFICIAL_STATISTICS_PATTERN = re.compile(
+    r"(ស្ថិតិ|statistics|ឆ្នាំ|ប្រចាំឆ្នាំ|២០២[០-៩]|202[0-9]|បុព្វលាភធានារ៉ាប់រងដុល)",
+    re.IGNORECASE,
+)
+
+
 def is_scope_violation(text):
     """Deterministic, score-independent check for questions asking the
     assistant to do something explicitly out of scope per the Internship
@@ -332,7 +332,13 @@ def is_scope_violation(text):
     or product, give advice framed as a personal choice, or calculate a
     personal monetary amount. See the comment block above for why this is
     a separate gate rather than relying on prompt instructions alone."""
-    return any(pattern.search(text) for pattern in SCOPE_VIOLATION_PATTERNS)
+    for pattern in SCOPE_VIOLATION_PATTERNS:
+        if not pattern.search(text):
+            continue
+        if pattern.pattern == r"(បុព្វលាភ|ថ្លៃ|តម្លៃ).{0,30}ប៉ុន្មាន" and OFFICIAL_STATISTICS_PATTERN.search(text):
+            continue
+        return True
+    return False
 
 
 MAX_USED_SOURCES = 3

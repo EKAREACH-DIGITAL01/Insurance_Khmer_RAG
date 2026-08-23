@@ -1,4 +1,5 @@
 import argparse
+import html as html_lib
 import hashlib
 import json
 import re
@@ -32,10 +33,15 @@ LIST_CATEGORIES = [
     "guidance",
     "publication",
     "statistics-monthly",
+    "statistics-quarterly",
+    "statistics-annually",
     "news",
     "event",
     "education",
     "announcement",
+    "educational-broadcasting",
+    "knowledge-sharing",
+    "social-programs",
 ]
 DEFAULT_SEEDS = [
     "https://www.irc.gov.kh/",
@@ -74,6 +80,51 @@ DROP_TEXT = {
     "home",
     "follow us",
 }
+
+MANAGEMENT_STRUCTURE_TEXT = """
+Management Structure
+Official homepage management structure for the Insurance Regulator of Cambodia (IRC / ន.ធ.ក.).
+NBFSA BOARD
+H.E Bou Chanphirou - Director General - Insurance Regulator of Cambodia
+Dr. Hor Sovathana - Deputy Director General
+Ms. Tan Linna - Deputy Director General
+Mr. Var Vichea - Director - Department of License and Legal Affairs
+Ms. Ngan Leakhena - Director - Department of General Affairs
+Mr. Touch Mengleng - Director - Department of Market Development
+Department of Research, Training and Cooperation
+Department of Supervision
+
+រចនាសម្ព័ន្ធថ្នាក់ដឹកនាំ
+ថ្នាក់ដឹកនាំ ន.ធ.ក. រួមមាន៖
+ឯកឧត្តម ប៊ូ ច័ន្ទភីរូ - អគ្គនាយក - និយ័តករធានារ៉ាប់រងកម្ពុជា
+លោកស្រីបណ្ឌិត ហោ សុវឌ្ឍនា - អគ្គនាយករង
+លោកស្រី តាន់ លីនណា - អគ្គនាយករង
+លោក វ៉ា វិជ្ជា - ប្រធាននាយកដ្ឋានគ្រប់គ្រងអាជ្ញាបណ្ណ និងកិច្ចការគតិយុត្ត
+លោកស្រី ង៉ាន់ លក្ខិណា - ប្រធាននាយកដ្ឋានកិច្ចការទូទៅ
+លោក ទូច ម៉េងឡេង - ប្រធាននាយកដ្ឋានអភិវឌ្ឍន៍ទីផ្សារ
+នាយកដ្ឋានស្រាវជ្រាវ បណ្តុះបណ្តាល និងសហប្រតិបត្តិការ
+នាយកដ្ឋានត្រួតពិនិត្យ
+""".strip()
+
+GROSS_PREMIUM_STATISTICS_TEXT = """
+Total Gross Premium
+បុព្វលាភធានារ៉ាប់រងដុល
+Official homepage graph data for the Insurance Regulator of Cambodia (IRC / ន.ធ.ក.).
+This is official insurance statistics, not a product premium quote or personal premium calculation.
+
+ឆ្នាំ២០២៥ / 2025: General Insurance 151,933,652 USD; Life Insurance 204,216,341 USD; Micro insurance 10,898,912 USD; Total Gross Premium 367,048,905 USD.
+ចំនួនបុព្វលាភធានារ៉ាប់រងដុលសរុបសម្រាប់ឆ្នាំ២០២៥ គឺ 367,048,905 ដុល្លារ អាមេរិក។
+
+ឆ្នាំ២០២៤ / 2024: General Insurance 147,636,549 USD; Life Insurance 200,407,724 USD; Micro insurance 8,872,543 USD; Total Gross Premium 356,916,816 USD.
+ចំនួនបុព្វលាភធានារ៉ាប់រងដុលសរុបសម្រាប់ឆ្នាំ២០២៤ គឺ 356,916,816 ដុល្លារ អាមេរិក។
+
+ឆ្នាំ២០២៣ / 2023: General Insurance 150,727,745 USD; Life Insurance 193,539,426 USD; Micro insurance 0 USD; Total Gross Premium 344,267,171 USD.
+ឆ្នាំ២០២២ / 2022: General Insurance 132,340,704 USD; Life Insurance 193,808,543 USD; Micro insurance 5,716,368 USD; Total Gross Premium 331,865,615 USD.
+ឆ្នាំ២០២១ / 2021: General Insurance 122,965,797 USD; Life Insurance 170,458,869 USD; Micro insurance 4,129,267 USD; Total Gross Premium 297,553,933 USD.
+ឆ្នាំ២០២០ / 2020: General Insurance 114,485,277 USD; Life Insurance 153,374,081 USD; Micro insurance 5,034,998 USD; Total Gross Premium 272,894,356 USD.
+ឆ្នាំ២០១៩ / 2019: General Insurance 101,383,939 USD; Life Insurance 144,400,835 USD; Micro insurance 7,059,819 USD; Total Gross Premium 252,844,593 USD.
+ឆ្នាំ២០១៨ / 2018: General Insurance 86,640,270 USD; Life Insurance 100,770,354 USD; Micro insurance 9,259,753 USD; Total Gross Premium 196,670,377 USD.
+""".strip()
 
 
 class StdlibResponse:
@@ -196,6 +247,132 @@ class Extractor(HTMLParser):
         self.text_parts.append(text)
 
 
+def extract_next_json(html):
+    match = re.search(
+        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+        html,
+        flags=re.DOTALL,
+    )
+    if not match:
+        return None
+    try:
+        return json.loads(html_lib.unescape(match.group(1)))
+    except Exception:
+        return None
+
+
+def iter_json_values(value):
+    if isinstance(value, dict):
+        yield value
+        for child in value.values():
+            yield from iter_json_values(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from iter_json_values(child)
+
+
+def object_file_url(path):
+    if not path or not isinstance(path, str):
+        return None
+    if path.startswith(("http://", "https://")):
+        return normalize_url(path)
+    if path.startswith("upload/"):
+        return normalize_url(f"https://object.irc.gov.kh/irc-public/{path}")
+    return None
+
+
+def format_date(value):
+    if not value:
+        return None
+    return value.replace("T", " ").replace("Z", " UTC")
+
+
+def extract_next_content(url, html):
+    data = extract_next_json(html)
+    if not data:
+        return {"text": "", "links": []}
+
+    state = data.get("props", {}).get("pageProps", {}).get("initialApolloState", {})
+    lines = []
+    links = []
+
+    for key, item in state.items():
+        if not isinstance(item, dict):
+            continue
+
+        typename = item.get("__typename", "")
+
+        if typename == "ArticlePublic":
+            title = item.get("title")
+            category = item.get("category")
+            publish_date = format_date(item.get("publishDate") or item.get("createdAt"))
+            article_id = item.get("id")
+
+            if title:
+                lines.append(str(title))
+            if category:
+                lines.append(f"Category: {category}")
+            if publish_date:
+                lines.append(f"Publish date: {publish_date}")
+
+            description = clean_text(item.get("description") or "")
+            if description:
+                lines.append(description)
+
+            if article_id:
+                lang_prefix = "/en" if urlparse(url).path.startswith("/en") else ""
+                links.append(normalize_url(urljoin(BASE_URL, f"{lang_prefix}/article?post={article_id}")))
+
+            for content_item in item.get("content") or []:
+                if not isinstance(content_item, dict):
+                    continue
+                content_type = content_item.get("type")
+                content = content_item.get("content")
+                if content_type:
+                    lines.append(f"Content type: {content_type}")
+                if isinstance(content, dict):
+                    for file_key in ("file", "low", "medium", "placeholder", "micro"):
+                        file_url = object_file_url(content.get(file_key))
+                        if file_url:
+                            links.append(file_url)
+                            if file_key == "file":
+                                size = content.get("fileSize")
+                                size_text = f" ({size} bytes)" if size else ""
+                                lines.append(f"Download file: {file_url}{size_text}")
+
+        elif typename == "GraphType":
+            graph_type = item.get("type")
+            graph_data = item.get("data") or {}
+            labels = graph_data.get("labels") or []
+            datasets = graph_data.get("datasets") or []
+            if graph_type == "premium":
+                lines.append("Total Gross Premium")
+                lines.append("បុព្វលាភធានារ៉ាប់រងដុល")
+            elif graph_type == "density":
+                lines.append("Insurance Density and Insurance Penetration")
+            if labels and datasets:
+                for index, year in enumerate(labels):
+                    values = []
+                    total = 0.0
+                    numeric_total = True
+                    for dataset in datasets:
+                        label = dataset.get("label")
+                        series = dataset.get("data") or []
+                        if index >= len(series):
+                            continue
+                        value = series[index]
+                        values.append(f"{label}: {value}")
+                        try:
+                            total += float(value)
+                        except (TypeError, ValueError):
+                            numeric_total = False
+                    if values:
+                        suffix = f"; Total: {int(total):,}" if numeric_total and graph_type == "premium" else ""
+                        lines.append(f"{year}: " + "; ".join(values) + suffix)
+
+    return {"text": clean_text("\n".join(lines)), "links": sorted(set(links))}
+
+
 def clean_text(text):
     lines = []
     for line in text.splitlines():
@@ -253,17 +430,21 @@ def fetch_page(session, url, timeout):
         return None
     parser = Extractor()
     parser.feed(response.text)
+    next_content = extract_next_content(url, response.text)
     links = []
-    for href in parser.links:
+    for href in parser.links + next_content["links"]:
         absolute = normalize_url(urljoin(url, href))
         if not absolute.startswith(("http://", "https://")):
             continue
         links.append(absolute)
+    text_parts = [clean_text("\n".join(parser.text_parts))]
+    if next_content["text"]:
+        text_parts.append(next_content["text"])
     return {
         "status_code": response.status_code,
         "content_type": content_type,
         "title": clean_text(" ".join(parser.title_parts)),
-        "text": clean_text("\n".join(parser.text_parts)),
+        "text": clean_text("\n\n".join(part for part in text_parts if part)),
         "links": sorted(set(links)),
     }
 
@@ -331,6 +512,45 @@ def update_document_metadata(page_records):
     return changed
 
 
+def write_supplemental_documents(scraped_at=None):
+    scraped_at = scraped_at or datetime.now(timezone.utc).isoformat()
+    metadata = load_metadata()
+    records = [
+        {
+            "document_id": "website_homepage_management_structure",
+            "title": "Management Structure",
+            "text": MANAGEMENT_STRUCTURE_TEXT,
+            "source_url": "https://www.irc.gov.kh/en",
+        },
+        {
+            "document_id": "website_homepage_gross_premium_statistics",
+            "title": "Total Gross Premium",
+            "text": GROSS_PREMIUM_STATISTICS_TEXT,
+            "source_url": "https://www.irc.gov.kh/en",
+        },
+    ]
+    changed = 0
+    for record in records:
+        output = {
+            "document_id": record["document_id"],
+            "category": "website",
+            "total_pages": 1,
+            "merged_text": record["text"],
+            "source_url": record["source_url"],
+            "scraped_at": scraped_at,
+        }
+        save_json(WEBSITE_DOC_ROOT / f"{record['document_id']}.json", output)
+        metadata[record["document_id"]] = {
+            "document_name": record["title"],
+            "document_type": "website",
+            "release_date": scraped_at[:10],
+            "source_url": record["source_url"],
+        }
+        changed += 1
+    save_json(METADATA_PATH, metadata)
+    return changed
+
+
 def finalize_cached_pages():
     page_records = []
     for path in sorted(PAGE_ROOT.glob("*.json")):
@@ -340,6 +560,7 @@ def finalize_cached_pages():
         save_json(path, page)
         page_records.append(page)
     updated = update_document_metadata(page_records)
+    supplemental = write_supplemental_documents()
     file_records = [
         {"path": str(path), "size_bytes": path.stat().st_size}
         for path in sorted(FILE_ROOT.glob("*"))
@@ -350,7 +571,7 @@ def finalize_cached_pages():
         "scraped_at": datetime.now(timezone.utc).isoformat(),
         "pages_seen": len(page_records),
         "pages_saved": len(page_records),
-        "pipeline_documents": updated,
+        "pipeline_documents": updated + supplemental,
         "files_downloaded": len(file_records),
         "errors": [],
         "files": file_records,
@@ -420,12 +641,13 @@ def crawl(args):
             errors.append({"url": url, "error": str(exc)})
 
     updated = update_document_metadata(page_records)
+    supplemental = write_supplemental_documents()
     manifest = {
         "base_url": BASE_URL,
         "scraped_at": datetime.now(timezone.utc).isoformat(),
         "pages_seen": len(seen),
         "pages_saved": len(page_records),
-        "pipeline_documents": updated,
+        "pipeline_documents": updated + supplemental,
         "files_downloaded": len(file_records),
         "errors": errors,
         "files": file_records,
@@ -436,7 +658,7 @@ def crawl(args):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Scrape IRC website pages for the RAG corpus.")
-    parser.add_argument("--seed", action="append", default=DEFAULT_SEEDS)
+    parser.add_argument("--seed", action="append")
     parser.add_argument("--max-pages", type=int, default=500)
     parser.add_argument("--delay", type=float, default=0.5)
     parser.add_argument("--timeout", type=float, default=10.0)
@@ -444,7 +666,10 @@ def parse_args():
     parser.add_argument("--download-files", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--respect-robots", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--finalize-cache", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not args.seed:
+        args.seed = DEFAULT_SEEDS
+    return args
 
 
 if __name__ == "__main__":
