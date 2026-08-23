@@ -220,6 +220,10 @@ REDIRECT_TEXT = (
     "សម្រាប់ជំនួយបន្ថែម។"
 )
 
+NOT_KHMER_QUESTION_TEXT = (
+    "សូមសួរសំណួរជាភាសាខ្មែរដែលពាក់ព័ន្ធនឹងធានារ៉ាប់រងកម្ពុជា"
+)
+
 # ----------------------------------------------------------------------------
 # Deterministic scope-violation gate
 # ----------------------------------------------------------------------------
@@ -3341,12 +3345,7 @@ def render_message(msg):
     if msg.get("out_of_domain"):
         reason = msg.get("out_of_domain_reason")
         if reason == "not_khmer":
-            st.markdown(
-                '<div class="kc-alert">No Khmer text detected &mdash; '
-                "this assistant only answers Khmer-language questions, so "
-                "generation was skipped.</div>",
-                unsafe_allow_html=True,
-            )
+            pass
         elif reason == "too_short":
             st.markdown(
                 '<div class="kc-alert">Question too short to search &mdash; '
@@ -3569,7 +3568,9 @@ def handle_new_question(
         # ("your question doesn't relate to insurance law") was misleading
         # for scope_violation in particular: that case IS about insurance,
         # the assistant just can't recommend/calculate/personally-advise.
-        if reason == "scope_violation":
+        if reason == "not_khmer":
+            canned_answer = NOT_KHMER_QUESTION_TEXT
+        elif reason == "scope_violation":
             canned_answer = (
                 "សំណួររបស់អ្នកស្នើសុំការណែនាំ ឬប្រៀបធៀបក្រុមហ៊ុន/ផលិតផលជាក់លាក់ "
                 "ការផ្តល់ប្រឹក្សាផ្ទាល់ខ្លួន ឬការគណនាប្រាក់ផ្ទាល់ខ្លួន ដែលជំនួយការនេះ"
