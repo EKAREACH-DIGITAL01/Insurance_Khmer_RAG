@@ -373,7 +373,7 @@ PROMPT_TOKEN_MARGIN = 256    # safety gap so prompt + max_tokens < ctx size
 # (~9k) retrieval prompt inside the context window. Per query we tighten this
 # further using that query's real prompt length.
 SERVER_OUTPUT_HARD_CAP = SERVER_CTX_SIZE - 9000  # ~7384 tokens
-DEMO_OUTPUT_HARD_CAP = 1536
+DEMO_OUTPUT_HARD_CAP = 4096
 
 # Transient generation failures: with --jinja, llama-server parses streamed
 # output through the chat-template PEG parser and intermittently aborts with
@@ -851,7 +851,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-msg-assistant {{
   font-family: 'Hanuman', sans-serif;
   font-size: 16.5px;
-  line-height: 1.62;
+  line-height: 1.48;
   color: var(--stone);
   white-space: pre-line;
   min-height: 1.4em;
@@ -880,7 +880,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-sources-list li {{
   font-family: 'Hanuman', sans-serif;
   font-size: 14px;
-  line-height: 1.55;
+  line-height: 1.45;
   color: var(--stone);
   margin: 2px 0;
 }}
@@ -2031,7 +2031,7 @@ def normalize_answer_text(text):
         cleaned_lines.append(line)
     cleaned = "\n".join(cleaned_lines)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    cleaned = re.sub(r"\n\s*\n+", "\n", cleaned)
     cleaned = re.sub(r"(?m)^\s*[-•]\s*$\n?", "", cleaned)
     return cleaned.strip()
 
