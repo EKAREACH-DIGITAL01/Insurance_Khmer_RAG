@@ -3233,8 +3233,16 @@ def install_action_row_script():
           doc.addEventListener('click', function (e) {
             var copy = e.target.closest('.kc-act-copy');
             if (copy) {
+              var copyText = '';
+              try {
+                var raw = window.parent.atob(copy.dataset.copyB64 || '');
+                var bytes = Uint8Array.from(raw, function (c) { return c.charCodeAt(0); });
+                copyText = new TextDecoder('utf-8').decode(bytes);
+              } catch (err) {
+                copyText = '';
+              }
               window.parent.navigator.clipboard
-                .writeText(copy.dataset.copy || '')
+                .writeText(copyText)
                 .then(function () {
                   copy.classList.add('is-done');
                   window.setTimeout(function () {
@@ -3300,11 +3308,12 @@ def render_message_actions(msg):
     pipeline behind them, and this note is here so nobody wires one up later
     assuming that was always the intent.
     """
-    answer = html.escape(msg.get("answer") or "", quote=True)
+    answer = normalize_answer_text(msg.get("answer") or "")
+    answer_b64 = base64.b64encode(answer.encode("utf-8")).decode("ascii")
     diag_url = f"?view=diagnostics&amp;msg={html.escape(str(msg['id']))}"
     st.markdown(
         f'<div class="kc-actions">'
-        f'<button type="button" class="kc-act kc-act-copy" data-copy="{answer}" '
+        f'<button type="button" class="kc-act kc-act-copy" data-copy-b64="{answer_b64}" '
         f'data-tip="ចម្លង" aria-label="ចម្លង">{_ICON_COPY}</button>'
         f'<button type="button" class="kc-act kc-act-thumb" '
         f'data-tip="ពេញចិត្ត" aria-label="ពេញចិត្ត">{_ICON_THUMB_UP}</button>'
