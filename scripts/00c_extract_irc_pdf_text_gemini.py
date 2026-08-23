@@ -97,7 +97,29 @@ def get_page_count(pdf_path):
         return 0
 
 
-def convert_missing_pages(pdf_path, doc_id, dpi, max_pages=None):
+def batched_ranges(page_numbers, batch_size):
+    batch = []
+    for page_number in page_numbers:
+        if not batch:
+            batch = [page_number, page_number]
+            continue
+        if page_number == batch[1] + 1 and (batch[1] - batch[0] + 1) < batch_size:
+            batch[1] = page_number
+            continue
+        yield tuple(batch)
+        batch = [page_number, page_number]
+    if batch:
+        yield tuple(batch)
+
+
+def convert_missing_pages(
+    pdf_path,
+    doc_id,
+    dpi,
+    max_pages=None,
+    batch_size=20,
+    thread_count=4,
+):
     total_pages = get_page_count(pdf_path)
     if max_pages:
         total_pages = min(total_pages, max_pages)
@@ -105,24 +127,26 @@ def convert_missing_pages(pdf_path, doc_id, dpi, max_pages=None):
         return []
 
     IMAGE_ROOT.joinpath(doc_id).mkdir(parents=True, exist_ok=True)
-    page_paths = []
-    for page_number in range(1, total_pages + 1):
-        output_path = page_image_path(doc_id, page_number)
-        page_paths.append(output_path)
-        if output_path.exists():
-            continue
+    page_paths = [page_image_path(doc_id, page_number) for page_number in range(1, total_pages + 1)]
+    missing_pages = [
+        page_number
+        for page_number, output_path in enumerate(page_paths, start=1)
+        if not output_path.exists()
+    ]
+    for first_page, last_page in batched_ranges(missing_pages, batch_size):
         images = convert_from_path(
             str(pdf_path),
             dpi=dpi,
-            first_page=page_number,
-            last_page=page_number,
+            first_page=first_page,
+            last_page=last_page,
             fmt="png",
-            single_file=True,
+            thread_count=thread_count,
         )
-        if not images:
-            continue
-        images[0].save(output_path, "PNG")
-        print(f"Converted page image: {output_path}")
+        for offset, image in enumerate(images):
+            page_number = first_page + offset
+            output_path = page_image_path(doc_id, page_number)
+            image.save(output_path, "PNG")
+        print(f"Converted page images: {doc_id} pages {first_page}-{last_page}")
     return page_paths
 
 
@@ -252,6 +276,8 @@ def parse_args():
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--dpi", type=int, default=220)
     parser.add_argument("--request-timeout", type=int, default=120)
+    parser.add_argument("--conversion-batch-size", type=int, default=20)
+    parser.add_argument("--conversion-thread-count", type=int, default=4)
     parser.add_argument("--limit-pdfs", type=int)
     parser.add_argument("--max-pages-per-pdf", type=int)
     parser.add_argument("--only-url-contains")
@@ -297,6 +323,8 @@ def main():
             doc_id=doc_id,
             dpi=args.dpi,
             max_pages=args.max_pages_per_pdf,
+            batch_size=args.conversion_batch_size,
+            thread_count=args.conversion_thread_count,
         )
 
         if args.convert_only:

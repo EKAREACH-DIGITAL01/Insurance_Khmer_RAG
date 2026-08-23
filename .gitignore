@@ -4,6 +4,8 @@ data/00_irc_website_scrape/
 # Ignore generated page images
 data/02_page_images/*
 !data/02_page_images/.gitkeep
+data/02_page_images_irc_gemini/
+data/03_raw_pages_irc_gemini/
 
 # Ignore cleaned pages
 data/04_cleaned_pages/*
