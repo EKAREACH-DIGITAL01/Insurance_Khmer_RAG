@@ -884,6 +884,11 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   outline: 2px solid var(--brass);
   outline-offset: 2px;
 }}
+.kc-sources-list svg,
+.kc-msg-assistant svg:not(.kc-inline-svg) {{
+  max-width: 18px;
+  max-height: 18px;
+}}
 
 /* Pinned under the chat bar, sharing its exact left/right bracket so the two
    read as one unit sitting in the chat area. */
@@ -2402,6 +2407,14 @@ def select_context_chunks(results):
     return selected
 
 
+def is_image_derived_source(chunk):
+    metadata = chunk.get("metadata", {})
+    source_url = (metadata.get("source_url") or "").lower()
+    doc_name = (metadata.get("document_name") or "").lower()
+    image_exts = (".jpg", ".jpeg", ".png", ".webp")
+    return source_url.endswith(image_exts) or doc_name.endswith(image_exts)
+
+
 def select_used_sources(results):
     """The chunks shown as cited sources under an answer. This receives
     context_results -- already capped to CONTEXT_K with at most
@@ -2417,7 +2430,12 @@ def select_used_sources(results):
     would either over- or under-filter depending on the corpus. Simply
     taking the top few of an already-curated list sidesteps needing a new
     threshold calibrated against a fused score scale."""
-    return results[:MAX_USED_SOURCES]
+    non_image_results = [
+        (score, chunk)
+        for score, chunk in results
+        if not is_image_derived_source(chunk)
+    ]
+    return (non_image_results or results)[:MAX_USED_SOURCES]
 
 
 def run_pipeline_in_thread(
@@ -3181,25 +3199,25 @@ def install_action_row_script():
 
 
 _ICON_COPY = (
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
     'stroke-linecap="round" stroke-linejoin="round">'
     '<rect x="9" y="9" width="11" height="11" rx="2"/>'
     '<path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'
 )
 _ICON_THUMB_UP = (
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
     'stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M7 21V10l5-7a2 2 0 0 1 3 2l-1.2 5H19a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 '
     '17.6 21H7z"/><rect x="3" y="10" width="4" height="11" rx="1"/></svg>'
 )
 _ICON_THUMB_DOWN = (
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
     'stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M17 3v11l-5 7a2 2 0 0 1-3-2l1.2-5H5a2 2 0 0 1-2-2.4l1.4-7A2 2 0 0 1 '
     '6.4 3H17z"/><rect x="17" y="3" width="4" height="11" rx="1"/></svg>'
 )
 _ICON_INFO = (
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
     'stroke-linecap="round" stroke-linejoin="round">'
     '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6v.4"/></svg>'
 )
