@@ -349,7 +349,7 @@ MAX_USED_SOURCES = 3
 # reused token and would distort Khmer legal vocabulary. MUST stay identical to
 # scripts/13_generate_model_answers.py so eval and production generate the
 # same way. 0.3 is conservative; raise toward 0.6-0.8 if loops still appear.
-GEN_FREQUENCY_PENALTY = 0.3
+GEN_FREQUENCY_PENALTY = 0.6
 
 # --- Dynamic output-token cap (production) ----------------------------------
 # The eval (scripts/13) sizes the output cap to each gold answer's token length.
@@ -361,14 +361,15 @@ GEN_FREQUENCY_PENALTY = 0.3
 # small cap (faster first token, since the server reserves buffers to the cap).
 # Clamped to [floor, hard cap] and further bounded so prompt + output can never
 # exceed the context window.
-MAX_TOKENS_FLOOR    = 1024   # never below this, even for tiny chunks
-GEN_TOKEN_HEADROOM  = 1.5    # answers can run longer than their source chunk
+MAX_TOKENS_FLOOR    = 384    # enough for legal lists, low enough to avoid demo-time runaways
+GEN_TOKEN_HEADROOM  = 1.0    # answers should stay close to the retrieved source length
 SERVER_CTX_SIZE     = 16384  # must match start_chatbot.py's --ctx-size
 PROMPT_TOKEN_MARGIN = 256    # safety gap so prompt + max_tokens < ctx size
 # Absolute output ceiling independent of any one prompt: leaves room for a large
 # (~9k) retrieval prompt inside the context window. Per query we tighten this
 # further using that query's real prompt length.
 SERVER_OUTPUT_HARD_CAP = SERVER_CTX_SIZE - 9000  # ~7384 tokens
+DEMO_OUTPUT_HARD_CAP = 1536
 
 # Transient generation failures: with --jinja, llama-server parses streamed
 # output through the chat-template PEG parser and intermittently aborts with
@@ -735,6 +736,10 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   padding: 10px 8px;
   box-shadow: none !important;
 }}
+[data-testid="stForm"] [data-testid="stTextInput"] input::placeholder {{
+  color: rgba(22, 51, 38, 0.58) !important;
+  opacity: 1 !important;
+}}
 [data-testid="stForm"] [data-baseweb="input"] {{
     background: transparent !important;
     border: none !important;
@@ -842,10 +847,14 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 .kc-msg-assistant {{
   font-family: 'Hanuman', sans-serif;
   font-size: 16.5px;
-  line-height: 1.9;
+  line-height: 1.62;
   color: var(--stone);
-  white-space: pre-wrap;
+  white-space: pre-line;
   min-height: 1.4em;
+  overflow-wrap: anywhere;
+}}
+.kc-msg-assistant br {{
+  line-height: 1.15;
 }}
 
 /* Sources read as part of the answer, not as a separate labelled panel: body
@@ -857,18 +866,19 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
   font-size: 14px;
   color: var(--stone);
   opacity: 0.75;
-  margin-top: 20px;
+  margin-top: 14px;
 }}
 .kc-sources-list {{
-  margin: 6px 0 0 0;
+  margin: 4px 0 0 0;
   padding-left: 20px;
   list-style: disc;
 }}
 .kc-sources-list li {{
   font-family: 'Hanuman', sans-serif;
   font-size: 14px;
-  line-height: 1.95;
+  line-height: 1.55;
   color: var(--stone);
+  margin: 2px 0;
 }}
 .kc-sources-list li::marker {{ color: var(--stone); opacity: 0.45; }}
 .kc-sources-list a {{
@@ -1990,7 +2000,55 @@ def choose_max_tokens_live(context_results, prompt_tokens=None):
         if room < max_tokens:
             max_tokens = max(MAX_TOKENS_FLOOR, room)
 
-    return max_tokens
+    return min(max_tokens, DEMO_OUTPUT_HARD_CAP)
+
+
+GENERATED_SOURCE_SECTION_PATTERN = re.compile(
+    r"(?:មើលប្រភពឯកសារ|ប្រភពឯកសារ|ប្រភព|Sources?|ឯកសារយោង)\s*[:：]?\s*$",
+    re.IGNORECASE,
+)
+HTML_ARTIFACT_PATTERN = re.compile(
+    r"(?:data-tip=|aria-label=|<button|</button|<svg|</svg|<div|</div|<ul|</ul|<li|</li)",
+    re.IGNORECASE,
+)
+
+
+def normalize_answer_text(text):
+    """Clean model output before display/storage."""
+    if not text:
+        return ""
+    cleaned_lines = []
+    for raw_line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        line = raw_line.strip()
+        if HTML_ARTIFACT_PATTERN.search(line):
+            break
+        if GENERATED_SOURCE_SECTION_PATTERN.search(line):
+            break
+        cleaned_lines.append(line)
+    cleaned = "\n".join(cleaned_lines)
+    cleaned = re.sub(r"[ \t]+", " ", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    cleaned = re.sub(r"(?m)^\s*[-•]\s*$\n?", "", cleaned)
+    return cleaned.strip()
+
+
+def has_repetition_loop(text):
+    """Detect runaway repeated spans while streaming."""
+    compact = re.sub(r"\s+", " ", normalize_answer_text(text))
+    if len(compact) < 220:
+        return False
+    for size in (45, 65, 90, 120):
+        if len(compact) < size * 4:
+            continue
+        tail = compact[-size:]
+        if len(tail.strip()) >= size * 0.8 and compact.count(tail) >= 4:
+            return True
+    sentences = [s.strip() for s in re.split(r"[។៕!?]", compact) if len(s.strip()) > 35]
+    return len(sentences) >= 5 and len(set(sentences[-5:])) <= 2
+
+
+def render_answer_html(answer):
+    return f'<div class="kc-msg-assistant">{html.escape(normalize_answer_text(answer))}</div>'
 
 
 def get_loaded_model():
@@ -2259,7 +2317,9 @@ Rules:
 - Answer in Khmer.
 - Do not invent facts.
 - Preserve dates, fees, deadlines and requirements exactly.
-- Provide a complete and detailed answer. If the context lists multiple conditions, sub-points, exceptions, or requirements, enumerate ALL of them.
+- Provide a concise professional answer. If the context lists multiple directly relevant conditions, sub-points, exceptions, or requirements, enumerate them once.
+- Do not repeat the same sentence, phrase, list item, or explanation.
+- Do not write a "Sources", "ប្រភព", "មើលប្រភពឯកសារ", citation, disclaimer, HTML, button text, or UI/action text. The application will show sources separately after your answer.
 - Always finish your answer with a complete sentence that ends in the Khmer sentence-final sign ។ (or ៕). Even when the answer is a list, the final item must end with ។. Never stop on a word, bracket, or list item without it.
 - CRITICAL: If the question names a specific provision (មាត្រា N for a law or sub-decree, ប្រការ N for a prakas), you MUST reproduce that provision's ENTIRE text from the context word-for-word -- its heading line AND every following sentence, clause, condition, and sub-point. This rule applies EVEN IF the question is phrased as "និយាយអំពីអ្វី" / "មានន័យដូចម្តេច" / "about what" -- such phrasing does NOT permit a one-line topic summary. A reply that gives only the provision's subject or title is WRONG and forbidden. Quote the full provision.
 - Only combine information from multiple sources if EACH of them directly addresses the question asked. Do not stitch together unrelated facts from different sources just because they were retrieved -- if most of the retrieved sources don't actually answer the question, say so instead of forcing a combined answer out of all of them.
@@ -3309,17 +3369,13 @@ def render_message(msg):
                 unsafe_allow_html=True,
             )
     if msg["answer"]:
-        st.markdown(
-            f'<div class="kc-msg-assistant">{html.escape(msg["answer"])}</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(render_answer_html(msg["answer"]), unsafe_allow_html=True)
     if (
         not msg.get("interrupted")
         and not msg.get("errored")
         and not msg.get("out_of_domain")
     ):
         render_used_sources(msg["used_sources"])
-        render_message_actions(msg)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -3402,10 +3458,7 @@ def handle_new_question(
     ladder_ph = st.empty()
     answer_ph = st.empty()
     if answer_text:
-        answer_ph.markdown(
-            f'<div class="kc-msg-assistant">{html.escape(answer_text)}</div>',
-            unsafe_allow_html=True,
-        )
+        answer_ph.markdown(render_answer_html(answer_text), unsafe_allow_html=True)
     ladder_ph.markdown(
         render_ladder_html(current_idx, phase_elapsed), unsafe_allow_html=True
     )
@@ -3459,10 +3512,9 @@ def handle_new_question(
                 scroll_to_bottom()
             elif kind == "token":
                 answer_text += payload
-                answer_ph.markdown(
-                    f'<div class="kc-msg-assistant">{html.escape(answer_text)}</div>',
-                    unsafe_allow_html=True,
-                )
+                answer_ph.markdown(render_answer_html(answer_text), unsafe_allow_html=True)
+                if has_repetition_loop(answer_text):
+                    stop_event.set()
             elif kind == "done":
                 phase_elapsed[PHASES[current_idx]] = (
                     now - phase_start_times[PHASES[current_idx]]
@@ -3582,6 +3634,8 @@ def handle_new_question(
         used_sources = select_used_sources(final_payload["context_results"])
 
         render_used_sources(used_sources)
+
+        answer_text = normalize_answer_text(answer_text)
 
         msg = {
             "id": str(uuid.uuid4()),
