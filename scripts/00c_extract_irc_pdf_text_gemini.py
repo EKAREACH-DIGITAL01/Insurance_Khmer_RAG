@@ -52,7 +52,13 @@ def is_pdf_record(record):
     return "pdf" in content_type or path.endswith(".pdf") or url.endswith(".pdf")
 
 
-def load_pdf_records(only_url_contains=None, limit=None, shard_count=1, shard_index=0):
+def load_pdf_records(
+    only_url_contains=None,
+    limit=None,
+    shard_count=1,
+    shard_index=0,
+    skip_first_pdfs=0,
+):
     manifest = load_json(MANIFEST_PATH, {})
     all_records = []
     for record in manifest.get("files", []):
@@ -65,6 +71,8 @@ def load_pdf_records(only_url_contains=None, limit=None, shard_count=1, shard_in
         if only_url_contains and only_url_contains not in url:
             continue
         all_records.append(record)
+    if skip_first_pdfs:
+        all_records = all_records[skip_first_pdfs:]
     records = [
         record
         for index, record in enumerate(all_records)
@@ -166,6 +174,34 @@ def build_clients(api_keys):
     return clients
 
 
+class GeminiClientPool:
+    def __init__(self, clients):
+        self.clients = list(clients)
+        self.cursor = 0
+        self.quota_disabled = 0
+
+    def __len__(self):
+        return len(self.clients)
+
+    def next_client(self):
+        if not self.clients:
+            raise RuntimeError("No Gemini clients remain available.")
+        client = self.clients[self.cursor % len(self.clients)]
+        self.cursor = (self.cursor + 1) % len(self.clients)
+        return client
+
+    def disable_for_quota(self, client):
+        for index, existing in enumerate(self.clients):
+            if existing is client:
+                del self.clients[index]
+                self.quota_disabled += 1
+                if self.clients:
+                    self.cursor %= len(self.clients)
+                else:
+                    self.cursor = 0
+                return
+
+
 def generate_ocr_response(client, model, image):
     return client.models.generate_content(
         model=model,
@@ -188,11 +224,12 @@ def extract_page_with_timeout(executor, client, model, image_path, timeout):
             executor.shutdown(wait=False, cancel_futures=True)
 
 
-def ocr_pages(page_paths, doc_id, clients, model, request_timeout, max_consecutive_quota_errors):
+def ocr_pages(page_paths, doc_id, client_pool, model, request_timeout, max_consecutive_quota_errors):
     processed = 0
     skipped = 0
     failed = 0
     consecutive_quota_errors = 0
+    stopped_for_quota = False
     for image_path in page_paths:
         page_number = int(image_path.stem.split("_")[1])
         output_path = raw_page_path(doc_id, page_number)
@@ -201,36 +238,53 @@ def ocr_pages(page_paths, doc_id, clients, model, request_timeout, max_consecuti
             skipped += 1
             continue
 
-        client = clients[(processed + failed) % len(clients)]
-        print(f"Gemini OCR: {doc_id} page {page_number}")
-        start = time.time()
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        try:
-            response = extract_page_with_timeout(
-                executor,
-                client,
-                model,
-                image_path,
-                request_timeout,
-            )
-        except concurrent.futures.TimeoutError:
-            print(f"Timeout after {request_timeout}s: {doc_id} page {page_number}")
-            consecutive_quota_errors = 0
-            failed += 1
-            continue
-        except Exception as exc:
-            print(f"Gemini error on {doc_id} page {page_number}: {exc}")
-            if is_quota_error(exc):
-                consecutive_quota_errors += 1
-                if consecutive_quota_errors >= max_consecutive_quota_errors:
-                    print(
-                        "Stopping OCR for this document after "
-                        f"{consecutive_quota_errors} consecutive quota errors."
-                    )
-                    return processed, skipped, failed + 1
-            else:
+        response = None
+        while response is None:
+            if len(client_pool) < 1:
+                print("Stopping OCR because all configured Gemini keys hit quota.")
+                stopped_for_quota = True
+                failed += 1
+                break
+
+            client = client_pool.next_client()
+            print(f"Gemini OCR: {doc_id} page {page_number}")
+            start = time.time()
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            try:
+                response = extract_page_with_timeout(
+                    executor,
+                    client,
+                    model,
+                    image_path,
+                    request_timeout,
+                )
+            except concurrent.futures.TimeoutError:
+                print(f"Timeout after {request_timeout}s: {doc_id} page {page_number}")
                 consecutive_quota_errors = 0
-            failed += 1
+                failed += 1
+                break
+            except Exception as exc:
+                print(f"Gemini error on {doc_id} page {page_number}: {exc}")
+                if is_quota_error(exc):
+                    client_pool.disable_for_quota(client)
+                    consecutive_quota_errors += 1
+                    if consecutive_quota_errors >= max_consecutive_quota_errors:
+                        print(
+                            "Stopping OCR after "
+                            f"{consecutive_quota_errors} consecutive quota errors."
+                        )
+                        stopped_for_quota = True
+                        failed += 1
+                        break
+                    continue
+
+                consecutive_quota_errors = 0
+                failed += 1
+                break
+
+        if response is None:
+            if stopped_for_quota:
+                break
             continue
 
         save_json(
@@ -247,7 +301,7 @@ def ocr_pages(page_paths, doc_id, clients, model, request_timeout, max_consecuti
         consecutive_quota_errors = 0
         print(f"Saved OCR page in {time.time() - start:.2f}s")
 
-    return processed, skipped, failed
+    return processed, skipped, failed, stopped_for_quota
 
 
 def merge_ocr_document(record, model, scraped_at):
@@ -303,10 +357,17 @@ def parse_args():
     parser.add_argument("--conversion-batch-size", type=int, default=20)
     parser.add_argument("--conversion-thread-count", type=int, default=4)
     parser.add_argument("--limit-pdfs", type=int)
+    parser.add_argument("--skip-first-pdfs", type=int, default=0)
     parser.add_argument("--max-pages-per-pdf", type=int)
     parser.add_argument("--only-url-contains")
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--shard-index", type=int, default=0)
+    parser.add_argument(
+        "--skip-first-keys",
+        type=int,
+        default=0,
+        help="Ignore this many leading Gemini keys from GEMINI_API_KEYS.",
+    )
     parser.add_argument("--convert-only", action="store_true")
     parser.add_argument("--merge-only", action="store_true")
     return parser.parse_args()
@@ -322,13 +383,18 @@ def main():
 
     key_text = os.getenv("GEMINI_API_KEYS") or os.getenv("GEMINI_API_KEY") or ""
     api_keys = [key.strip() for key in key_text.split(",") if key.strip()]
+    if args.skip_first_keys:
+        api_keys = api_keys[args.skip_first_keys :]
+        print(f"Skipping first {args.skip_first_keys} configured Gemini key(s).")
     clients = [] if args.convert_only or args.merge_only else build_clients(api_keys)
+    client_pool = GeminiClientPool(clients) if clients else None
 
     records = load_pdf_records(
         only_url_contains=args.only_url_contains,
         limit=args.limit_pdfs,
         shard_count=args.shard_count,
         shard_index=args.shard_index,
+        skip_first_pdfs=args.skip_first_pdfs,
     )
     print(
         f"PDF records selected: {len(records)} "
@@ -365,10 +431,10 @@ def main():
         if args.convert_only:
             continue
 
-        processed, skipped, failed = ocr_pages(
+        processed, skipped, failed, stopped_for_quota = ocr_pages(
             page_paths=page_paths,
             doc_id=doc_id,
-            clients=clients,
+            client_pool=client_pool,
             model=args.model,
             request_timeout=args.request_timeout,
             max_consecutive_quota_errors=args.max_consecutive_quota_errors,
@@ -379,12 +445,18 @@ def main():
 
         if merge_ocr_document(record, model=args.model, scraped_at=scraped_at):
             merged_docs += 1
+        if stopped_for_quota:
+            print("Stopping corpus OCR because no usable Gemini quota remains in this run.")
+            break
 
     print("\n========== GEMINI IRC PDF OCR SUMMARY ==========")
     print(f"PDFs selected    : {len(records)}")
     print(f"Pages processed  : {total_processed}")
     print(f"Pages skipped    : {total_skipped}")
     print(f"Pages failed     : {total_failed}")
+    if client_pool:
+        print(f"Keys quota-stopped: {client_pool.quota_disabled}")
+        print(f"Keys still usable : {len(client_pool)}")
     print(f"Merged documents : {merged_docs}")
     print("Next: rerun scripts/05_clean_documents.py through scripts/08_generate_embeddings.py.")
 

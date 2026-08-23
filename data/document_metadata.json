@@ -3078,7 +3078,8 @@
     "document_name": "Sub Decrees - 2c553702-2c4d-4898-b873-288c7fdb9a28.pdf",
     "document_type": "website",
     "release_date": "2026-08-23",
-    "source_url": "https://object.irc.gov.kh/irc-public/upload/2023/2c553702-2c4d-4898-b873-288c7fdb9a28.pdf"
+    "source_url": "https://object.irc.gov.kh/irc-public/upload/2023/2c553702-2c4d-4898-b873-288c7fdb9a28.pdf",
+    "ocr_method": "Google Gemini API (gemini-3.5-flash)"
   },
   "website_6aec6119cd78": {
     "document_name": "ស្ថិតិប្រចាំត្រីមាស",
@@ -4624,6 +4625,13 @@
     "document_type": "website",
     "release_date": "2026-08-23",
     "source_url": "https://object.irc.gov.kh/irc-public/f1b5dd48-1201-447e-8780-ee746a48df92.pdf",
+    "ocr_method": "Google Gemini API (gemini-3.5-flash)"
+  },
+  "website_file_52d3fb3462f0": {
+    "document_name": "87347fd3-5cb2-43e7-ad18-3bab8072b201.pdf",
+    "document_type": "website",
+    "release_date": "2026-08-23",
+    "source_url": "https://object.irc.gov.kh/irc-public/upload/2022/87347fd3-5cb2-43e7-ad18-3bab8072b201.pdf",
     "ocr_method": "Google Gemini API (gemini-3.5-flash)"
   }
 }
