@@ -12,10 +12,6 @@ _HF_CACHE_DIR = os.path.join(_APP_DIR, "models", "retriever", ".cache")
 os.makedirs(_HF_CACHE_DIR, exist_ok=True)
 os.environ["HF_HOME"] = _HF_CACHE_DIR
 
-import faiss
-
-faiss.omp_set_num_threads(1)
-
 import base64
 import html
 import json
@@ -2059,6 +2055,9 @@ def load_embedding_model():
 @st.cache_resource
 def load_index():
     faiss_path, _, _ = resolve_vector_db()
+    import faiss
+
+    faiss.omp_set_num_threads(1)
     return faiss.read_index(faiss_path)
 
 

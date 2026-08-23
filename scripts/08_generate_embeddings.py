@@ -1,6 +1,5 @@
 import json
 import os
-import faiss
 import time
 import numpy as np
 from pathlib import Path
@@ -18,6 +17,10 @@ input_root = Path("data/08_merged_chunked_documents")
 output_root = Path("vector_db")
 
 output_root.mkdir(parents=True, exist_ok=True)
+
+MAX_EMBEDDING_CHARS = int(os.environ.get("MAX_EMBEDDING_CHARS", "12000"))
+EMBEDDING_BATCH_SIZE = int(os.environ.get("EMBEDDING_BATCH_SIZE", "8"))
+SEQUENTIAL_EMBEDDING = os.environ.get("SEQUENTIAL_EMBEDDING", "0") == "1"
 
 DOCUMENT_TYPE_KH = {
     "law": "ច្បាប់",
@@ -174,6 +177,8 @@ for chunk in all_chunks:
     embedding_parts.append(text)
 
     embedding_text = "\n".join(embedding_parts)
+    if MAX_EMBEDDING_CHARS > 0 and len(embedding_text) > MAX_EMBEDDING_CHARS:
+        embedding_text = embedding_text[:MAX_EMBEDDING_CHARS]
 
     embedding_chunks.append(
         {
@@ -261,20 +266,38 @@ for key, model_config in EMBEDDING_MODELS.items():
     print("Generating embeddings...")
     encode_start = time.time()
 
-    embeddings = encode_documents(
-        model,
-        model_config,
-        texts,
-        batch_size=16,
-        show_progress_bar=True,
-        normalize_embeddings=True,
-    )
+    if SEQUENTIAL_EMBEDDING:
+        encoded = []
+        for index, text in enumerate(texts, start=1):
+            if index == 1 or index % 100 == 0 or index == len(texts):
+                print(f"Encoding chunk {index}/{len(texts)}")
+            vector = encode_documents(
+                model,
+                model_config,
+                [text],
+                batch_size=1,
+                show_progress_bar=False,
+                normalize_embeddings=True,
+            )
+            encoded.append(np.asarray(vector, dtype="float32")[0])
+        embeddings = np.vstack(encoded)
+    else:
+        embeddings = encode_documents(
+            model,
+            model_config,
+            texts,
+            batch_size=EMBEDDING_BATCH_SIZE,
+            show_progress_bar=True,
+            normalize_embeddings=True,
+        )
 
     encode_time = time.time() - encode_start
     print(f"Encode time         : {encode_time:.2f} sec")
 
     embeddings = np.asarray(embeddings, dtype="float32")
     embedding_dimension = embeddings.shape[1]
+
+    import faiss
 
     index = faiss.IndexFlatIP(embedding_dimension)
     index.add(embeddings)

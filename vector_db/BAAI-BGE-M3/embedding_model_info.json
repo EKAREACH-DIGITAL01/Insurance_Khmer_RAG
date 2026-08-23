@@ -6,6 +6,6 @@
   "task_aware": false,
   "native_hf": false,
   "embedding_dimension": 1024,
-  "build_encode_time_sec": 145.2823,
-  "chunk_count": 1903
+  "build_encode_time_sec": 302.4489,
+  "chunk_count": 2217
 }

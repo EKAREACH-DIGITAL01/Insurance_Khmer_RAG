@@ -3,11 +3,13 @@ import html as html_lib
 import hashlib
 import json
 import re
+import shutil
+import subprocess
 import time
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urldefrag, urljoin, urlparse
+from urllib.parse import parse_qs, urldefrag, urljoin, urlparse
 from urllib.request import Request, urlopen
 from urllib.robotparser import RobotFileParser
 
@@ -48,13 +50,8 @@ DEFAULT_SEEDS = [
     "https://www.irc.gov.kh/en",
 ]
 for category in LIST_CATEGORIES:
-    for page in range(1, 26):
-        DEFAULT_SEEDS.append(
-            f"https://www.irc.gov.kh/article/list?category={category}&page={page}"
-        )
-        DEFAULT_SEEDS.append(
-            f"https://www.irc.gov.kh/en/article/list?category={category}&page={page}"
-        )
+    DEFAULT_SEEDS.append(f"https://www.irc.gov.kh/article/list?category={category}&page=1")
+    DEFAULT_SEEDS.append(f"https://www.irc.gov.kh/en/article/list?category={category}&page=1")
 
 INTERNAL_HOSTS = {"irc.gov.kh", "www.irc.gov.kh"}
 FILE_HOSTS = INTERNAL_HOSTS | {"object.irc.gov.kh"}
@@ -71,6 +68,7 @@ FILE_EXTENSIONS = {
     ".png",
     ".webp",
 }
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 SKIP_EXTENSIONS = {".css", ".js", ".ico", ".svg", ".woff", ".woff2", ".ttf", ".map"}
 DROP_TEXT = {
     "image",
@@ -105,6 +103,32 @@ Department of Supervision
 នាយកដ្ឋានស្រាវជ្រាវ បណ្តុះបណ្តាល និងសហប្រតិបត្តិការ
 នាយកដ្ឋានត្រួតពិនិត្យ
 """.strip()
+
+MANAGEMENT_ASSET_PATHS = [
+    "/files/cv/Bou Chanphirou/H.E Bou Chanphirou_ Updataed Biography.pdf",
+    "/files/cv/Bou Chanphirou/BouChanphirou-min.jpg",
+    "/files/cv/Hor Sovathana/CV_Sovathana_IRC Website_2022_ENG.pdf",
+    "/files/cv/Hor Sovathana/CV_Sovathana_IRC_2021_ENG-images/0001-min.jpg",
+    "/files/cv/Hor Sovathana/CV_Sovathana_IRC_2021_ENG-images/0002-min.jpg",
+    "/files/cv/Hor Sovathana/CV_Sovathana_IRC_2021_KH-images/0001-min.jpg",
+    "/files/cv/Hor Sovathana/CV_Sovathana_IRC_2021_KH-images/0002-min.jpg",
+    "/files/cv/Ngan Leakhena/Ngan Leakhena-Bio.jpg",
+    "/files/cv/Tan Linna/CV Tan Linna .pdf",
+    "/files/cv/Tan Linna/CV Tan Linna -images/0001-min.jpg",
+    "/files/cv/TouchMengleng/Mengleng Touch - Resume - English.pdf",
+    "/files/cv/TouchMengleng/Mengleng Touch - Resume - English-images/0001-min.jpg",
+    "/files/cv/TouchMengleng/Mengleng Touch - Resume - English-images/0002-min.jpg",
+    "/files/cv/TouchMengleng/ទូច ម៉េងឡេង -​ ប្រវត្តិរូបសង្ខេប.pdf",
+    "/files/cv/TouchMengleng/ទូច ម៉េងឡេង -_ ប្រវត្តិរូបសង្ខេប-images/0001-min.jpg",
+    "/files/cv/TouchMengleng/ទូច ម៉េងឡេង -_ ប្រវត្តិរូបសង្ខេប-images/0002-min.jpg",
+    "/files/cv/Va Vichea/Curriculum Vitae អង់គ្លេស.pdf",
+    "/files/cv/Va Vichea/Curriculum Vitae អង់គ្លេស-images/0001-min.jpg",
+    "/files/cv/Va Vichea/Curriculum Vitae អង់គ្លេស-images/0002-min.jpg",
+    "/files/cv/Va Vichea/Curriculum Vitae ខ្មែរ.pdf",
+    "/files/cv/Va Vichea/Curriculum Vitae ខ្មែរ-images/0001-min.jpg",
+    "/files/cv/Va Vichea/Curriculum Vitae ខ្មែរ-images/0002-min.jpg",
+    "/files/cv/Va Vichea/Curriculum Vitae ខ្មែរ-images/0003-min.jpg",
+]
 
 GROSS_PREMIUM_STATISTICS_TEXT = """
 Total Gross Premium
@@ -281,10 +305,43 @@ def object_file_url(path):
     return None
 
 
+def management_asset_urls():
+    return [normalize_url(urljoin(BASE_URL, path)) for path in MANAGEMENT_ASSET_PATHS]
+
+
 def format_date(value):
     if not value:
         return None
     return value.replace("T", " ").replace("Z", " UTC")
+
+
+def article_list_links(url, state):
+    parsed = urlparse(url)
+    if not parsed.path.endswith("/article/list"):
+        return []
+    category = (parse_qs(parsed.query).get("category") or [None])[0]
+    if not category:
+        return []
+    lang_prefix = "/en" if parsed.path.startswith("/en") else ""
+    links = []
+    for key, item in state.items():
+        if not isinstance(item, dict):
+            continue
+        if not key.startswith("articles("):
+            continue
+        if f'"category":"{category}"' not in key:
+            continue
+        try:
+            total_pages = int(item.get("totalPages") or 0)
+        except (TypeError, ValueError):
+            total_pages = 0
+        for page in range(1, total_pages + 1):
+            links.append(
+                normalize_url(
+                    urljoin(BASE_URL, f"{lang_prefix}/article/list?category={category}&page={page}")
+                )
+            )
+    return links
 
 
 def extract_next_content(url, html):
@@ -294,7 +351,7 @@ def extract_next_content(url, html):
 
     state = data.get("props", {}).get("pageProps", {}).get("initialApolloState", {})
     lines = []
-    links = []
+    links = article_list_links(url, state)
 
     for key, item in state.items():
         if not isinstance(item, dict):
@@ -338,7 +395,9 @@ def extract_next_content(url, html):
                             if file_key == "file":
                                 size = content.get("fileSize")
                                 size_text = f" ({size} bytes)" if size else ""
-                                lines.append(f"Download file: {file_url}{size_text}")
+                                filename = content.get("fileName")
+                                label = f" - {filename}" if filename else ""
+                                lines.append(f"Download file{label}: {file_url}{size_text}")
 
         elif typename == "GraphType":
             graph_type = item.get("type")
@@ -388,6 +447,51 @@ def clean_text(text):
 def is_file_url(url):
     path = urlparse(url).path.lower()
     return any(path.endswith(ext) for ext in FILE_EXTENSIONS)
+
+
+def is_image_url(url):
+    path = urlparse(url).path.lower()
+    return any(path.endswith(ext) for ext in IMAGE_EXTENSIONS)
+
+
+def is_pdf_path(path):
+    return str(path).lower().endswith(".pdf")
+
+
+def extract_pdf_text(path, timeout=90):
+    if not shutil.which("pdftotext"):
+        return ""
+    try:
+        result = subprocess.run(
+            ["pdftotext", "-layout", str(path), "-"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except Exception:
+        return ""
+    if result.returncode != 0:
+        return ""
+    return clean_text(result.stdout)
+
+
+def extract_image_ocr_text(path, timeout=90):
+    if not shutil.which("tesseract"):
+        return ""
+    try:
+        result = subprocess.run(
+            ["tesseract", str(path), "stdout", "-l", "khm+eng", "--psm", "6"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except Exception:
+        return ""
+    if result.returncode != 0:
+        return ""
+    return clean_text(result.stdout)
 
 
 def should_skip_url(url):
@@ -467,12 +571,16 @@ def download_file(session, url, max_file_mb, timeout):
                 output_path.unlink(missing_ok=True)
                 raise ValueError(f"file exceeds --max-file-mb={max_file_mb}: {url}")
             f.write(chunk)
-    return {
+    record = {
         "url": url,
         "path": str(output_path),
         "content_type": content_type,
         "size_bytes": written,
     }
+    if is_pdf_path(output_path):
+        record["extracted_text"] = extract_pdf_text(output_path)
+        record["text_extraction_method"] = "pdftotext" if record["extracted_text"] else None
+    return record
 
 
 def write_pipeline_document(page_record):
@@ -488,6 +596,26 @@ def write_pipeline_document(page_record):
         "merged_text": text,
         "source_url": url,
         "scraped_at": page_record["scraped_at"],
+    }
+    save_json(WEBSITE_DOC_ROOT / f"{document_id}.json", output)
+    return document_id
+
+
+def write_file_pipeline_document(file_record, scraped_at, title=None, parent_url=None):
+    text = (file_record.get("extracted_text") or "").strip()
+    if len(text) < 80:
+        return None
+    url = file_record["url"]
+    document_id = stable_id("website_file", url)
+    source_title = title or Path(file_record.get("path") or urlparse(url).path).name or url
+    output = {
+        "document_id": document_id,
+        "category": "website",
+        "total_pages": 1,
+        "merged_text": f"{source_title}\nSource file: {url}\n\n{text}",
+        "source_url": url,
+        "parent_url": parent_url,
+        "scraped_at": scraped_at,
     }
     save_json(WEBSITE_DOC_ROOT / f"{document_id}.json", output)
     return document_id
@@ -515,11 +643,14 @@ def update_document_metadata(page_records):
 def write_supplemental_documents(scraped_at=None):
     scraped_at = scraped_at or datetime.now(timezone.utc).isoformat()
     metadata = load_metadata()
+    management_links = "\n".join(
+        f"Official management profile asset: {url}" for url in management_asset_urls()
+    )
     records = [
         {
             "document_id": "website_homepage_management_structure",
             "title": "Management Structure",
-            "text": MANAGEMENT_STRUCTURE_TEXT,
+            "text": f"{MANAGEMENT_STRUCTURE_TEXT}\n\n{management_links}",
             "source_url": "https://www.irc.gov.kh/en",
         },
         {
@@ -549,6 +680,50 @@ def write_supplemental_documents(scraped_at=None):
         changed += 1
     save_json(METADATA_PATH, metadata)
     return changed
+
+
+def process_file_record(file_record, scraped_at, page_records, title=None, parent_url=None):
+    document_id = write_file_pipeline_document(
+        file_record,
+        scraped_at=scraped_at,
+        title=title,
+        parent_url=parent_url,
+    )
+    if not document_id:
+        return None
+    record = {
+        "url": file_record["url"],
+        "title": title or Path(file_record.get("path") or file_record["url"]).name,
+        "scraped_at": scraped_at,
+        "document_id": document_id,
+    }
+    page_records.append(record)
+    return record
+
+
+def download_management_assets(session, args, scraped_at, page_records, file_records, errors):
+    for url in management_asset_urls():
+        if is_image_url(url) and not args.ocr_management_images:
+            continue
+        try:
+            print(f"Downloading management asset: {url}")
+            file_record = download_file(session, url, args.max_file_mb, args.timeout)
+            if is_image_url(url):
+                file_record["extracted_text"] = extract_image_ocr_text(file_record["path"])
+                file_record["text_extraction_method"] = (
+                    "tesseract khm+eng" if file_record.get("extracted_text") else None
+                )
+            file_records.append(file_record)
+            title = f"Management profile background - {Path(urlparse(url).path).name}"
+            process_file_record(
+                file_record,
+                scraped_at=scraped_at,
+                page_records=page_records,
+                title=title,
+                parent_url="https://www.irc.gov.kh/en",
+            )
+        except Exception as exc:
+            errors.append({"url": url, "error": str(exc)})
 
 
 def finalize_cached_pages():
@@ -626,6 +801,8 @@ def crawl(args):
                     if link not in seen and link not in queue:
                         queue.append(link)
                 elif args.download_files and link_host in FILE_HOSTS and is_file_url(link):
+                    if is_image_url(link) and not args.download_images:
+                        continue
                     if args.respect_robots and not robots.can_fetch(USER_AGENT, link):
                         errors.append({"url": link, "error": "blocked by robots.txt"})
                         continue
@@ -633,15 +810,34 @@ def crawl(args):
                         continue
                     print(f"Downloading file: {link}")
                     try:
-                        file_records.append(download_file(session, link, args.max_file_mb, args.timeout))
+                        file_record = download_file(session, link, args.max_file_mb, args.timeout)
+                        file_records.append(file_record)
+                        file_title = f"{record.get('title') or url} - {Path(urlparse(link).path).name}"
+                        process_file_record(
+                            file_record,
+                            scraped_at=scraped_at,
+                            page_records=page_records,
+                            title=file_title,
+                            parent_url=url,
+                        )
                     except Exception as exc:
                         errors.append({"url": link, "error": str(exc)})
                     time.sleep(args.delay)
         except Exception as exc:
             errors.append({"url": url, "error": str(exc)})
 
-    updated = update_document_metadata(page_records)
     supplemental = write_supplemental_documents()
+    if args.download_files and args.download_management_assets:
+        download_management_assets(
+            session=session,
+            args=args,
+            scraped_at=datetime.now(timezone.utc).isoformat(),
+            page_records=page_records,
+            file_records=file_records,
+            errors=errors,
+        )
+
+    updated = update_document_metadata(page_records)
     manifest = {
         "base_url": BASE_URL,
         "scraped_at": datetime.now(timezone.utc).isoformat(),
@@ -659,11 +855,14 @@ def crawl(args):
 def parse_args():
     parser = argparse.ArgumentParser(description="Scrape IRC website pages for the RAG corpus.")
     parser.add_argument("--seed", action="append")
-    parser.add_argument("--max-pages", type=int, default=500)
+    parser.add_argument("--max-pages", type=int, default=1500)
     parser.add_argument("--delay", type=float, default=0.5)
-    parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument("--timeout", type=float, default=20.0)
     parser.add_argument("--max-file-mb", type=float, default=50.0)
     parser.add_argument("--download-files", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--download-images", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--download-management-assets", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--ocr-management-images", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--respect-robots", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--finalize-cache", action="store_true")
     args = parser.parse_args()
