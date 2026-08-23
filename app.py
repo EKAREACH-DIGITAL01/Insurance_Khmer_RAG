@@ -2384,10 +2384,6 @@ def clean_provision_text(text):
     return "\n".join(out).strip()
 
 
-REFERENCE_FIRST_PATTERN = re.compile(
-    r"(រណាខ្លះ|អ្វីខ្លះ|មានអ្វី|មានប៉ុន្មាន|ប៉ុន្មាន|តួនាទី|ភារកិច្ច|"
-    r"លក្ខខណ្ឌ|តម្រូវការ|រាយ|បញ្ជី|ស្ថិតិ|បុព្វលាភ|ចំនួន|ថ្នាក់ដឹកនាំ)"
-)
 SOURCE_NOISE_PATTERN = re.compile(
     r"^(?:Source file:|OCR method:|\[Page \d+\]|https?://|data-tip=|aria-label=)",
     re.IGNORECASE,
@@ -2409,52 +2405,76 @@ def clean_reference_text(text):
     return cleaned
 
 
-def trim_reference_answer(text, max_chars=2600):
-    if len(text) <= max_chars:
-        return text
-    cut = text[:max_chars].rstrip()
-    last_stop = max(cut.rfind("។"), cut.rfind("៕"), cut.rfind("\n"))
-    if last_stop > max_chars * 0.55:
-        cut = cut[: last_stop + 1].rstrip()
-    return cut
+def find_context_by_doc_id(context_results, document_id):
+    for _score, chunk in context_results:
+        if chunk.get("metadata", {}).get("document_id") == document_id:
+            return chunk
+    return None
 
 
-def resolve_reference_first_answer(question, context_results, best_score):
-    """Use retrieved text directly for factual/list/statistic questions.
-
-    This trades a little polish for much higher faithfulness: when the user is
-    asking for a list, number, duty, condition, or official statistic, the best
-    answer is often already present in the retrieved chunk. Letting a small
-    local model rewrite those passages is where hallucination and truncation
-    tend to appear, so we bypass generation for these high-risk shapes.
-    """
-    if best_score < OUT_OF_DOMAIN_THRESHOLD or not REFERENCE_FIRST_PATTERN.search(question):
+def extract_management_answer(context_results):
+    chunk = find_context_by_doc_id(context_results, "website_homepage_management_structure")
+    if not chunk:
         return None
-    usable = [
-        (score, chunk)
-        for score, chunk in context_results
-        if not is_image_derived_source(chunk)
-    ]
-    if not usable:
-        return None
-    first_doc = usable[0][1].get("metadata", {}).get("document_name", "")
-    first_url = usable[0][1].get("metadata", {}).get("source_url", "")
-    selected = []
-    for _score, chunk in usable:
-        metadata = chunk.get("metadata", {})
-        same_doc = metadata.get("document_name", "") == first_doc
-        same_url = first_url and metadata.get("source_url", "") == first_url
-        if selected and not (same_doc or same_url):
+    names = []
+    in_khmer_list = False
+    for raw in (chunk.get("text") or "").split("\n"):
+        line = raw.strip()
+        if line.startswith("ថ្នាក់ដឹកនាំ"):
+            in_khmer_list = True
             continue
-        cleaned = clean_reference_text(chunk.get("text") or "")
-        if cleaned:
-            selected.append(cleaned)
-        if len(selected) >= 2:
+        if not in_khmer_list:
+            continue
+        if not line or line.startswith("Official management profile asset"):
             break
-    if not selected:
+        if line.startswith("នាយកដ្ឋាន"):
+            names.append(line)
+        elif " - " in line:
+            names.append(line)
+    if not names:
         return None
-    answer = "\n".join(dict.fromkeys(selected))
-    return trim_reference_answer(answer)
+    items = "\n".join(f"{i}. {name}" for i, name in enumerate(names, start=1))
+    return f"ថ្នាក់ដឹកនាំ ន.ធ.ក. មានដូចខាងក្រោម៖\n{items}។"
+
+
+def extract_gross_premium_answer(question, context_results):
+    chunk = find_context_by_doc_id(context_results, "website_homepage_gross_premium_statistics")
+    if not chunk:
+        return None
+    if not re.search(r"(បុព្វលាភ|premium|ស្ថិតិ|ចំនួន)", question, re.IGNORECASE):
+        return None
+    year_match = re.search(r"(20[0-9]{2}|២០២[០-៩]|២០១[៨-៩])", question)
+    year = to_khmer_digits(year_match.group(1)) if year_match else "២០២៥"
+    text = chunk.get("text") or ""
+    for line in text.split("\n"):
+        if year in to_khmer_digits(line) and "Total Gross Premium" in line:
+            total_match = re.search(r"Total Gross Premium\s+([0-9,]+)\s+USD", line)
+            if total_match:
+                return (
+                    f"ចំនួនបុព្វលាភធានារ៉ាប់រងដុលសរុបសម្រាប់ឆ្នាំ{year} "
+                    f"គឺ {total_match.group(1)} ដុល្លារ អាមេរិក។"
+                )
+        if f"ឆ្នាំ{year}" in to_khmer_digits(line) and "បុព្វលាភ" in line:
+            return clean_reference_text(line)
+    return None
+
+
+def resolve_curated_source_answer(question, context_results, best_score):
+    """Narrow deterministic answers for clean, structured website facts.
+
+    This is intentionally small and source-specific. Broad "return the raw top
+    chunk" behavior made answers look worse, because chunks can include menu
+    text, asset links, or adjacent material. These handlers only fire for facts
+    we know are structured cleanly in the corpus.
+    """
+    if best_score < OUT_OF_DOMAIN_THRESHOLD:
+        return None
+    if re.search(r"(ថ្នាក់ដឹកនាំ|រចនាសម្ព័ន្ធ|management)", question, re.IGNORECASE):
+        if answer := extract_management_answer(context_results):
+            return answer
+    if answer := extract_gross_premium_answer(question, context_results):
+        return answer
+    return None
 
 
 def resolve_provision_lookup(question, context_results):
@@ -2763,10 +2783,10 @@ def run_pipeline_in_thread(
             out_q.put(("token", answer_text))
             total_chars = len(answer_text)
             total_tokens_out = len(answer_text)
-        elif reference_answer := resolve_reference_first_answer(
+        elif curated_answer := resolve_curated_source_answer(
             question, context_results, best_score
         ):
-            answer_text = reference_answer
+            answer_text = curated_answer
             first_token_time = time.time() - gen_start
             out_q.put(("phase", "generating_response"))
             out_q.put(("token", answer_text))
