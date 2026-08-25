@@ -2111,9 +2111,28 @@ def normalize_answer_text(text, final=True):
     cleaned = re.sub(r"\n\s*\n+", "\n", cleaned)
     cleaned = re.sub(r"(?m)^\s*[-•]\s*$\n?", "", cleaned)
     cleaned = _dedupe_repeated_sentences(cleaned)
+    cleaned = fix_common_generation_typos(cleaned)
     if final:
         cleaned = _trim_to_last_complete_sentence(cleaned)
     return cleaned.strip()
+
+
+def fix_common_generation_typos(text):
+    """Correct recurring Khmer term corruption from local generation.
+
+    These strings are not present in the corpus; they are model-side spelling
+    drift when English insurance class labels are rewritten into Khmer. Keep
+    this narrow so real source text is not broadly rewritten.
+    """
+    replacements = {
+        "ធានរបងខាងតូច": "ធានារ៉ាប់រងខ្នាតតូច",
+        "ធានរបងឯកជន": "ធានារ៉ាប់រងអាយុជីវិត",
+        "ធានរបងទូទៅ": "ធានារ៉ាប់រងទូទៅ",
+        "ធានរបង": "ធានារ៉ាប់រង",
+    }
+    for wrong, right in replacements.items():
+        text = text.replace(wrong, right)
+    return text
 
 
 def has_repetition_loop(text):
@@ -2523,6 +2542,16 @@ def question_matches_publication(question):
     )
 
 
+def question_matches_policy_count(question):
+    return bool(
+        re.search(
+            r"(ចំនួនបណ្ណសន្យា|បណ្ណសន្យារ៉ាប់រង|number of polic|policy count)",
+            question,
+            re.IGNORECASE,
+        )
+    )
+
+
 def question_matches_management_profile(question):
     if not re.search(
         r"(ប្រវត្តិ|ជីវប្រវត្តិ|background|biography|profile|cv)",
@@ -2594,6 +2623,33 @@ def find_bou_chanphirou_profile_results(results, limit=None):
     return matches
 
 
+def find_policy_count_results(results, limit=None):
+    matches = []
+    seen = set()
+    required_terms = [
+        "ចំនួនបណ្ណសន្យារ៉ាប់រង",
+        "ធានារ៉ាប់រងទូទៅ",
+        "ធានារ៉ាប់រងអាយុជីវិត",
+        "ធានារ៉ាប់រងខ្នាតតូច",
+        "256,460",
+        "208,450",
+        "1,043,565",
+        "952,759",
+    ]
+    for score, chunk in results:
+        text = chunk.get("text") or ""
+        if not all(term in text for term in required_terms):
+            continue
+        chunk_id = chunk.get("chunk_id")
+        if chunk_id in seen:
+            continue
+        seen.add(chunk_id)
+        matches.append((score, chunk))
+        if limit and len(matches) >= limit:
+            break
+    return matches
+
+
 def curated_candidate_results(question, results):
     """Official website facts that are clean enough to protect in context.
 
@@ -2606,12 +2662,14 @@ def curated_candidate_results(question, results):
     if question_matches_management(question):
         if result := find_result_by_doc_id(results, "website_homepage_management_structure"):
             candidates.append(result)
-    if re.search(r"(បុព្វលាភ|premium|ស្ថិតិ|ចំនួន)", question, re.IGNORECASE):
+    if re.search(r"(បុព្វលាភ|premium|ស្ថិតិ)", question, re.IGNORECASE):
         if result := find_result_by_doc_id(
             results,
             "website_homepage_gross_premium_statistics",
         ):
             candidates.append(result)
+    if question_matches_policy_count(question):
+        candidates.extend(find_policy_count_results(results, limit=1))
     if question_matches_publication(question):
         candidates.extend(
             find_results_by_doc_id(
@@ -2721,6 +2779,74 @@ def extract_publication_answer(question, context_results):
     return f"{heading}\n{body}។"
 
 
+POLICY_COUNT_ROW_PATTERN = re.compile(
+    r"\|\s*(?:[១២៣]\.\s*)?([^|]*ធានារ៉ាប់រង[^|]+?)\s*"
+    r"\|\s*([0-9,]+)(?:\.00)?\s*"
+    r"\|\s*([0-9,]+)(?:\.00)?\s*\|"
+)
+POLICY_COUNT_TOTAL_PATTERN = re.compile(
+    r"\|\s*សរុប\s*\|\s*([0-9,]+)(?:\.00)?\s*\|\s*([0-9,]+)(?:\.00)?\s*\|"
+)
+
+
+def _stat_int(value):
+    return int(value.replace(",", ""))
+
+
+def _stat_number(value):
+    return f"{_stat_int(value):,}"
+
+
+def _trend_word(current_value, previous_value):
+    current = _stat_int(current_value)
+    previous = _stat_int(previous_value)
+    if current > previous:
+        return "កើនឡើង"
+    if current < previous:
+        return "ថយចុះ"
+    return "មិនប្រែប្រួល"
+
+
+def extract_policy_count_answer(question, context_results):
+    if not question_matches_policy_count(question):
+        return None
+    chunk = None
+    for _score, candidate in context_results:
+        text = candidate.get("text") or ""
+        if find_policy_count_results([(_score, candidate)], limit=1):
+            chunk = candidate
+            break
+    if not chunk:
+        return None
+
+    text = chunk.get("text") or ""
+    section_start = text.find("ចំនួនបណ្ណសន្យារ៉ាប់រង")
+    if section_start < 0:
+        return None
+    section_end = text.find("ទ្រព្យសកម្មសរុប", section_start)
+    text = text[section_start : section_end if section_end >= 0 else len(text)]
+    rows = []
+    for label, current, previous in POLICY_COUNT_ROW_PATTERN.findall(text):
+        label = re.sub(r"\s+", " ", label).strip()
+        rows.append((label, current, previous))
+    total_match = POLICY_COUNT_TOTAL_PATTERN.search(text)
+    if total_match:
+        rows.append(("សរុប", total_match.group(1), total_match.group(2)))
+    if not rows:
+        return None
+
+    lines = [
+        "យោងតាមតារាងចំនួនបណ្ណសន្យារ៉ាប់រង ឆ្នាំ២០២១ ប្រៀបធៀបនឹងឆ្នាំ២០២០ មានការប្រែប្រួលដូចខាងក្រោម៖"
+    ]
+    for idx, (label, current, previous) in enumerate(rows, start=1):
+        trend = _trend_word(current, previous)
+        lines.append(
+            f"{idx}. {label}: {trend}ពី {_stat_number(previous)} បណ្ណ "
+            f"ក្នុងឆ្នាំ២០២០ ទៅ {_stat_number(current)} បណ្ណ ក្នុងឆ្នាំ២០២១"
+        )
+    return "\n".join(lines) + "។"
+
+
 def extract_bou_chanphirou_profile_answer(question, context_results):
     if not question_matches_management_profile(question):
         return None
@@ -2753,7 +2879,7 @@ def extract_gross_premium_answer(question, context_results):
     chunk = find_context_by_doc_id(context_results, "website_homepage_gross_premium_statistics")
     if not chunk:
         return None
-    if not re.search(r"(បុព្វលាភ|premium|ស្ថិតិ|ចំនួន)", question, re.IGNORECASE):
+    if not re.search(r"(បុព្វលាភ|premium|ស្ថិតិ)", question, re.IGNORECASE):
         return None
     year_match = re.search(r"(20[0-9]{2}|២០២[០-៩]|២០១[៨-៩])", question)
     year = to_khmer_digits(year_match.group(1)) if year_match else "២០២៥"
@@ -2784,6 +2910,8 @@ def resolve_curated_source_answer(question, context_results, best_score):
     if question_matches_management(question):
         if answer := extract_management_answer(context_results):
             return answer
+    if answer := extract_policy_count_answer(question, context_results):
+        return answer
     if answer := extract_gross_premium_answer(question, context_results):
         return answer
     if answer := extract_publication_answer(question, context_results):
