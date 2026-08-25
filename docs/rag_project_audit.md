@@ -25,14 +25,17 @@ chatbot.
    `scripts/00_scrape_irc_website.py`.
 3. Original PDF pages are OCRed with `scripts/02_extract_text_gemini.py`;
    website PDFs are OCRed with `scripts/00c_extract_irc_pdf_text_gemini.py`.
-4. Text is cleaned, merged, chunked, and merged for embedding through
+4. Website-derived documents are classified into IRC section folders with
+   `scripts/20_reclassify_website_categories.py` when using an existing
+   crawl/OCR cache.
+5. Text is cleaned, merged, chunked, and merged for embedding through
    `scripts/03` to `scripts/07`.
-5. `scripts/08_generate_embeddings.py` creates per-model FAISS indexes and
+6. `scripts/08_generate_embeddings.py` creates per-model FAISS indexes and
    metadata under `vector_db/`.
-6. `app.py` loads the BGE-M3 index, builds BM25 in memory, retrieves with hybrid
+7. `app.py` loads the BGE-M3 index, builds BM25 in memory, retrieves with hybrid
    search, gates weak/off-topic questions, builds prompt context, and streams
    the answer from the local LLM.
-7. Each answer stores sources, diagnostics, timing, and optional user feedback
+8. Each answer stores sources, diagnostics, timing, and optional user feedback
    through `history.py`.
 
 ## What Is Strong
@@ -52,6 +55,10 @@ chatbot.
   answer extractors, reducing local-model drift for management structure,
   gross premium, publication catalog, management profile, and policy-count
   questions.
+- IRC website-derived data is no longer a single generic `website` category:
+  it is split into `home`, `statistics`, `publication`, `public_service`,
+  `insurance_institutions`, `knowledge`, `news`, `events`, `social_programs`,
+  `announcement`, and `law_regulation` for section-specific chunking.
 
 ## Current Gaps And Risks
 
@@ -96,6 +103,7 @@ python scripts/19_rag_smoke_tests.py
 ```
 
 The smoke test checks that the committed BGE-M3 index matches its metadata,
-contains the expanded IRC website corpus, avoids the known generated typo
-`ធានរបង`, and retrieves the exact sources needed for the current demo
-questions.
+contains the expanded section-aware IRC website corpus, avoids the known
+generated typo `ធានរបង`, retrieves the exact top-k sources for the current demo
+questions, and verifies the curated policy-count source used by the fallback
+extractor.

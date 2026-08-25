@@ -19,7 +19,10 @@ happen at chat time.
 ## Features
 
 - **Khmer-first RAG** over the original legal PDF categories (`laws`,
-  `prakas`, `sub_decrees`, `guidance`) plus IRC website-derived content.
+  `prakas`, `sub_decrees`, `guidance`) plus category-aware IRC
+  website-derived content (`home`, `statistics`, `publication`,
+  `public_service`, `insurance_institutions`, `knowledge`, `news`,
+  `events`, `social_programs`, `announcement`, and `law_regulation`).
 - **Fully local inference** — embedding, retrieval, and generation all run
   on your machine via `llama-server`; only the one-time data-build pipeline
   uses an external API (Gemini, for OCR of source PDFs and website PDFs).
@@ -273,7 +276,9 @@ Insurance_Khmer_RAG/
 │   ├── 16_evaluate_safety_gates.py
 │   ├── 17_generate_data_card.py
 │   ├── 18_export_chat_feedback.py
-│   └── 19_rag_smoke_tests.py
+│   ├── 19_rag_smoke_tests.py
+│   ├── 20_reclassify_website_categories.py
+│   └── irc_website_categories.py
 │
 └── vector_db/
     ├── BAAI-BGE-M3/                 # Production index (default)
@@ -417,8 +422,8 @@ the models that won the comparisons in `reports/`.
 The vector database in `vector_db/` is already committed — you do **not**
 need to run the data pipeline to use the chatbot.
 
-Current BGE-M3 corpus snapshot: 2,960 chunks across 789 documents, including
-1,525 website-derived chunks and the original 49 source PDFs. Run
+Current BGE-M3 corpus snapshot: 2,898 chunks across 789 documents, including
+1,463 category-aware website-derived chunks and the original 49 source PDFs. Run
 `python scripts/19_rag_smoke_tests.py` to verify this before a demo.
 
 The active embedding model is controlled by `ACTIVE_EMBEDDING_MODEL_DIR`
@@ -583,6 +588,7 @@ data is refreshed separately with scripts `00` and `00c`.
 |---|---|---|
 | `00_scrape_irc_website.py` | Crawls `irc.gov.kh`, saves page text for the corpus, and downloads linked files | When refreshing website-derived data |
 | `00c_extract_irc_pdf_text_gemini.py` | OCRs downloaded website PDFs via Gemini, with optional multi-key rotation | New/refreshed website PDFs only |
+| `20_reclassify_website_categories.py` | Moves existing website-derived docs from the legacy `website` bucket into IRC section folders | After website scraping/OCR, or when category rules change |
 | `01_convert_pdf_to_png.py` | Renders PDF pages to PNG | New source PDFs only |
 | `02_extract_text_gemini.py` | OCRs each PNG via Gemini (paid API) | New source PDFs only |
 | `03_clean_pages.py` | Strips OCR artifacts per category | Any rebuild |
@@ -597,6 +603,7 @@ data is refreshed separately with scripts `00` and `00c`.
 # Optional: add/refresh website-derived IRC pages first
 python scripts/00_scrape_irc_website.py
 python scripts/00c_extract_irc_pdf_text_gemini.py
+python scripts/20_reclassify_website_categories.py
 
 # Typical rebuild (starting from committed OCR output):
 python scripts/03_clean_pages.py

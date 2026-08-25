@@ -13,6 +13,11 @@ from urllib.parse import parse_qs, urldefrag, urljoin, urlparse
 from urllib.request import Request, urlopen
 from urllib.robotparser import RobotFileParser
 
+from irc_website_categories import (
+    WEBSITE_DERIVED_CATEGORIES,
+    infer_website_category,
+)
+
 try:
     import requests
 except ImportError:
@@ -25,9 +30,12 @@ USER_AGENT = "Khmer-RAG-Insurance-Chatbot dataset scraper (+research corpus buil
 SCRAPE_ROOT = Path("data/00_irc_website_scrape")
 PAGE_ROOT = SCRAPE_ROOT / "pages"
 FILE_ROOT = SCRAPE_ROOT / "files"
-WEBSITE_DOC_ROOT = Path("data/05_merged_documents/website")
-CLEANED_WEBSITE_DOC_ROOT = Path("data/06_cleaned_documents/website")
-CHUNKED_WEBSITE_DOC_ROOT = Path("data/07_chunked_documents/website")
+MERGED_DOC_ROOT = Path("data/05_merged_documents")
+CLEANED_DOC_ROOT = Path("data/06_cleaned_documents")
+CHUNKED_DOC_ROOT = Path("data/07_chunked_documents")
+WEBSITE_DOC_ROOT = MERGED_DOC_ROOT / "website"
+CLEANED_WEBSITE_DOC_ROOT = CLEANED_DOC_ROOT / "website"
+CHUNKED_WEBSITE_DOC_ROOT = CHUNKED_DOC_ROOT / "website"
 SOURCE_PDF_ROOT = Path("data/01_source_documents")
 METADATA_PATH = Path("data/document_metadata.json")
 
@@ -218,6 +226,32 @@ def normalize_url(url):
 def stable_id(prefix, value):
     digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:12]
     return f"{prefix}_{digest}"
+
+
+def website_category_root(root, category):
+    category = category if category in WEBSITE_DERIVED_CATEGORIES else "home"
+    return root / category
+
+
+def website_pipeline_path(root, category, document_id, suffix=".json"):
+    return website_category_root(root, category) / f"{document_id}{suffix}"
+
+
+def existing_website_pipeline_paths(document_id):
+    paths = [
+        WEBSITE_DOC_ROOT / f"{document_id}.json",
+        CLEANED_WEBSITE_DOC_ROOT / f"{document_id}.json",
+        CHUNKED_WEBSITE_DOC_ROOT / f"{document_id}_chunks.json",
+    ]
+    for category in WEBSITE_DERIVED_CATEGORIES:
+        paths.extend(
+            [
+                MERGED_DOC_ROOT / category / f"{document_id}.json",
+                CLEANED_DOC_ROOT / category / f"{document_id}.json",
+                CHUNKED_DOC_ROOT / category / f"{document_id}_chunks.json",
+            ]
+        )
+    return paths
 
 
 def file_sha256(path):
@@ -636,15 +670,20 @@ def write_pipeline_document(page_record):
     if len(text) < 80:
         return None
     document_id = stable_id("website", url)
+    category = infer_website_category(
+        source_url=url,
+        title=page_record.get("title"),
+        text=text,
+    )
     output = {
         "document_id": document_id,
-        "category": "website",
+        "category": category,
         "total_pages": 1,
         "merged_text": text,
         "source_url": url,
         "scraped_at": page_record["scraped_at"],
     }
-    save_json(WEBSITE_DOC_ROOT / f"{document_id}.json", output)
+    save_json(website_pipeline_path(MERGED_DOC_ROOT, category, document_id), output)
     return document_id
 
 
@@ -657,16 +696,22 @@ def write_file_pipeline_document(file_record, scraped_at, title=None, parent_url
     url = file_record["url"]
     document_id = stable_id("website_file", url)
     source_title = title or Path(file_record.get("path") or urlparse(url).path).name or url
+    category = infer_website_category(
+        source_url=url,
+        parent_url=parent_url,
+        title=source_title,
+        text=text,
+    )
     output = {
         "document_id": document_id,
-        "category": "website",
+        "category": category,
         "total_pages": 1,
         "merged_text": f"{source_title}\nSource file: {url}\n\n{text}",
         "source_url": url,
         "parent_url": parent_url,
         "scraped_at": scraped_at,
     }
-    save_json(WEBSITE_DOC_ROOT / f"{document_id}.json", output)
+    save_json(website_pipeline_path(MERGED_DOC_ROOT, category, document_id), output)
     return document_id
 
 
@@ -687,13 +732,8 @@ def prune_duplicate_source_pdf_documents(file_records):
         if not url:
             continue
         document_id = stable_id("website_file", url)
-        paths = [
-            WEBSITE_DOC_ROOT / f"{document_id}.json",
-            CLEANED_WEBSITE_DOC_ROOT / f"{document_id}.json",
-            CHUNKED_WEBSITE_DOC_ROOT / f"{document_id}_chunks.json",
-        ]
         removed_any = False
-        for candidate in paths:
+        for candidate in existing_website_pipeline_paths(document_id):
             if candidate.exists():
                 candidate.unlink()
                 removed_any = True
@@ -725,13 +765,8 @@ def prune_management_image_documents():
         if not is_image_url(url):
             continue
         document_id = stable_id("website_file", url)
-        paths = [
-            WEBSITE_DOC_ROOT / f"{document_id}.json",
-            CLEANED_WEBSITE_DOC_ROOT / f"{document_id}.json",
-            CHUNKED_WEBSITE_DOC_ROOT / f"{document_id}_chunks.json",
-        ]
         removed_any = False
-        for candidate in paths:
+        for candidate in existing_website_pipeline_paths(document_id):
             if candidate.exists():
                 candidate.unlink()
                 removed_any = True
@@ -755,11 +790,18 @@ def update_document_metadata(page_records):
         if not document_id:
             continue
         title = page.get("title") or page["url"]
+        category = infer_website_category(
+            source_url=page.get("url"),
+            parent_url=page.get("parent_url"),
+            title=title,
+            text=page.get("text"),
+        )
         metadata[document_id] = {
             "document_name": title,
-            "document_type": "website",
+            "document_type": category,
             "release_date": page.get("scraped_at", "")[:10],
             "source_url": page["url"],
+            "source_section": category,
         }
         changed += 1
     save_json(METADATA_PATH, metadata)
@@ -776,12 +818,14 @@ def write_supplemental_documents(scraped_at=None):
     records = [
         {
             "document_id": "website_homepage_management_structure",
+            "category": "home",
             "title": "Management Structure",
             "text": f"{MANAGEMENT_STRUCTURE_TEXT}\n\n{management_links}",
             "source_url": "https://www.irc.gov.kh/en",
         },
         {
             "document_id": "website_homepage_gross_premium_statistics",
+            "category": "home",
             "title": "Total Gross Premium",
             "text": GROSS_PREMIUM_STATISTICS_TEXT,
             "source_url": "https://www.irc.gov.kh/en",
@@ -791,6 +835,7 @@ def write_supplemental_documents(scraped_at=None):
         records.append(
             {
                 "document_id": "website_publication_catalog",
+                "category": "publication",
                 "title": "បញ្ជីការបោះពុម្ពផ្សាយ និងរបាយការណ៍ប្រចាំឆ្នាំរបស់ ន.ធ.ក.",
                 "text": publication_catalog,
                 "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=1",
@@ -798,20 +843,25 @@ def write_supplemental_documents(scraped_at=None):
         )
     changed = 0
     for record in records:
+        category = record["category"]
         output = {
             "document_id": record["document_id"],
-            "category": "website",
+            "category": category,
             "total_pages": 1,
             "merged_text": record["text"],
             "source_url": record["source_url"],
             "scraped_at": scraped_at,
         }
-        save_json(WEBSITE_DOC_ROOT / f"{record['document_id']}.json", output)
+        save_json(
+            website_pipeline_path(MERGED_DOC_ROOT, category, record["document_id"]),
+            output,
+        )
         metadata[record["document_id"]] = {
             "document_name": record["title"],
-            "document_type": "website",
+            "document_type": category,
             "release_date": scraped_at[:10],
             "source_url": record["source_url"],
+            "source_section": category,
         }
         changed += 1
     save_json(METADATA_PATH, metadata)
@@ -821,7 +871,7 @@ def write_supplemental_documents(scraped_at=None):
 def build_publication_catalog_text():
     entries = {}
 
-    for path in sorted(WEBSITE_DOC_ROOT.glob("*.json")):
+    for path in sorted(MERGED_DOC_ROOT.rglob("*.json")):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 doc = json.load(f)
@@ -896,6 +946,7 @@ def process_file_record(file_record, scraped_at, page_records, title=None, paren
         "title": title or Path(file_record.get("path") or file_record["url"]).name,
         "scraped_at": scraped_at,
         "document_id": document_id,
+        "parent_url": parent_url,
     }
     page_records.append(record)
     return record

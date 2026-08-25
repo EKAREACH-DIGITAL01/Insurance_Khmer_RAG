@@ -14,13 +14,15 @@ from google import genai
 from pdf2image import convert_from_path, pdfinfo_from_path
 from PIL import Image
 
+from irc_website_categories import WEBSITE_DERIVED_CATEGORIES, infer_website_category
+
 
 MANIFEST_PATH = Path("data/00_irc_website_scrape/manifest.json")
 METADATA_PATH = Path("data/document_metadata.json")
 SOURCE_PDF_ROOT = Path("data/01_source_documents")
 IMAGE_ROOT = Path("data/02_page_images_irc_gemini")
 RAW_ROOT = Path("data/03_raw_pages_irc_gemini")
-WEBSITE_DOC_ROOT = Path("data/05_merged_documents/website")
+MERGED_DOC_ROOT = Path("data/05_merged_documents")
 
 DEFAULT_MODEL = "gemini-3.5-flash"
 OCR_PROMPT = """Extract all visible text from this PDF page exactly as written.
@@ -70,6 +72,11 @@ def save_json(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def website_pipeline_path(category, document_id):
+    category = category if category in WEBSITE_DERIVED_CATEGORIES else "home"
+    return MERGED_DOC_ROOT / category / f"{document_id}.json"
 
 
 def is_pdf_record(record):
@@ -532,10 +539,19 @@ def merge_ocr_document(record, model, scraped_at):
 
     metadata = load_json(METADATA_PATH, {})
     title = title_from_record(record, metadata)
+    existing_metadata = metadata.get(doc_id, {})
+    category = existing_metadata.get("source_section") or existing_metadata.get("document_type")
+    if category not in WEBSITE_DERIVED_CATEGORIES:
+        category = infer_website_category(
+            source_url=url,
+            parent_url=record.get("parent_url"),
+            title=title,
+            text=merged_body,
+        )
     model_summary = ", ".join(sorted(page_models)) if page_models else model
     output = {
         "document_id": doc_id,
-        "category": "website",
+        "category": category,
         "total_pages": len(raw_pages),
         "merged_text": (
             f"{title}\n"
@@ -544,15 +560,17 @@ def merge_ocr_document(record, model, scraped_at):
             f"{merged_body}"
         ),
         "source_url": url,
+        "parent_url": record.get("parent_url"),
         "scraped_at": scraped_at,
     }
-    save_json(WEBSITE_DOC_ROOT / f"{doc_id}.json", output)
+    save_json(website_pipeline_path(category, doc_id), output)
 
     metadata[doc_id] = {
         "document_name": title,
-        "document_type": "website",
+        "document_type": category,
         "release_date": scraped_at[:10],
         "source_url": url,
+        "source_section": category,
         "ocr_method": f"Google Gemini API ({model_summary})",
     }
     save_json(METADATA_PATH, metadata)

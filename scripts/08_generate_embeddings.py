@@ -13,6 +13,8 @@ os.environ["HF_HOME"] = str(_HF_CACHE_DIR)
 
 from sentence_transformers import SentenceTransformer
 
+from irc_website_categories import WEBSITE_CATEGORY_LABEL_KH
+
 input_root = Path("data/08_merged_chunked_documents")
 output_root = Path("vector_db")
 
@@ -29,6 +31,7 @@ DOCUMENT_TYPE_KH = {
     "sub_decree": "អនុក្រឹត្យ",
     "website": "ទំព័រគេហទំព័រ",
 }
+DOCUMENT_TYPE_KH.update(WEBSITE_CATEGORY_LABEL_KH)
 
 # ----------------------------------------------------------------------------
 # Embedding model options

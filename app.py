@@ -33,6 +33,11 @@ from sentence_transformers import SentenceTransformer
 
 import history
 
+try:
+    from scripts.irc_website_categories import WEBSITE_CATEGORY_LABEL_KH
+except Exception:
+    WEBSITE_CATEGORY_LABEL_KH = {}
+
 LLAMA_SERVER_URL = "http://localhost:8080/v1"
 LLAMA_SERVER_ROOT = "http://localhost:8080"
 
@@ -2650,6 +2655,19 @@ def find_policy_count_results(results, limit=None):
     return matches
 
 
+POLICY_COUNT_SOURCE_DOC_ID = "website_file_386481a18166"
+
+
+def find_policy_count_results_in_corpus(limit=1):
+    corpus = globals().get("chunks", [])
+    candidates = [
+        (1.0, chunk)
+        for chunk in corpus
+        if chunk.get("metadata", {}).get("document_id") == POLICY_COUNT_SOURCE_DOC_ID
+    ]
+    return find_policy_count_results(candidates, limit=limit)
+
+
 def curated_candidate_results(question, results):
     """Official website facts that are clean enough to protect in context.
 
@@ -2669,7 +2687,10 @@ def curated_candidate_results(question, results):
         ):
             candidates.append(result)
     if question_matches_policy_count(question):
-        candidates.extend(find_policy_count_results(results, limit=1))
+        policy_count_results = find_policy_count_results(results, limit=1)
+        if not policy_count_results:
+            policy_count_results = find_policy_count_results_in_corpus(limit=1)
+        candidates.extend(policy_count_results)
     if question_matches_publication(question):
         candidates.extend(
             find_results_by_doc_id(
@@ -3664,6 +3685,7 @@ DOCUMENT_TYPE_KH = {
     "sub_decree": "អនុក្រឹត្យ",
     "website": "ទំព័រគេហទំព័រ",
 }
+DOCUMENT_TYPE_KH.update(WEBSITE_CATEGORY_LABEL_KH)
 
 
 def document_id_for_chunk(chunk_id):

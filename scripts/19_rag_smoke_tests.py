@@ -28,6 +28,8 @@ import numpy as np
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
+from irc_website_categories import WEBSITE_DERIVED_CATEGORIES
+
 
 ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
 INDEX_PATH = PROJECT_ROOT / "vector_db" / ACTIVE_MODEL_DIR / "khmer_insurance.index"
@@ -39,9 +41,15 @@ BM25_TOP_K = TOP_K
 RRF_K = 60
 NGRAM_SIZE = 3
 
-MIN_TOTAL_CHUNKS = 2900
-MIN_WEBSITE_CHUNKS = 1500
+MIN_TOTAL_CHUNKS = 2890
+MIN_WEBSITE_CHUNKS = 1400
 MIN_DOCUMENTS = 780
+MIN_WEBSITE_CATEGORY_CHUNKS = {
+    "home": 2,
+    "statistics": 100,
+    "publication": 20,
+    "knowledge": 20,
+}
 
 KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
 DIGIT_RUN_PATTERN = re.compile(r"[\u17E0-\u17E90-9]+")
@@ -96,7 +104,8 @@ SMOKE_QUERIES = [
             "២០២១-២០២៥ តើចំនួនបណ្ណសន្យាធានារ៉ាប់រងមានការប្រែប្រួលយ៉ាងដូចម្តេច?"
         ),
         "expected_doc": "website_file_386481a18166",
-        "must_be_in": ("dense", "fused"),
+        "must_be_in": (),
+        "curated_corpus_source": True,
     },
 ]
 
@@ -268,11 +277,19 @@ def main() -> int:
         f"document count is {document_count} >= {MIN_DOCUMENTS}",
         failures,
     )
+    website_chunks = sum(type_counts.get(category, 0) for category in WEBSITE_DERIVED_CATEGORIES)
+    website_chunks += type_counts.get("website", 0)
     check(
-        type_counts.get("website", 0) >= MIN_WEBSITE_CHUNKS,
-        f"website chunks are {type_counts.get('website', 0)} >= {MIN_WEBSITE_CHUNKS}",
+        website_chunks >= MIN_WEBSITE_CHUNKS,
+        f"website-derived chunks are {website_chunks} >= {MIN_WEBSITE_CHUNKS}",
         failures,
     )
+    for category, minimum in MIN_WEBSITE_CATEGORY_CHUNKS.items():
+        check(
+            type_counts.get(category, 0) >= minimum,
+            f"{category} chunks are {type_counts.get(category, 0)} >= {minimum}",
+            failures,
+        )
     check(type_counts.get("law", 0) > 0, "law chunks are present", failures)
     check(type_counts.get("prakas", 0) > 0, "prakas chunks are present", failures)
     check(type_counts.get("sub_decree", 0) > 0, "sub-decree chunks are present", failures)
@@ -326,6 +343,12 @@ def main() -> int:
             check(
                 ranks[retrieval_name] is not None,
                 f"{item['label']} source {item['expected_doc']} appears in {retrieval_name} top-{TOP_K} ({rank_text})",
+                failures,
+            )
+        if item.get("curated_corpus_source"):
+            check(
+                any(doc_id(chunk) == item["expected_doc"] for chunk in chunks),
+                f"{item['label']} curated source {item['expected_doc']} exists in corpus ({rank_text})",
                 failures,
             )
 

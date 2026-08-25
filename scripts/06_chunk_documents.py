@@ -3,6 +3,8 @@ import json
 import time
 from pathlib import Path
 
+from irc_website_categories import WEBSITE_DERIVED_CATEGORIES
+
 input_root = Path("data/06_cleaned_documents")
 output_root = Path("data/07_chunked_documents")
 
@@ -16,14 +18,26 @@ with open("data/document_metadata.json", "r", encoding="utf-8") as f:
     DOCUMENT_METADATA = json.load(f)
 
 CATEGORY_CONFIG = {
-    "guidance":     {"chunking_method": "guidance_heading"},
-    "laws":         {"chunking_method": "legal_unit"},
-    "prakas":       {"chunking_method": "legal_unit"},
-    "sub_decrees":  {"chunking_method": "legal_unit"},
-    "website":      {"chunking_method": "paragraph_window"},
+    "guidance":               {"chunking_method": "guidance_heading"},
+    "laws":                   {"chunking_method": "legal_unit"},
+    "prakas":                 {"chunking_method": "legal_unit"},
+    "sub_decrees":            {"chunking_method": "legal_unit"},
+    "home":                   {"chunking_method": "homepage_blocks", "max_chars": 1400},
+    "statistics":             {"chunking_method": "statistics_table_window", "max_chars": 2200},
+    "publication":            {"chunking_method": "publication_paragraph_window", "max_chars": 1800},
+    "public_service":         {"chunking_method": "public_service_steps", "max_chars": 1400},
+    "insurance_institutions": {"chunking_method": "institution_directory", "max_chars": 1400},
+    "knowledge":              {"chunking_method": "knowledge_article", "max_chars": 1400},
+    "news":                   {"chunking_method": "news_article", "max_chars": 1400},
+    "events":                 {"chunking_method": "event_article", "max_chars": 1400},
+    "social_programs":        {"chunking_method": "social_program_article", "max_chars": 1400},
+    "announcement":           {"chunking_method": "announcement_notice", "max_chars": 1400},
+    "law_regulation":         {"chunking_method": "website_law_regulation", "max_chars": 1600},
+    "website":                {"chunking_method": "legacy_website_paragraph_window", "max_chars": 1400},
 }
 
 LEGAL_CATEGORIES = {"laws", "prakas", "sub_decrees"}
+WEBSITE_CHUNKING_CATEGORIES = set(WEBSITE_DERIVED_CATEGORIES) | {"website"}
 
 processed_files = 0
 skipped_files = 0
@@ -194,7 +208,27 @@ def legal_unit_chunking(text):
     return chunks
 
 
-def chunk_document(text, category):
+def paragraph_window_chunking(text, max_chars=1400):
+    paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+    chunks = []
+    current = []
+    current_size = 0
+
+    for paragraph in paragraphs:
+        if current and current_size + len(paragraph) > max_chars:
+            chunks.append({"content": "\n\n".join(current)})
+            current = []
+            current_size = 0
+        current.append(paragraph)
+        current_size += len(paragraph)
+
+    if current:
+        chunks.append({"content": "\n\n".join(current)})
+
+    return chunks
+
+
+def chunk_document(text, category, config):
 
     if category == "guidance":
         return guidance_chunking(text)
@@ -202,25 +236,8 @@ def chunk_document(text, category):
     if category in LEGAL_CATEGORIES:
         return legal_unit_chunking(text)
 
-    if category == "website":
-        paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
-        chunks = []
-        current = []
-        current_size = 0
-        max_chars = 1400
-
-        for paragraph in paragraphs:
-            if current and current_size + len(paragraph) > max_chars:
-                chunks.append({"content": "\n\n".join(current)})
-                current = []
-                current_size = 0
-            current.append(paragraph)
-            current_size += len(paragraph)
-
-        if current:
-            chunks.append({"content": "\n\n".join(current)})
-
-        return chunks
+    if category in WEBSITE_CHUNKING_CATEGORIES:
+        return paragraph_window_chunking(text, max_chars=config.get("max_chars", 1400))
 
     return []
 
@@ -252,7 +269,7 @@ for input_path in json_files:
         continue
 
     chunking_method = config["chunking_method"]
-    split_chunks = chunk_document(cleaned_text, category)
+    split_chunks = chunk_document(cleaned_text, category, config)
 
     # Merge document-level metadata into every chunk
     doc_meta = DOCUMENT_METADATA.get(data["document_id"], {})
@@ -303,6 +320,7 @@ for input_path in json_files:
                 "release_date"      : release_date,
                 "category"          : category,
                 "source_url"        : data.get("source_url") or doc_meta.get("source_url"),
+                "source_section"    : doc_meta.get("source_section", category),
                 "chunk_size"        : len(text),
                 "chunking_method"   : chunking_method,
             }

@@ -3,10 +3,14 @@ import re
 import time
 from pathlib import Path
 
+from irc_website_categories import WEBSITE_DERIVED_CATEGORIES
+
 input_root = Path("data/05_merged_documents")
 output_root = Path("data/06_cleaned_documents")
 
 output_root.mkdir(parents=True, exist_ok=True)
+
+WEBSITE_CLEANING_CATEGORIES = set(WEBSITE_DERIVED_CATEGORIES) | {"website"}
 
 # Find all JSONs recursively
 json_files = sorted(input_root.rglob("*.json"))
@@ -433,7 +437,7 @@ for input_path in json_files:
                 # Normalize excessive blank lines
                 text = re.sub(r"\n{3,}", "\n\n", text)
 
-        elif category == "website":
+        elif category in WEBSITE_CLEANING_CATEGORIES:
             text = clean_website_document(text)
 
         text = expand_abbreviations(text)
