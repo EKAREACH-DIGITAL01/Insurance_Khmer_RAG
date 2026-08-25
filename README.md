@@ -3,9 +3,10 @@
 ![Khmer Insurance Law Assistant demo — asking a Khmer question about insurance law, the live retrieval-and-generation progress ladder, an out-of-domain refusal, and a cited answer](assets/readme/demo.gif)
 
 A retrieval-augmented generation (RAG) chatbot that answers questions about
-Cambodian insurance law in Khmer, grounded entirely in a curated corpus of
-laws, sub-decrees, prakas (ministerial regulations), and regulatory
-guidance documents.
+Cambodian insurance law and the Insurance Regulator of Cambodia (IRC) in Khmer,
+grounded in the original 49 legal/regulatory PDFs plus an expanded IRC website
+corpus covering pages, statistics, publications, annual reports, and management
+profile documents.
 
 Built with a local embedding model (BGE-M3), a local FAISS vector index,
 hybrid retrieval (FAISS + BM25, Reciprocal Rank Fusion), and a local
@@ -17,11 +18,11 @@ happen at chat time.
 
 ## Features
 
-- **Khmer-first RAG** over four document categories: `laws`, `prakas`,
-  `sub_decrees`, and `guidance`.
+- **Khmer-first RAG** over the original legal PDF categories (`laws`,
+  `prakas`, `sub_decrees`, `guidance`) plus IRC website-derived content.
 - **Fully local inference** — embedding, retrieval, and generation all run
   on your machine via `llama-server`; only the one-time data-build pipeline
-  uses an external API (Gemini, for OCR).
+  uses an external API (Gemini, for OCR of source PDFs and website PDFs).
 - **Hybrid retrieval** (FAISS dense search + BM25 lexical search, fused
   via Reciprocal Rank Fusion) for improved recall on Khmer insurance
   terminology that semantic search alone misses.
@@ -150,8 +151,8 @@ source documents or rebuilding the corpus.
 ## Project Structure
 
 ```
-Khmer-Rag-Chatbot/
-├── .env                             # GEMINI_API_KEY (only for scripts/02)
+Insurance_Khmer_RAG/
+├── .env                             # GEMINI_API_KEY/GEMINI_API_KEYS for offline OCR only
 ├── .gitignore
 ├── README.md
 ├── app.py                           # Streamlit chatbot
@@ -186,17 +187,21 @@ Khmer-Rag-Chatbot/
 │   ├── evaluation_methodology.md
 │   ├── generation_robustness_and_parity.md  # eval/app.py parity + generation fixes
 │   ├── gold_questions_methodology.md
-│   └── llm_judge_prompt.md              # RAGAS + hallucination judging rubric
+│   ├── llm_judge_prompt.md              # RAGAS + hallucination judging rubric
+│   └── rag_project_audit.md             # RAG audit and handoff notes
 │
 ├── data/
+│   ├── 00_irc_website_scrape/       # gitignored website crawl/download cache
 │   ├── 01_source_documents/         # Raw PDFs, by category
 │   │   ├── guidance/
 │   │   ├── laws/
 │   │   ├── prakas/
 │   │   └── sub_decrees/
 │   │
-│   ├── 02_page_images/              # PDF pages rendered to PNG
-│   ├── 03_raw_pages/                # Gemini OCR output
+│   ├── 02_page_images/              # Original PDF pages rendered to PNG
+│   ├── 02_page_images_irc_gemini/   # gitignored rendered pages for website PDFs
+│   ├── 03_raw_pages/                # Gemini OCR output for original PDFs
+│   ├── 03_raw_pages_irc_gemini/     # gitignored Gemini OCR for website PDFs
 │   ├── 04_cleaned_pages/            # Page-level cleanup
 │   ├── 05_merged_documents/         # Pages stitched into documents
 │   ├── 06_cleaned_documents/        # Document-level cleanup
@@ -248,6 +253,8 @@ Khmer-Rag-Chatbot/
 │       └── MiniLM-paraphrase-multilingual-L12-v2/
 │
 ├── scripts/
+│   ├── 00_scrape_irc_website.py
+│   ├── 00c_extract_irc_pdf_text_gemini.py
 │   ├── 01_convert_pdf_to_png.py
 │   ├── 02_extract_text_gemini.py
 │   ├── 03_clean_pages.py
@@ -264,7 +271,9 @@ Khmer-Rag-Chatbot/
 │   ├── 14_prepare_llm_judge_input.py
 │   ├── 15_generate_comparison_report.py
 │   ├── 16_evaluate_safety_gates.py
-│   └── 17_generate_data_card.py
+│   ├── 17_generate_data_card.py
+│   ├── 18_export_chat_feedback.py
+│   └── 19_rag_smoke_tests.py
 │
 └── vector_db/
     ├── BAAI-BGE-M3/                 # Production index (default)
@@ -284,18 +293,23 @@ Khmer-Rag-Chatbot/
 **What's committed vs. generated locally:**
 
 - **`data/01_source_documents/` and `data/03_raw_pages/` are committed.**
-  The raw source PDFs and the Gemini-generated OCR text are kept in
-  version control deliberately — OCR costs real money per page, so once
-  it's done it's checked in rather than left to be re-paid-for.
+  The original 49 source PDFs and their Gemini OCR text are kept in version
+  control deliberately — OCR costs real money per page, so once it's done it's
+  checked in rather than left to be re-paid-for.
+- **The website crawl/OCR caches are generated locally.**
+  `data/00_irc_website_scrape/`, `data/02_page_images_irc_gemini/`, and
+  `data/03_raw_pages_irc_gemini/` are gitignored. The committed `vector_db/`
+  already includes the website-expanded corpus, so these caches are needed
+  only when refreshing or rebuilding website-derived data.
 - **The intermediate pipeline stages `data/02_page_images/`,
   `04_cleaned_pages/`, `05_merged_documents/`, `06_cleaned_documents/`,
-  `07_chunked_documents/`, and `08_merged_chunked_documents/` are
-  gitignored** (kept as `.gitkeep` placeholders). These are fast,
-  fully-deterministic derivatives of what *is* committed. Note that
-  `08_merged_chunked_documents/` is an input to
-  `08_generate_embeddings.py` and `17_generate_data_card.py`, so on a
-  fresh clone you must re-run steps `03`–`07` before either of those will
-  work — see [Rebuilding the Corpus](#rebuilding-the-corpus-optional).
+  `07_chunked_documents/`, and `08_merged_chunked_documents/` are gitignored**
+  (kept as `.gitkeep` placeholders). These are deterministic derivatives of the
+  source/OCR inputs. Note that `08_merged_chunked_documents/` is an input to
+  `08_generate_embeddings.py` and `17_generate_data_card.py`, so on a fresh
+  clone you must re-run the relevant pipeline stages before rebuilding either
+  embeddings or the data card — see
+  [Rebuilding the Corpus](#rebuilding-the-corpus-optional).
 - **`data/09_evaluation/` and `10_adversarial/` are committed** — the gold
   questions and the adversarial test set are inputs the evaluation scripts
   need.
@@ -318,8 +332,9 @@ Khmer-Rag-Chatbot/
 - **At least 16 GB RAM** — 8 GB machines are extremely slow or may fail
 - **~15 GB free disk space** for the embedding models + one generator
   model (more space if you install more than one generator model)
-- A **Gemini API key** — only needed for `scripts/02` to OCR new source
-  documents; not required to run the chatbot
+- A **Gemini API key** — only needed for offline OCR scripts when adding or
+  refreshing PDFs; not required to run the chatbot. Website PDF OCR can rotate
+  multiple comma-separated keys through `GEMINI_API_KEYS`.
 - (Optional but recommended) Apple Silicon or a CUDA GPU — `start_chatbot.py`
   launches `llama-server` with `-ngl 999` for full GPU offload
 
@@ -329,8 +344,8 @@ Khmer-Rag-Chatbot/
 
 ```bash
 # 1. Clone and enter the project
-git clone https://github.com/sorphea7/Khmer-Rag-Chatbot.git
-cd Khmer-Rag-Chatbot
+git clone https://github.com/samlyheng/Insurance_Khmer_RAG.git
+cd Insurance_Khmer_RAG
 
 # 2. Create and activate a virtual environment
 python3.11 -m venv .venv
@@ -339,8 +354,10 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. (Only if rebuilding corpus from new source PDFs) Add your Gemini key
+# 4. (Only if rebuilding corpus from new source PDFs/website PDFs) Add Gemini key(s)
 echo "GEMINI_API_KEY=your-key-here" > .env
+# For website PDF OCR with key rotation:
+# echo "GEMINI_API_KEYS=key1,key2,key3" > .env
 
 # 5. Download models
 python install_models.py
@@ -400,6 +417,10 @@ the models that won the comparisons in `reports/`.
 The vector database in `vector_db/` is already committed — you do **not**
 need to run the data pipeline to use the chatbot.
 
+Current BGE-M3 corpus snapshot: 2,960 chunks across 789 documents, including
+1,525 website-derived chunks and the original 49 source PDFs. Run
+`python scripts/19_rag_smoke_tests.py` to verify this before a demo.
+
 The active embedding model is controlled by `ACTIVE_EMBEDDING_MODEL_DIR`
 at the top of `app.py` (default: `"BAAI-BGE-M3"`). To switch to a
 different model's index, change this constant to the corresponding folder
@@ -427,6 +448,9 @@ affect the live chatbot. Each writes both JSON (machine-readable) and
 Markdown (human-readable) into its folder under `reports/`.
 
 ```bash
+# Fast local corpus/retrieval smoke test (no llama-server, no Gemini)
+python scripts/19_rag_smoke_tests.py
+
 # Embedding model comparison (BGE-M3 vs. e5-large vs. MiniLM)
 # Requires all three models installed and all three indices to exist
 python scripts/09_compare_embedding_models.py
@@ -452,6 +476,9 @@ python scripts/16_evaluate_safety_gates.py
 
 # Data card — rolls up every artifact above into one card
 python scripts/17_generate_data_card.py
+
+# Export copy/like/dislike feedback from chat_history.db
+python scripts/18_export_chat_feedback.py
 ```
 
 ---
@@ -548,12 +575,14 @@ mean moved only 4.864 → 4.881.
 ## Rebuilding the Corpus (optional)
 
 Since `data/01_source_documents/` and `data/03_raw_pages/` are already
-committed, a typical rebuild starts at step 3 — the paid OCR step only
-runs again when adding genuinely new source PDFs.
+committed, a typical original-PDF rebuild starts at step 3 — the paid OCR
+step only runs again when adding genuinely new source PDFs. Website-derived
+data is refreshed separately with scripts `00` and `00c`.
 
 | Script | What it does | When needed |
 |---|---|---|
 | `00_scrape_irc_website.py` | Crawls `irc.gov.kh`, saves page text for the corpus, and downloads linked files | When refreshing website-derived data |
+| `00c_extract_irc_pdf_text_gemini.py` | OCRs downloaded website PDFs via Gemini, with optional multi-key rotation | New/refreshed website PDFs only |
 | `01_convert_pdf_to_png.py` | Renders PDF pages to PNG | New source PDFs only |
 | `02_extract_text_gemini.py` | OCRs each PNG via Gemini (paid API) | New source PDFs only |
 | `03_clean_pages.py` | Strips OCR artifacts per category | Any rebuild |
@@ -567,6 +596,7 @@ runs again when adding genuinely new source PDFs.
 ```bash
 # Optional: add/refresh website-derived IRC pages first
 python scripts/00_scrape_irc_website.py
+python scripts/00c_extract_irc_pdf_text_gemini.py
 
 # Typical rebuild (starting from committed OCR output):
 python scripts/03_clean_pages.py
@@ -578,12 +608,14 @@ python scripts/07_merge_chunked_documents.py
 # Step 08 rebuilds a model when merged chunks are newer than its index
 python scripts/08_generate_embeddings.py
 
+python scripts/19_rag_smoke_tests.py
 python scripts/10_compare_retrieval_modes.py
 ```
 
-**Note on `02_extract_text_gemini.py`:** OCR runs page-by-page against a
-paid API. Any failed page is skipped immediately rather than retried —
-re-running the script later will pick up exactly the gaps that failed.
+**Note on Gemini OCR:** `02_extract_text_gemini.py` handles the original 49
+PDF corpus. `00c_extract_irc_pdf_text_gemini.py` handles website-downloaded
+PDFs and supports `GEMINI_API_KEYS=key1,key2,key3` for quota rotation. OCR runs
+against a paid API, so keep `.env` local and never commit keys.
 
 ---
 
@@ -616,11 +648,11 @@ The main tunable constants live at the top of `app.py`:
 | Constant | Default | What it controls |
 |---|---|---|
 | `ACTIVE_EMBEDDING_MODEL_DIR` | `"BAAI-BGE-M3"` | Which vector_db subfolder the app loads at startup |
-| `TOP_K` | 10 | How many chunks FAISS retrieves; also shown in the diagnostics page |
-| `CONTEXT_K` | 5 | How many of those actually go into the LLM prompt (<= TOP_K) |
+| `TOP_K` | 15 | How many chunks FAISS retrieves; also shown in the diagnostics page |
+| `CONTEXT_K` | 6 | How many of those actually go into the LLM prompt (<= TOP_K) |
 | `MAX_CHUNKS_PER_DOC` | 2 | Caps near-duplicate chunks from the same document in context |
 | `RRF_K` | 60 | Reciprocal Rank Fusion constant (Cormack et al. 2009) |
-| `MIN_SCORE` | 0.50 | Below this, answers are flagged "low confidence" in the UI |
+| `MIN_SCORE` | 0.49 | Below this, answers are flagged "low confidence" in the UI |
 | `OUT_OF_DOMAIN_THRESHOLD` | 0.49 | Below this, generation is skipped and the user gets an instant refusal |
 | `MIN_QUESTION_LENGTH` | 8 | Questions shorter than this are rejected without embedding |
 

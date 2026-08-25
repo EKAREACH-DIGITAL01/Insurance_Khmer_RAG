@@ -94,8 +94,8 @@ LLAMA_SERVER_ROOT            = "http://localhost:8080"
 LLAMA_SERVER_STARTUP_TIMEOUT = 120
 
 # Mirrors app.py constants exactly
-TOP_K                = 10
-CONTEXT_K            = 5
+TOP_K                = 15
+CONTEXT_K            = 6
 MAX_CHUNKS_PER_DOC   = 2   # mirrors app.py:40 -- must stay > 1 (per-article chunks)
 BM25_TOP_K           = TOP_K
 RRF_K                = 60
@@ -111,10 +111,9 @@ _ARABIC_TO_KHMER     = str.maketrans("0123456789", "០១២៣៤៥៦៧៨�
 MAX_TOKENS           = 1024
 MIN_QUESTION_LENGTH  = 8
 OUT_OF_DOMAIN_THRESHOLD = 0.49
-MIN_SCORE            = 0.50  # mirrors app.py:96 -- scores in
-                            # [OUT_OF_DOMAIN_THRESHOLD, MIN_SCORE) are answered
-                            # but flagged low_confidence so the prompt gets an
-                            # extra topical-relevance instruction.
+MIN_SCORE            = 0.49  # mirrors app.py: normal low-score cases are
+                            # refused before generation because this currently
+                            # equals OUT_OF_DOMAIN_THRESHOLD.
 
 # Redirect suffix -- mirrors app.py's REDIRECT_TEXT exactly.
 REDIRECT_TEXT = (
@@ -279,8 +278,7 @@ def build_context(results):
 
 def build_prompt(question, context, low_confidence=False):
     """Mirrors app.py's build_prompt() exactly (minus the Sailor-only style
-    rules, which never apply to the SeaLLM winner). The low_confidence branch
-    fires when best_score is in [OUT_OF_DOMAIN_THRESHOLD, MIN_SCORE)."""
+    rules, which never apply to the SeaLLM winner)."""
     relevance_check = ""
     if low_confidence:
         relevance_check = """

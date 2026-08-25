@@ -98,8 +98,8 @@ LLAMA_SERVER_ROOT            = "http://localhost:8080"
 LLAMA_SERVER_STARTUP_TIMEOUT = 120
 
 # Mirrors app.py constants exactly
-TOP_K             = 10
-CONTEXT_K         = 5
+TOP_K             = 15
+CONTEXT_K         = 6
 MAX_CHUNKS_PER_DOC = 2
 BM25_TOP_K        = TOP_K
 RRF_K             = 60
@@ -163,7 +163,7 @@ GEN_RETRY_BACKOFF = 2.0  # seconds between attempts
 # live app would reject (canned message, no LLM call) is rejected here the
 # same way, instead of being silently generated for. See app.py for the
 # full calibration rationale behind each threshold.
-MIN_SCORE              = 0.50  # below this (but >= OUT_OF_DOMAIN_THRESHOLD) => low_confidence prompt
+MIN_SCORE              = 0.49  # same relevance floor used by the live app
 OUT_OF_DOMAIN_THRESHOLD = 0.49  # raw FAISS best_score below this => out-of-domain, no generation
 MIN_QUESTION_LENGTH    = 8      # shorter questions are treated as degenerate input
 
@@ -1123,8 +1123,9 @@ def evaluate_model(
                     llm_generated    = False
                 else:
                     # --- Generation ---
-                    # low_confidence mirrors app.py exactly: best_score < MIN_SCORE
-                    # (but >= OUT_OF_DOMAIN_THRESHOLD, since lower already gated out)
+                    # low_confidence mirrors app.py exactly. MIN_SCORE currently
+                    # equals OUT_OF_DOMAIN_THRESHOLD, so normal low-score cases
+                    # are refused before generation.
                     prompt = build_prompt(
                         question, context,
                         low_confidence=best_score < MIN_SCORE,
