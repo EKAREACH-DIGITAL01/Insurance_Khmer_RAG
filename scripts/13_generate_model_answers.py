@@ -1294,7 +1294,11 @@ def main():
     # math differs subtly from CPU -- enough to flip FAISS top-K ordering on
     # near-tie chunks, which changes the selected context and therefore the
     # generated answer. Pinning CPU keeps retrieval bit-for-bit comparable.
-    embedding_model = SentenceTransformer(EMBEDDING_HF_ID, device="cpu")
+    embedding_model = SentenceTransformer(
+        EMBEDDING_HF_ID,
+        device="cpu",
+        local_files_only=True,
+    )
 
     print("Loading FAISS index...")
     faiss_index = faiss.read_index(INDEX_PATH)

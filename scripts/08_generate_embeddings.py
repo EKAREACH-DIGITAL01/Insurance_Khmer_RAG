@@ -256,9 +256,10 @@ for key, model_config in EMBEDDING_MODELS.items():
     # All three models use plain SentenceTransformer loaded by Hub ID.
     # Weights are served from models/retriever/.cache/ (already downloaded
     # during install_models.py) -- no network hit after first install.
-    kwargs = (
-        {"trust_remote_code": True} if model_config["trust_remote_code"] else {}
-    )
+    kwargs = {
+        "trust_remote_code": bool(model_config["trust_remote_code"]),
+        "local_files_only": True,
+    }
     model = SentenceTransformer(model_config["hf_id"], **kwargs)
 
     print(f"Device              : {model.device}")

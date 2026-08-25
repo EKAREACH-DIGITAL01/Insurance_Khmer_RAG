@@ -638,7 +638,10 @@ for key, model_config in EMBEDDING_MODELS.items():
     load_start = time.time()
 
     # All three models use plain SentenceTransformer loaded by Hub ID.
-    kwargs = {"trust_remote_code": True} if model_config["trust_remote_code"] else {}
+    kwargs = {
+        "trust_remote_code": bool(model_config["trust_remote_code"]),
+        "local_files_only": True,
+    }
     model = SentenceTransformer(model_config["hf_id"], **kwargs)
 
     model_load_time = time.time() - load_start

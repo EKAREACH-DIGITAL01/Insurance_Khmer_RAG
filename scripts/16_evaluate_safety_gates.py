@@ -983,7 +983,7 @@ def main():
     print(f"  Up to {needs_seallm} questions may reach retrieval/SeaLLM.")
 
     print("\nLoading embedding model (BGE-M3)...")
-    embedding_model = SentenceTransformer(EMBEDDING_HF_ID)
+    embedding_model = SentenceTransformer(EMBEDDING_HF_ID, local_files_only=True)
 
     print("Loading FAISS index...")
     faiss_index = faiss.read_index(INDEX_PATH)

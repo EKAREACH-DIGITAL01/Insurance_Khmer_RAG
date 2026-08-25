@@ -26,6 +26,9 @@ SCRAPE_ROOT = Path("data/00_irc_website_scrape")
 PAGE_ROOT = SCRAPE_ROOT / "pages"
 FILE_ROOT = SCRAPE_ROOT / "files"
 WEBSITE_DOC_ROOT = Path("data/05_merged_documents/website")
+CLEANED_WEBSITE_DOC_ROOT = Path("data/06_cleaned_documents/website")
+CHUNKED_WEBSITE_DOC_ROOT = Path("data/07_chunked_documents/website")
+SOURCE_PDF_ROOT = Path("data/01_source_documents")
 METADATA_PATH = Path("data/document_metadata.json")
 
 LIST_CATEGORIES = [
@@ -78,6 +81,8 @@ DROP_TEXT = {
     "home",
     "follow us",
 }
+
+_SOURCE_PDF_HASHES = None
 
 MANAGEMENT_STRUCTURE_TEXT = """
 Management Structure
@@ -213,6 +218,42 @@ def normalize_url(url):
 def stable_id(prefix, value):
     digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:12]
     return f"{prefix}_{digest}"
+
+
+def file_sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def source_pdf_hashes():
+    """Hashes of the original 49 student-processed PDFs.
+
+    Website PDF files that match these exactly are skipped as website documents
+    so the expanded corpus adds only new website content instead of duplicating
+    law/sub-decree/prakas/guidance PDFs already represented in the base corpus.
+    """
+    global _SOURCE_PDF_HASHES
+    if _SOURCE_PDF_HASHES is None:
+        hashes = {}
+        for path in sorted(SOURCE_PDF_ROOT.rglob("*.pdf")):
+            try:
+                hashes[file_sha256(path)] = str(path)
+            except OSError:
+                continue
+        _SOURCE_PDF_HASHES = hashes
+    return _SOURCE_PDF_HASHES
+
+
+def duplicate_source_pdf_path(path):
+    try:
+        if not is_pdf_path(path):
+            return None
+        return source_pdf_hashes().get(file_sha256(path))
+    except OSError:
+        return None
 
 
 def safe_filename(url, content_type=None):
@@ -578,6 +619,12 @@ def download_file(session, url, max_file_mb, timeout):
         "size_bytes": written,
     }
     if is_pdf_path(output_path):
+        record["sha256"] = file_sha256(output_path)
+        duplicate_path = source_pdf_hashes().get(record["sha256"])
+        if duplicate_path:
+            record["duplicate_source_pdf"] = duplicate_path
+            record["text_extraction_method"] = "skipped_duplicate_source_pdf"
+            return record
         record["extracted_text"] = extract_pdf_text(output_path)
         record["text_extraction_method"] = "pdftotext" if record["extracted_text"] else None
     return record
@@ -602,6 +649,8 @@ def write_pipeline_document(page_record):
 
 
 def write_file_pipeline_document(file_record, scraped_at, title=None, parent_url=None):
+    if file_record.get("duplicate_source_pdf"):
+        return None
     text = (file_record.get("extracted_text") or "").strip()
     if len(text) < 80:
         return None
@@ -619,6 +668,83 @@ def write_file_pipeline_document(file_record, scraped_at, title=None, parent_url
     }
     save_json(WEBSITE_DOC_ROOT / f"{document_id}.json", output)
     return document_id
+
+
+def prune_duplicate_source_pdf_documents(file_records):
+    metadata = load_metadata()
+    pruned = 0
+    changed_metadata = False
+
+    for file_record in file_records:
+        path = Path(file_record.get("path") or "")
+        duplicate_path = file_record.get("duplicate_source_pdf")
+        if not duplicate_path and path.exists():
+            duplicate_path = duplicate_source_pdf_path(path)
+        if not duplicate_path:
+            continue
+
+        url = file_record.get("url")
+        if not url:
+            continue
+        document_id = stable_id("website_file", url)
+        paths = [
+            WEBSITE_DOC_ROOT / f"{document_id}.json",
+            CLEANED_WEBSITE_DOC_ROOT / f"{document_id}.json",
+            CHUNKED_WEBSITE_DOC_ROOT / f"{document_id}_chunks.json",
+        ]
+        removed_any = False
+        for candidate in paths:
+            if candidate.exists():
+                candidate.unlink()
+                removed_any = True
+        if document_id in metadata:
+            del metadata[document_id]
+            changed_metadata = True
+            removed_any = True
+        if removed_any:
+            pruned += 1
+
+    if changed_metadata:
+        save_json(METADATA_PATH, metadata)
+    return pruned
+
+
+def prune_management_image_documents():
+    """Remove stale OCR documents created from management JPG/PNG assets.
+
+    The management page links useful PDF biographies, but it also links portrait
+    and PDF-page image exports. When image OCR is disabled, old image-derived
+    documents must be removed from the pipeline or they can keep surfacing as
+    noisy context after an embedding rebuild.
+    """
+    metadata = load_metadata()
+    pruned = 0
+    changed_metadata = False
+
+    for url in management_asset_urls():
+        if not is_image_url(url):
+            continue
+        document_id = stable_id("website_file", url)
+        paths = [
+            WEBSITE_DOC_ROOT / f"{document_id}.json",
+            CLEANED_WEBSITE_DOC_ROOT / f"{document_id}.json",
+            CHUNKED_WEBSITE_DOC_ROOT / f"{document_id}_chunks.json",
+        ]
+        removed_any = False
+        for candidate in paths:
+            if candidate.exists():
+                candidate.unlink()
+                removed_any = True
+        if document_id in metadata:
+            del metadata[document_id]
+            changed_metadata = True
+            removed_any = True
+        if removed_any:
+            pruned += 1
+
+    if changed_metadata:
+        save_json(METADATA_PATH, metadata)
+    return pruned
 
 
 def update_document_metadata(page_records):
@@ -646,6 +772,7 @@ def write_supplemental_documents(scraped_at=None):
     management_links = "\n".join(
         f"Official management profile asset: {url}" for url in management_asset_urls()
     )
+    publication_catalog = build_publication_catalog_text()
     records = [
         {
             "document_id": "website_homepage_management_structure",
@@ -660,6 +787,15 @@ def write_supplemental_documents(scraped_at=None):
             "source_url": "https://www.irc.gov.kh/en",
         },
     ]
+    if publication_catalog:
+        records.append(
+            {
+                "document_id": "website_publication_catalog",
+                "title": "បញ្ជីការបោះពុម្ពផ្សាយ និងរបាយការណ៍ប្រចាំឆ្នាំរបស់ ន.ធ.ក.",
+                "text": publication_catalog,
+                "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=1",
+            }
+        )
     changed = 0
     for record in records:
         output = {
@@ -680,6 +816,70 @@ def write_supplemental_documents(scraped_at=None):
         changed += 1
     save_json(METADATA_PATH, metadata)
     return changed
+
+
+def build_publication_catalog_text():
+    entries = {}
+
+    for path in sorted(WEBSITE_DOC_ROOT.glob("*.json")):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                doc = json.load(f)
+        except Exception:
+            continue
+        if doc.get("document_id") == "website_publication_catalog":
+            continue
+        text = doc.get("merged_text") or ""
+        if "Category: publication" not in text:
+            continue
+        lines = [line.strip() for line in text.splitlines()]
+        for idx, line in enumerate(lines):
+            if line != "Category: publication" or idx == 0:
+                continue
+            title = lines[idx - 1].strip()
+            if not title or title.lower() in {"publication", "ការបោះពុម្ពផ្សាយ"}:
+                continue
+            publish_date = ""
+            if idx + 1 < len(lines) and lines[idx + 1].startswith("Publish date:"):
+                publish_date = lines[idx + 1].replace("Publish date:", "", 1).strip()
+            key = re.sub(r"\s+", " ", title).casefold()
+            entries.setdefault(key, {"title": title, "publish_date": publish_date})
+
+    if not entries:
+        return ""
+
+    def sort_key(item):
+        value = item[1].get("publish_date") or ""
+        return value
+
+    sorted_entries = sorted(entries.items(), key=sort_key, reverse=True)
+    lines = [
+        "បញ្ជីការបោះពុម្ពផ្សាយ និងរបាយការណ៍ប្រចាំឆ្នាំរបស់ ន.ធ.ក.",
+        "IRC Publication Catalog and Annual Reports",
+        "Official publication category records scraped from the Insurance Regulator of Cambodia website.",
+        "សំណួរពាក់ព័ន្ធ៖ ការបោះពុម្ពផ្សាយ, publication, របាយការណ៍ប្រចាំឆ្នាំ, annual report, ផែនការយុទ្ធសាស្ត្រ, សទ្ទានុក្រម។",
+        "",
+        "របាយការណ៍ប្រចាំឆ្នាំ / Annual reports:",
+    ]
+
+    annual = [
+        item
+        for _key, item in sorted_entries
+        if "annual report" in item["title"].casefold()
+        or "របាយការណ៍ប្រចាំឆ្នាំ" in item["title"]
+    ]
+    other = [item for _key, item in sorted_entries if item not in annual]
+
+    for item in annual:
+        date = f" - Publish date: {item['publish_date']}" if item.get("publish_date") else ""
+        lines.append(f"- {item['title']}{date}")
+
+    lines.extend(["", "ការបោះពុម្ពផ្សាយផ្សេងទៀត / Other publications:"])
+    for item in other[:120]:
+        date = f" - Publish date: {item['publish_date']}" if item.get("publish_date") else ""
+        lines.append(f"- {item['title']}{date}")
+
+    return "\n".join(lines)
 
 
 def process_file_record(file_record, scraped_at, page_records, title=None, parent_url=None):
@@ -726,7 +926,7 @@ def download_management_assets(session, args, scraped_at, page_records, file_rec
             errors.append({"url": url, "error": str(exc)})
 
 
-def finalize_cached_pages():
+def finalize_cached_pages(args):
     page_records = []
     for path in sorted(PAGE_ROOT.glob("*.json")):
         with open(path, "r", encoding="utf-8") as f:
@@ -741,6 +941,10 @@ def finalize_cached_pages():
         for path in sorted(FILE_ROOT.glob("*"))
         if path.is_file()
     ]
+    pruned_duplicates = prune_duplicate_source_pdf_documents(file_records)
+    pruned_management_images = (
+        prune_management_image_documents() if not args.ocr_management_images else 0
+    )
     manifest = {
         "base_url": BASE_URL,
         "scraped_at": datetime.now(timezone.utc).isoformat(),
@@ -748,6 +952,8 @@ def finalize_cached_pages():
         "pages_saved": len(page_records),
         "pipeline_documents": updated + supplemental,
         "files_downloaded": len(file_records),
+        "duplicate_source_pdfs_pruned": pruned_duplicates,
+        "management_image_documents_pruned": pruned_management_images,
         "errors": [],
         "files": file_records,
         "finalized_from_cache": True,
@@ -838,6 +1044,10 @@ def crawl(args):
         )
 
     updated = update_document_metadata(page_records)
+    pruned_duplicates = prune_duplicate_source_pdf_documents(file_records)
+    pruned_management_images = (
+        prune_management_image_documents() if not args.ocr_management_images else 0
+    )
     manifest = {
         "base_url": BASE_URL,
         "scraped_at": datetime.now(timezone.utc).isoformat(),
@@ -845,6 +1055,8 @@ def crawl(args):
         "pages_saved": len(page_records),
         "pipeline_documents": updated + supplemental,
         "files_downloaded": len(file_records),
+        "duplicate_source_pdfs_pruned": pruned_duplicates,
+        "management_image_documents_pruned": pruned_management_images,
         "errors": errors,
         "files": file_records,
     }
@@ -862,7 +1074,7 @@ def parse_args():
     parser.add_argument("--download-files", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--download-images", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--download-management-assets", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--ocr-management-images", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--ocr-management-images", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--respect-robots", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--finalize-cache", action="store_true")
     args = parser.parse_args()
@@ -873,7 +1085,7 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    result = finalize_cached_pages() if args.finalize_cache else crawl(args)
+    result = finalize_cached_pages(args) if args.finalize_cache else crawl(args)
     print("\n========== SUMMARY ==========")
     print(f"Pages saved        : {result['pages_saved']}")
     print(f"Pipeline documents : {result['pipeline_documents']}")

@@ -98,7 +98,7 @@ if not Path(INDEX_PATH).exists():
     )
 
 print("Loading embedding model...")
-embedding_model = SentenceTransformer(EMBEDDING_HF_ID)
+embedding_model = SentenceTransformer(EMBEDDING_HF_ID, local_files_only=True)
 
 print("Loading FAISS index...")
 index = faiss.read_index(INDEX_PATH)
