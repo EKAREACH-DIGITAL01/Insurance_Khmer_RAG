@@ -1,7 +1,7 @@
 # public_service
 
 Generated local view of raw files from data/00_irc_website_scrape/files.
-Raw assets currently arranged here: 0.
+Raw assets currently arranged here: 60.
 
 Regenerate with:
 
@@ -11,6 +11,10 @@ Regenerate with:
 
 Direct website routes to scrape for this section:
 
+- https://irc.gov.kh/public-service
+- https://www.irc.gov.kh/public-service
+- https://irc.gov.kh/en/public-service
+- https://www.irc.gov.kh/en/public-service
 - https://www.irc.gov.kh/agent/registration-menu
 - https://www.irc.gov.kh/en/agent/registration-menu
 - https://www.irc.gov.kh/complaint

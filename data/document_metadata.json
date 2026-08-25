@@ -5552,5 +5552,499 @@
     "release_date": "2026-08-25",
     "source_url": "https://www.irc.gov.kh/en/complaint",
     "source_section": "public_service"
+  },
+  "website_df65e9cbeca4": {
+    "document_name": "សេវា​សាធារណៈ",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://www.irc.gov.kh/public-service",
+    "source_section": "public_service"
+  },
+  "website_b95a99c055bd": {
+    "document_name": "PUBLIC SERVICE",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://www.irc.gov.kh/en/public-service",
+    "source_section": "public_service"
+  },
+  "website_file_6b0328e87f5d": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតតែងតាំងក្រុមហ៊ុនសវនកម្មឯករាជ្យ របស់គ្រឹះស្ថានធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/034509ec-bf4f-4791-ad2f-aacb7f3dfdf7.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_15fcf01188b2": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតបន្ថយ ឬបង្កើនដើមទុន របស់គ្រឹះស្ថានធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/07822339-ae12-4707-9bde-2d7b222915be.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_f56c7c2eb071": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតការកែប្រែលើគោលការណ៍ស្តីពីការទទួលនិងដោះស្រាយសំណងធានារ៉ាប់រងរបស់ក្រុមហ៊ុនធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/0c201db4-86c1-4547-a7c4-2c4cea5fed48.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_027d13349480": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតផ្លាស់ប្តូរបុគ្គលវិជ្ជាជីវៈជើងសាធានារ៉ាប់រងលក់ផលិតផល",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/0c2e7abc-4b20-4562-b5d7-69003bffced0.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_688e0b5ef8f0": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតបង្កើតគណៈកម្មការសវនកម្ម",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/0db37a07-b721-4905-9a8c-829ed74851e1.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_b29ba1586f8d": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអនុញ្ញាតផ្តល់សេវាគ្រប់គ្រងសំណងធានារ៉ាប់រងលើប្រភេទផលិតផលធានារ៉ាប់រងណាមួយបន្ថែមរបស់ក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង ឬសាខាក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/12ff05d5-aa81-4f65-9997-e4c1944efdce.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_d30a7db3ad58": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំចុះបញ្ជីទទួលស្គាល់ក្រុមហ៊ុនផ្ដល់សេវាសវនកម្ម ក្នុងវិស័យធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/1bebca63-acdd-4a67-a956-970ca1fafdb3.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_add17691a161": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអនុញ្ញាតពន្យារការសាកល្បងបច្ចេកវិទ្យាធានារ៉ាប់រងចូលក្នុងបរិស្ថានសាកល្បងបច្ចេកវិទ្យាធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/1cf64c3f-f857-4498-a67b-34e190c8e256.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_abff2cb2a4f1": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតផ្លាស់ប្តូរបុគ្គលវិជ្ជាជីវៈភ្នាក់ងារធានារ៉ាប់រងលក់ផលិតផលធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/1e29af9f-9236-4eea-9b77-0f8e90ad08b6.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_e144162ead8d": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំបន្តសុពលភាពអាជ្ញាបណ្ណអាជីវកម្មក្រុមហ៊ុនធានារ៉ាប់រង ជាក្រុមហ៊ុន ធានារ៉ាប់រងទូទៅ ឬក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិត ឬសាខាក្រុមហ៊ុនធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/286bceea-7cdf-46f6-9c4d-a3452a40a3e0.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_8a9ecd55bca4": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំចុះកិច្ចសន្យាជាមួយភ្នាក់ងារធានារ៉ាប់រងជារូបវន្តបុគ្គលរបស់ក្រុមហ៊ុនធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/2968d3bb-c92c-4e00-840a-a62346c119d7.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_3cfefff76604": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតផ្តល់សេវាវិជ្ជាជីវៈគណនាបុព្វលាភធានារ៉ាប់រងបន្ថែមមួយ របស់ក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រង ឬសាខាក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/2ada5143-bd38-4e6f-a519-8ec0b8cf812d.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_ece9a7a6dd35": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំបង្កើតម៉ាក ឬពាណិជ្ជនាមរបស់គ្រឹះស្ថានធានារ៉ាប់រង ក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រង ឬក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/304902dd-275d-4077-94f4-d873bd6092ee.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_ac2a914380d6": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំបន្តសុពលភាពអាជ្ញាបណ្ណអាជីវកម្មសេវាគាំទ្រអាជីវកម្មធានារ៉ាប់រងជាក្រុមហ៊ុនវាយតម្លៃហានិភ័យធានារ៉ាប់រងឬសាខាក្រុមហ៊ុនបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/35161922-a99c-46b4-9b65-bce1f41ab4e8.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_22010bea2abe": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអនុញ្ញាតផ្លាស់ប្តូរឬកែប្រែលក្ខខណ្ឌណាមួយនៃលក្ខន្តិកៈក្រុមហ៊ុនរបស់គ្រឹះស្ថានធានារ៉ាប់រង ក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រង ឬក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/35975a6f-12ef-4fc3-aae2-fc3cdd8a5c26.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_937867447f3e": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំផ្លាស់ប្តូរនាមករណ៍ ម៉ាក ឬពាណិជ្ជនាមរបស់គ្រឹះស្ថានធានារ៉ាប់រង ក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រង ឬក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/46afab23-72f4-40ac-9e95-0582609046dd.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_016fef658f8b": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតលើគោលការណ៍ស្តីពីការទទួលនិងដោះស្រាយសំណងធានារ៉ាប់រងរបស់ក្រុមហ៊ុនធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/4b351f2b-e1c0-4d73-9d18-6a8a64fddd7a.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_3443f6edd975": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតចាប់ដៃគូ ឬផ្លាស់ប្តូរដៃគូផ្តល់សេវាភ្នាក់ងារធានារ៉ាប់រង ឬជើងសាធានារ៉ាប់រងជាមួយក្រុមហ៊ុនធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/4ba68cb2-b4b4-4e90-bd9b-03a935f7f0c6.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_3c497fdd2c1b": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំបន្តសុពលភាពអាជ្ញាបណ្ណអាជីវកម្មអន្តរការីធានារ៉ាប់រងជាក្រុមហ៊ុនភ្នាក់ងារធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/5f38a837-e6f2-4304-9be1-8e31a4f331e4.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_fbbeeaccb2eb": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំបន្តសុពលភាពនៃការចុះបញ្ជីទទួលស្គាល់ក្រុមហ៊ុនផ្ដល់សេវាសវនកម្មក្នុងវិស័យធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/64e4b25e-590a-4637-a1be-c11e6785bc27.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_10ceb4d9b091": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំបន្តសុពលភាពវិញ្ញាបនបត្រសាខាក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ ឬសាខាក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិតក្នុងស្រុក",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/73eb2c8f-7200-41c7-828b-173773eff6e1.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_9686cf4dcbc3": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតបង្កើតគណៈកម្មការវិនិយោគ",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/7edcf08f-70aa-4858-a078-a5d964701e02.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_56f2aed83c35": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំលិខិតបញ្ជាក់ប្រាក់តម្កល់ធានាអាជីវកម្មរបស់គ្រឹះស្ថានធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/904f66b4-9950-4194-9a56-e6e79462ee16.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_b11b298aead5": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតចាប់ដៃគូ ឬផ្លាស់ប្តូរដៃគូផ្តល់សេវាគ្រប់គ្រងសំណងធានារ៉ាប់រងជាមួយនីតិបុគ្គលប្រតិស្រុតផ្សេងទៀតរបស់ក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង ឬសាខាក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/9b3d2894-9058-4865-bb36-91d9005af499.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_8ccef1f63db7": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតលើកការបែងចែកភាគលាភ",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/81c0088c-46a6-48d3-aae9-ffb0aa76bd1c.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_7f1e8e79b119": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំបន្តសុពលភាពអាជ្ញាបណ្ណអាជីវកម្មសេវាគាំទ្រអាជីវកម្មធានារ៉ាប់រងជាក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រងឬសាខាក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/c37df405-ec05-4d9d-bff6-04e2edeb6907.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_a0a95e8afdfa": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអនុញ្ញាតកែប្រែផ្សេងៗលើបច្ចេកវិទ្យាធានារ៉ាប់រងនៅក្នុងបរិស្ថានសាកល្បងបច្ចេកវិទ្យាធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/c44b6409-9f3c-46f5-83c3-769ffd0dd158.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_feb0cc0d7e6f": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំបន្តសុពលភាពអាជ្ញាបណ្ណអាជីវកម្មអន្តរការីធានារ៉ាប់រង ជាក្រុមហ៊ុនជើងសាធានារ៉ាប់រង ឬសាខាក្រុមហ៊ុនជើងសាធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/af028e79-6847-4c60-84fd-ab337b3307aa.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_a704e49a76d5": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំបន្តសុពលភាពអាជ្ញាបណ្ណអាជីវកម្មសេវាគាំទ្រអាជីវកម្មធានារ៉ាប់រង ជាក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រងឬសាខាក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/a73c8557-a5fb-4176-a5ee-1292d7bb1be7.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_679fdad21d38": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតផ្លាស់ប្តូរបុគ្គលវិជ្ជាជីវៈភ្នាក់ងារធានារ៉ាប់រងតាមលក្ខខណ្ឌតម្រូវនៃអាជ្ញាបណ្ណ",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/fbc230e2-7656-45cc-b08d-d6823280a65a.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_216ef68f5709": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតតែងតាំងអ្នកជំនាញគណនាបុព្វលាភធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/19e1574e-4642-41c3-baaa-b93070f7ec37.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_f3bed052016d": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអាជ្ញាបណ្ណអាជីវកម្មអន្តរការីធានារ៉ាប់រង ជាក្រុមហ៊ុនភ្នាក់ងារធានារ៉ាប់រង (គ្រឹះស្ថានធនាគារនិងហិរញ្ញវត្ថុ ឬនីតិបុគ្គលប្រតិស្រុតផ្សេងទៀត)",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/1a81ea66-9458-4f6d-ae67-8aac62885df6.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_6fdea981bc7c": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអាជ្ញាបណ្ណអាជីវកម្មអន្តរការីធានារ៉ាប់រង ជាក្រុមហ៊ុនភ្នាក់ងារធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/21e75c85-27c7-45a8-be0d-b89745a739cc.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_6debfa0f9c6c": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំផ្ទេរ ឬលក់ភាគហ៊ុនលើសពី ៥០ % របស់គ្រឹះស្ថានធានារ៉ាប់រង ក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រង ឬក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/3cde68e1-c8d0-48a9-9a19-2a855ee8ef88.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_c79951e951d8": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតផែនការកិច្ចព្រមព្រៀងធានារ៉ាប់រងបន្ត",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/6e950eff-757a-4c63-8bb4-6289c0b56782.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_41af68b2941d": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតផ្លាស់ប្តូរបុគ្គលវិជ្ជាជីវៈជើងសាធានារ៉ាប់រងតាមលក្ខខណ្ឌតម្រូវនៃអាជ្ញាបណ្ណ",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2023/d1ab5b65-90f5-4f6a-b334-13ee723ea1ca.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_e56fa9727dd6": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអាជ្ញាបណ្ណអាជីវកម្មសេវាគាំទ្រអាជីវកម្មធានារ៉ាប់រង ជាក្រុមហ៊ុន គណនាបុព្វលាភធានារ៉ាប់រង ( ក្រុមហ៊ុនសវនកម្ម )",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/2648078d-4503-4be7-ba9c-ebb39d08d89d.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_3f8209c5c9c7": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតផ្លាស់ប្តូរគេហទំព័ររបស់គ្រឹះស្ថានធានារ៉ាប់រងក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រង ឬក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/9889b70b-a145-4b95-83a0-a5d2665b2b10.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_07ddebcbf32e": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំតែងតាំងឬផ្លាស់ប្តូរបុគ្គលវិជ្ជាជីវៈវាយតម្លៃហានិភ័យធានារ៉ាប់រង គណនាបុព្វលាភធានារ៉ាប់រង ឬគ្រប់គ្រងសំណងធានារ៉ាប់រង តាមលក្ខខណ្ឌតម្រូវនៃអាជ្ញាបណ្ណ",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/1c59fc9a-b7be-4d1c-88bf-bc9eb32f05d6.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_f78bd5264f32": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតតែងតាំងអគ្គនាយក របស់គ្រឹះស្ថានធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/c04f43e2-1c8e-4c6f-bbd1-d9f8008ef67c.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_2f3530724c89": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអាជ្ញាបណ្ណអាជីវកម្មសេវាគាំទ្រអាជីវកម្មធានារ៉ាប់រង ជាក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រងឬសាខាក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/8f4b65c2-6e3e-41e3-b6bf-e50de74d4bdd.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_fe5809bfb253": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអាជ្ញាបណ្ណអាជីវកម្មសេវាគាំទ្រអាជីវកម្មធានារ៉ាប់រងជាក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រងឬសាខាក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/7953682e-f5d3-4119-a467-7fff441044f9.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_607c4d8519e5": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំផ្ទេរ ឬលក់ភាគហ៊ុនតិចជាង ៥០% របស់គ្រឹះស្ថានធានារ៉ាប់រង ក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រង ឬក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/416c9d25-dbc0-418e-8b3a-aa7d8ac20068.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_6458cbf46a01": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអាជ្ញាបណ្ណអាជីវកម្មក្រុមហ៊ុនធានារ៉ាប់រង ជាក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច ឬសាខាក្រុមហ៊ុនធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/9c398635-e2d5-4ddc-bab0-2e432c7d79c0.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_6b46779040de": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំសាកល្បងបច្ចេកវិទ្យាធានារ៉ាប់រងទៅក្នុង បរិស្ថានសាកល្បងបច្ចេកវិទ្យាធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/c6d7f491-a042-4e38-a74f-f09f25f3e633.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_9f5b7d246bbf": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអាជ្ញាបណ្ណអាជីវកម្មសេវាគាំទ្រអាជីវកម្មធានារ៉ាប់រងជាក្រុមហ៊ុនវាយតម្លៃហានិភ័យធានារ៉ាប់រងឬសាខាក្រុមហ៊ុនវាយតម្លៃហានិភ័យធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/a78ea96a-a511-46c2-94e1-c11cf7ef4ba0.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_83ad64def82c": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំចុះឈ្មោះក្នុងបញ្ជីភ្នាក់ងារធានារ៉ាប់រងជារូបវន្តបុគ្គលតាមប្រព័ន្ធស្វ័យប្រវត្តកម្ម",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2025/23afc196-3001-4fb3-a6f4-ca206456f2c1.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_1394b3db6bc0": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអាជ្ញាបណ្ណអាជីវកម្មអន្តរការីធានារ៉ាប់រង ជាក្រុមហ៊ុនជើងសាធានារ៉ាប់រង ឬសាខាក្រុមហ៊ុនជើងសាធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/fdd7eeab-a55c-4f7b-8725-22f4cb349589.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_7994f5a3608a": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំវិញ្ញាបនបត្រសាខាក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ ឬសាខាក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិត",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/ebc5c8fe-5d4e-4ad4-8356-f248228ad407.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_0692860fb14e": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតកែប្រែផលិតផលធានារ៉ាប់រង របស់ក្រុមហ៊ុនធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2025/a1fb001c-ed3a-4e16-a3b2-e2cb053080d0.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_317ce9e50bda": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអនុញ្ញាតផ្លាស់ប្តូរទីតាំងគ្រឹះស្ថានធានារ៉ាប់រង ក្រុមហ៊ុនគណនាបុព្វលាភធានារ៉ាប់រង ឬក្រុមហ៊ុនគ្រប់គ្រងសំណងធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2025/32b540f9-52df-471c-8b83-31fc3dbaec60.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_d5f0cd9dd8cf": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតតែងតាំងសមាសភាពក្រុមប្រឹក្សាភិបាល របស់គ្រឹះស្ថានធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/9814853e-4746-4c1e-bda1-be6ebaf0372d.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_fb4f60847788": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំបន្ដសុពលភាពនៃការទទួលស្គាល់អ្នកជម្រះបញ្ជី ក្នុងវិស័យធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2025/b63a9f65-7979-4471-946a-15003b0c9125.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_b2ab47093ddd": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតលើគោលការណ៍ស្តីពីការទទួលនិងដោះស្រាយសំណងធានារ៉ាប់រងសម្រាប់ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2026/68e836ab-842a-426b-960e-dc210fa47ab1.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_fd79cc492ebf": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតកែប្រែគោលការណ៍ស្តីពីការទទួលនិងដោះស្រាយសំណងធានារ៉ាប់រងសម្រាប់ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2026/6addfe0d-f409-4380-b824-923d9e3c039a.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_5f2ffe34cece": {
+    "document_name": "សេវាពិនិត្យលើការស្នើសុំការអនុញ្ញាតលក់ផលិតផលធានារ៉ាប់រងតាមប្រ័ពន្ធអេឡិចត្រូនិក របស់ក្រុមហ៊ុនធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2025/d213b451-c977-4cc2-acc1-91d3d73c2769.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_e79ea8612cbd": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំអាជ្ញាបណ្ណអាជីវកម្មក្រុមហ៊ុនធានារ៉ាប់រង ជាក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ ឬក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិត ឬសាខាក្រុមហ៊ុនធានារ៉ាប់រងបរទេស",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/f7968d1e-ad58-43f7-a83d-0c98e854465d.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_b45a518914fa": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំការអនុញ្ញាតលក់ផលិតផលធានារ៉ាប់រង របស់ក្រុមហ៊ុនធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2025/9cf12789-7824-42f2-8475-89fd450f8247.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_01a4a879572a": {
+    "document_name": "សេវាពិនិត្យការស្នើសុំជាអ្នកជម្រះបញ្ជីក្នុងវិស័យធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2025/e02364a0-1ab0-47b5-89f4-205bdc75f30b.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-3.6-flash)"
+  },
+  "website_file_622279d7b326": {
+    "document_name": "សេវាពិនិត្យចំពោះក្រុមហ៊ុនជើងសាធានារ៉ាប់រងដែលមានអាជ្ញាបណ្ណអាជីវកម្មអន្តរការីជាក្រុមហ៊ុនជើងសាធានារ៉ាប់រងមួយប្រភេទស្រាប់ ហើយក្រុមហ៊ុនមានបំណងចង់ស្នើសុំអាជ្ញាបណ្ណអាជីវកម្មអន្តរការី ជាក្រុមហ៊ុនជើងសាធានារ៉ាប់រងមួយប្រភេទបន្ថែមទៀត",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://object.irc.gov.kh/irc-public/public-service/2024/b7b49626-b1a9-4239-a401-a6fcb1913176.pdf",
+    "source_section": "public_service",
+    "ocr_method": "Google Gemini API (gemini-2.5-flash)"
   }
 }

@@ -20,6 +20,8 @@ from irc_website_categories import WEBSITE_DERIVED_CATEGORIES, infer_website_cat
 MANIFEST_PATH = Path("data/00_irc_website_scrape/manifest.json")
 METADATA_PATH = Path("data/document_metadata.json")
 SOURCE_PDF_ROOT = Path("data/01_source_documents")
+ORIGINAL_SOURCE_PDF_CATEGORIES = ("laws", "sub_decrees", "prakas", "guidance")
+PAGE_ROOT = Path("data/00_irc_website_scrape/pages")
 IMAGE_ROOT = Path("data/02_page_images_irc_gemini")
 RAW_ROOT = Path("data/03_raw_pages_irc_gemini")
 MERGED_DOC_ROOT = Path("data/05_merged_documents")
@@ -46,11 +48,12 @@ def file_sha256(path):
 
 def source_pdf_hashes():
     hashes = {}
-    for path in sorted(SOURCE_PDF_ROOT.rglob("*.pdf")):
-        try:
-            hashes[file_sha256(path)] = str(path)
-        except OSError:
-            continue
+    for category in ORIGINAL_SOURCE_PDF_CATEGORIES:
+        for path in sorted((SOURCE_PDF_ROOT / category).glob("*.pdf")):
+            try:
+                hashes[file_sha256(path)] = str(path)
+            except OSError:
+                continue
     return hashes
 
 
@@ -66,6 +69,46 @@ def load_json(path, default):
         return default
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def strip_service_numbering(title):
+    title = re.sub(r"\s+", " ", title or "").strip()
+    for _ in range(4):
+        title = re.sub(r"^\s*(?:\d+|[\u17E0-\u17E9]+)[\.\)]\s*", "", title).strip()
+    return title
+
+
+def public_service_title_from_cached_pages(url):
+    if not url or not PAGE_ROOT.exists():
+        return ""
+    for page_path in sorted(PAGE_ROOT.glob("*.json")):
+        page = load_json(page_path, {})
+        page_url = page.get("url") or ""
+        if "public-service" not in page_url:
+            continue
+        lines = [line.strip() for line in (page.get("text") or "").splitlines()]
+        for index, line in enumerate(lines):
+            if url not in line:
+                continue
+            title_parts = []
+            cursor = index - 1
+            while cursor >= 0 and len(title_parts) < 5:
+                candidate = lines[cursor].strip()
+                if not candidate:
+                    cursor -= 1
+                    continue
+                if candidate.startswith("Download file"):
+                    break
+                if candidate in {"Public Service", "សេវាសាធារណៈ"}:
+                    break
+                title_parts.append(candidate)
+                if re.match(r"^\s*(?:\d+|[\u17E0-\u17E9]+)[\.\)]", candidate):
+                    break
+                cursor -= 1
+            title = strip_service_numbering(" ".join(reversed(title_parts)))
+            if title:
+                return title
+    return ""
 
 
 def save_json(path, data):
@@ -131,6 +174,9 @@ def load_pdf_records(
 def title_from_record(record, metadata):
     url = record.get("url") or ""
     document_id = stable_id("website_file", url)
+    cached_title = public_service_title_from_cached_pages(url)
+    if cached_title:
+        return cached_title
     existing = metadata.get(document_id, {})
     if existing.get("document_name"):
         return existing["document_name"]

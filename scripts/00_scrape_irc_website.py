@@ -6,9 +6,11 @@ import re
 import shutil
 import subprocess
 import time
+import zipfile
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
+from xml.etree import ElementTree as ET
 from urllib.parse import parse_qs, urldefrag, urljoin, urlparse
 from urllib.request import Request, urlopen
 from urllib.robotparser import RobotFileParser
@@ -38,6 +40,7 @@ CLEANED_WEBSITE_DOC_ROOT = CLEANED_DOC_ROOT / "website"
 CHUNKED_WEBSITE_DOC_ROOT = CHUNKED_DOC_ROOT / "website"
 SOURCE_PDF_ROOT = Path("data/01_source_documents")
 METADATA_PATH = Path("data/document_metadata.json")
+ORIGINAL_SOURCE_PDF_CATEGORIES = ("laws", "sub_decrees", "prakas", "guidance")
 
 LIST_CATEGORIES = [
     "laws",
@@ -59,6 +62,8 @@ LIST_CATEGORIES = [
 DEFAULT_SEEDS = [
     "https://www.irc.gov.kh/",
     "https://www.irc.gov.kh/en",
+    "https://www.irc.gov.kh/public-service",
+    "https://www.irc.gov.kh/en/public-service",
     "https://www.irc.gov.kh/insurance-institutions",
     "https://www.irc.gov.kh/en/insurance-institutions",
     "https://www.irc.gov.kh/agent/registration-menu",
@@ -94,6 +99,15 @@ DROP_TEXT = {
     "ទំព័រដើម",
     "home",
     "follow us",
+}
+
+INSTITUTION_TYPE_LABELS = {
+    "ASSOCIATION": "សមាគម / Association",
+    "GENERAL_INSURANCE": "ក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ / General insurance company",
+    "LIFE_INSURANCE": "ក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិត / Life insurance company",
+    "MICRO_INSURANCE": "ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច / Micro insurance company",
+    "REINSURANCE": "ក្រុមហ៊ុនធានារ៉ាប់រងបន្ត / Reinsurance company",
+    "INSURANCE_BROKER": "ក្រុមហ៊ុនជើងសាធានារ៉ាប់រង / Insurance broker",
 }
 
 _SOURCE_PDF_HASHES = None
@@ -278,11 +292,12 @@ def source_pdf_hashes():
     global _SOURCE_PDF_HASHES
     if _SOURCE_PDF_HASHES is None:
         hashes = {}
-        for path in sorted(SOURCE_PDF_ROOT.rglob("*.pdf")):
-            try:
-                hashes[file_sha256(path)] = str(path)
-            except OSError:
-                continue
+        for category in ORIGINAL_SOURCE_PDF_CATEGORIES:
+            for path in sorted((SOURCE_PDF_ROOT / category).glob("*.pdf")):
+                try:
+                    hashes[file_sha256(path)] = str(path)
+                except OSError:
+                    continue
         _SOURCE_PDF_HASHES = hashes
     return _SOURCE_PDF_HASHES
 
@@ -379,10 +394,37 @@ def iter_json_values(value):
 def object_file_url(path):
     if not path or not isinstance(path, str):
         return None
-    if path.startswith(("http://", "https://")):
-        return normalize_url(path)
-    if path.startswith("upload/"):
-        return normalize_url(f"https://object.irc.gov.kh/irc-public/{path}")
+    raw_path = html_lib.unescape(path).strip()
+    if raw_path.startswith(("http://", "https://")):
+        return normalize_url(raw_path)
+    normalized_path = raw_path.lstrip("/")
+    if normalized_path.startswith(("upload/", "public-service/")):
+        return normalize_url(f"https://object.irc.gov.kh/irc-public/{normalized_path}")
+    return None
+
+
+def public_service_object_url(path):
+    """Normalize the public-service page's relative storage links.
+
+    The rendered page sometimes exposes links such as /2026/<id>.pdf, while the
+    actual file is stored under object.irc.gov.kh/irc-public/public-service/.
+    Next.js data already carries the full public-service/<year>/ path; this
+    helper covers both representations.
+    """
+    exact = object_file_url(path)
+    if exact and "/public-service/" in urlparse(exact).path:
+        return exact
+    if not path or not isinstance(path, str):
+        return None
+    normalized_path = html_lib.unescape(path).strip().lstrip("/")
+    if re.match(
+        r"^\d{4}/[^/?#]+\.(?:pdf|docx?|xlsx?|jpg|jpeg|png|webp)$",
+        normalized_path,
+        flags=re.IGNORECASE,
+    ):
+        return normalize_url(
+            f"https://object.irc.gov.kh/irc-public/public-service/{normalized_path}"
+        )
     return None
 
 
@@ -425,6 +467,141 @@ def article_list_links(url, state):
     return links
 
 
+def storage_file_from_value(value, *, public_service_context=False):
+    if isinstance(value, dict):
+        return storage_file_from_value(
+            value.get("file")
+            or value.get("logo")
+            or value.get("low")
+            or value.get("medium")
+            or value.get("placeholder")
+            or value.get("micro"),
+            public_service_context=public_service_context,
+        )
+    if not isinstance(value, str):
+        return None
+    if public_service_context:
+        return public_service_object_url(value) or object_file_url(value)
+    return object_file_url(value)
+
+
+def file_size_from_value(value):
+    if isinstance(value, dict):
+        return value.get("fileSize") or value.get("size")
+    return None
+
+
+def file_name_from_value(value):
+    if isinstance(value, dict):
+        return value.get("fileName") or Path(str(value.get("file") or "")).name
+    if isinstance(value, str):
+        return Path(value).name
+    return ""
+
+
+def extract_structured_next_sections(url, state):
+    parsed_path = urlparse(url).path.lower()
+    public_service_context = "public-service" in parsed_path
+    public_service_rows = []
+    institution_rows = []
+    links = []
+    seen_public_service = set()
+    seen_institutions = set()
+
+    for item in iter_json_values(state):
+        if not isinstance(item, dict):
+            continue
+
+        title = item.get("title")
+        file_value = item.get("file")
+        file_url = storage_file_from_value(
+            file_value,
+            public_service_context=public_service_context,
+        )
+        if (
+            title
+            and file_value is not None
+            and (
+                public_service_context
+                or (file_url and "/public-service/" in urlparse(file_url).path)
+            )
+        ):
+            key = (str(title).strip(), file_url or "")
+            if key not in seen_public_service:
+                seen_public_service.add(key)
+                public_service_rows.append(
+                    {
+                        "title": clean_text(str(title)),
+                        "file_url": file_url,
+                        "file_name": file_name_from_value(file_value),
+                        "file_size": file_size_from_value(file_value),
+                    }
+                )
+            if file_url:
+                links.append(file_url)
+
+        name = item.get("name")
+        institution_type = item.get("type")
+        logo_url = storage_file_from_value(item.get("logo"))
+        if name and institution_type and logo_url:
+            clean_name = clean_text(str(name))
+            if clean_name.casefold() in {"name", "ឈ្មោះ"}:
+                continue
+            key = (clean_name, str(institution_type), logo_url)
+            if key in seen_institutions:
+                continue
+            seen_institutions.add(key)
+            institution_rows.append(
+                {
+                    "name": clean_name,
+                    "type": str(institution_type),
+                    "logo_url": logo_url,
+                }
+            )
+            links.append(logo_url)
+
+    lines = []
+    if public_service_rows:
+        lines.extend(
+            [
+                "សេវាសាធារណៈ",
+                "Public Service",
+                "Official public-service records and downloadable forms from the Insurance Regulator of Cambodia website.",
+                "សំណួរពាក់ព័ន្ធ៖ សេវាសាធារណៈ, តារាងសេវាសាធារណៈ, ឯកសារតម្រូវ, កម្រៃសេវា, អាជ្ញាបណ្ណ, ភ្នាក់ងារធានារ៉ាប់រង។",
+            ]
+        )
+        for index, row in enumerate(public_service_rows, 1):
+            lines.append(f"{index}. {row['title']}")
+            if row.get("file_url"):
+                size = f" ({row['file_size']} bytes)" if row.get("file_size") else ""
+                label = f" - {row['file_name']}" if row.get("file_name") else ""
+                lines.append(f"Download file{label}: {row['file_url']}{size}")
+
+    if institution_rows:
+        grouped = {}
+        for row in institution_rows:
+            grouped.setdefault(row["type"], []).append(row)
+        lines.extend(
+            [
+                "គ្រឹះស្ថានធានារ៉ាប់រង",
+                "Insurance Institutions Directory",
+                "Official insurance institutions directory scraped from the Insurance Regulator of Cambodia website.",
+                "សំណួរពាក់ព័ន្ធ៖ គ្រឹះស្ថានធានារ៉ាប់រង, ក្រុមហ៊ុនធានារ៉ាប់រង, សមាគម, ជើងសាធានារ៉ាប់រង, ក្រុមហ៊ុនធានារ៉ាប់រងទូទៅ, ក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិត, ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូច។",
+                f"Total listed institutions: {len(institution_rows)}",
+            ]
+        )
+        for institution_type in sorted(grouped):
+            label = INSTITUTION_TYPE_LABELS.get(institution_type, institution_type)
+            rows = sorted(grouped[institution_type], key=lambda row: row["name"])
+            lines.append(f"{label}: {len(rows)}")
+            for row in rows:
+                lines.append(
+                    f"- {row['name']} | Type: {institution_type} | Logo: {row['logo_url']}"
+                )
+
+    return {"text": clean_text("\n".join(lines)), "links": sorted(set(links))}
+
+
 def extract_next_content(url, html):
     data = extract_next_json(html)
     if not data:
@@ -433,6 +610,8 @@ def extract_next_content(url, html):
     state = data.get("props", {}).get("pageProps", {}).get("initialApolloState", {})
     lines = []
     links = article_list_links(url, state)
+    structured_content = extract_structured_next_sections(url, state)
+    links.extend(structured_content["links"])
 
     for key, item in state.items():
         if not isinstance(item, dict):
@@ -510,6 +689,9 @@ def extract_next_content(url, html):
                         suffix = f"; Total: {int(total):,}" if numeric_total and graph_type == "premium" else ""
                         lines.append(f"{year}: " + "; ".join(values) + suffix)
 
+    if structured_content["text"]:
+        lines.append(structured_content["text"])
+
     return {"text": clean_text("\n".join(lines)), "links": sorted(set(links))}
 
 
@@ -539,6 +721,10 @@ def is_pdf_path(path):
     return str(path).lower().endswith(".pdf")
 
 
+def is_docx_path(path):
+    return str(path).lower().endswith(".docx")
+
+
 def extract_pdf_text(path, timeout=90):
     if not shutil.which("pdftotext"):
         return ""
@@ -555,6 +741,29 @@ def extract_pdf_text(path, timeout=90):
     if result.returncode != 0:
         return ""
     return clean_text(result.stdout)
+
+
+def extract_docx_text(path):
+    try:
+        with zipfile.ZipFile(path) as archive:
+            document_xml = archive.read("word/document.xml")
+    except Exception:
+        return ""
+    try:
+        root = ET.fromstring(document_xml)
+    except ET.ParseError:
+        return ""
+    namespace = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    paragraphs = []
+    for paragraph in root.iter(f"{namespace}p"):
+        parts = [
+            text_node.text or ""
+            for text_node in paragraph.iter(f"{namespace}t")
+            if text_node.text
+        ]
+        if parts:
+            paragraphs.append("".join(parts))
+    return clean_text("\n".join(paragraphs))
 
 
 def extract_image_ocr_text(path, timeout=90):
@@ -617,8 +826,16 @@ def fetch_page(session, url, timeout):
     parser.feed(response.text)
     next_content = extract_next_content(url, response.text)
     links = []
+    public_service_context = "public-service" in urlparse(url).path.lower()
     for href in parser.links + next_content["links"]:
-        absolute = normalize_url(urljoin(url, href))
+        if public_service_context:
+            absolute = (
+                public_service_object_url(href)
+                or object_file_url(href)
+                or normalize_url(urljoin(url, href))
+            )
+        else:
+            absolute = object_file_url(href) or normalize_url(urljoin(url, href))
         if not absolute.startswith(("http://", "https://")):
             continue
         links.append(absolute)
@@ -667,6 +884,9 @@ def download_file(session, url, max_file_mb, timeout):
             return record
         record["extracted_text"] = extract_pdf_text(output_path)
         record["text_extraction_method"] = "pdftotext" if record["extracted_text"] else None
+    elif is_docx_path(output_path):
+        record["extracted_text"] = extract_docx_text(output_path)
+        record["text_extraction_method"] = "docx_xml" if record["extracted_text"] else None
     return record
 
 
@@ -1058,12 +1278,7 @@ def crawl(args):
 
             for link in page["links"]:
                 link_host = urlparse(link).netloc
-                if link_host in INTERNAL_HOSTS and not should_skip_url(link):
-                    if is_file_url(link):
-                        continue
-                    if link not in seen and link not in queue:
-                        queue.append(link)
-                elif args.download_files and link_host in FILE_HOSTS and is_file_url(link):
+                if args.download_files and link_host in FILE_HOSTS and is_file_url(link):
                     if is_image_url(link) and not args.download_images:
                         continue
                     if args.respect_robots and not robots.can_fetch(USER_AGENT, link):
@@ -1086,6 +1301,11 @@ def crawl(args):
                     except Exception as exc:
                         errors.append({"url": link, "error": str(exc)})
                     time.sleep(args.delay)
+                elif link_host in INTERNAL_HOSTS and not should_skip_url(link):
+                    if is_file_url(link):
+                        continue
+                    if link not in seen and link not in queue:
+                        queue.append(link)
         except Exception as exc:
             errors.append({"url": url, "error": str(exc)})
 

@@ -36,10 +36,16 @@ RAW_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
 
 DIRECT_SECTION_URLS = {
     "insurance_institutions": [
+        "https://irc.gov.kh/insurance-institutions",
         "https://www.irc.gov.kh/insurance-institutions",
+        "https://irc.gov.kh/en/insurance-institutions",
         "https://www.irc.gov.kh/en/insurance-institutions",
     ],
     "public_service": [
+        "https://irc.gov.kh/public-service",
+        "https://www.irc.gov.kh/public-service",
+        "https://irc.gov.kh/en/public-service",
+        "https://www.irc.gov.kh/en/public-service",
         "https://www.irc.gov.kh/agent/registration-menu",
         "https://www.irc.gov.kh/en/agent/registration-menu",
         "https://www.irc.gov.kh/complaint",
@@ -171,6 +177,37 @@ def collect_page_link_records(cache: dict[str, Path]) -> dict[str, AssetRecord]:
             reason="linked from cached page",
         )
     return records
+
+
+def overlay_institution_logo_records(
+    records: dict[str, AssetRecord], cache: dict[str, Path]
+) -> None:
+    """Use the structured institutions directory to give logo files useful names."""
+    logo_line_pattern = re.compile(r"^- (?P<name>.+?) \| Type: (?P<type>.+?) \| Logo: (?P<url>https?://\S+)")
+    for doc_path in sorted((MERGED_DOC_ROOT / "insurance_institutions").glob("*.json")):
+        doc = read_json(doc_path)
+        if not doc:
+            continue
+        text = doc.get("merged_text") or doc.get("text") or ""
+        for line in text.splitlines():
+            match = logo_line_pattern.match(line.strip())
+            if not match:
+                continue
+            logo_url = match.group("url")
+            filename = safe_cache_filename(logo_url)
+            if filename not in cache:
+                continue
+            institution_name = clean_label(match.group("name"), filename)
+            institution_type = clean_label(match.group("type"), "institution")
+            records[filename] = AssetRecord(
+                source_path=cache[filename],
+                category="insurance_institutions",
+                title=f"{institution_name} - {institution_type}",
+                source_url=logo_url,
+                parent_url=doc.get("source_url", ""),
+                document_id=doc.get("document_id", ""),
+                reason="structured insurance institution logo",
+            )
 
 
 def overlay_merged_document_records(
@@ -314,6 +351,7 @@ def arrange(clear: bool, hardlink: bool) -> dict:
 
     records = collect_page_link_records(cache)
     overlay_merged_document_records(records, cache)
+    overlay_institution_logo_records(records, cache)
     fill_unmapped_records(records, cache)
 
     manifest_records = []

@@ -422,8 +422,8 @@ the models that won the comparisons in `reports/`.
 The vector database in `vector_db/` is already committed — you do **not**
 need to run the data pipeline to use the chatbot.
 
-Current BGE-M3 corpus snapshot: 2,898 chunks across 789 documents, including
-1,463 category-aware website-derived chunks and the original 49 source PDFs. Run
+Current BGE-M3 corpus snapshot: 3,046 chunks across 857 documents, including
+1,611 category-aware website-derived chunks and the original 49 source PDFs. Run
 `python scripts/19_rag_smoke_tests.py` to verify this before a demo.
 
 The active embedding model is controlled by `ACTIVE_EMBEDDING_MODEL_DIR`

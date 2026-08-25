@@ -41,14 +41,14 @@ BM25_TOP_K = TOP_K
 RRF_K = 60
 NGRAM_SIZE = 3
 
-MIN_TOTAL_CHUNKS = 2900
-MIN_WEBSITE_CHUNKS = 1405
-MIN_DOCUMENTS = 790
+MIN_TOTAL_CHUNKS = 3040
+MIN_WEBSITE_CHUNKS = 1600
+MIN_DOCUMENTS = 850
 MIN_WEBSITE_CATEGORY_CHUNKS = {
     "home": 2,
     "statistics": 100,
     "publication": 20,
-    "public_service": 4,
+    "public_service": 140,
     "insurance_institutions": 2,
     "knowledge": 20,
 }
