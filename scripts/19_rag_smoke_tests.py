@@ -41,13 +41,15 @@ BM25_TOP_K = TOP_K
 RRF_K = 60
 NGRAM_SIZE = 3
 
-MIN_TOTAL_CHUNKS = 2890
-MIN_WEBSITE_CHUNKS = 1400
-MIN_DOCUMENTS = 780
+MIN_TOTAL_CHUNKS = 2900
+MIN_WEBSITE_CHUNKS = 1405
+MIN_DOCUMENTS = 790
 MIN_WEBSITE_CATEGORY_CHUNKS = {
     "home": 2,
     "statistics": 100,
     "publication": 20,
+    "public_service": 4,
+    "insurance_institutions": 2,
     "knowledge": 20,
 }
 
@@ -90,6 +92,12 @@ SMOKE_QUERIES = [
         "question": "តើរបាយការណ៍ប្រចាំឆ្នាំរបស់ន.ធ.ក.មានឆ្នាំណាខ្លះ?",
         "expected_doc": "website_publication_catalog",
         "must_be_in": ("dense", "bm25", "fused"),
+    },
+    {
+        "label": "insurance institutions directory",
+        "question": "តើគ្រឹះស្ថានធានារ៉ាប់រងមានអ្វីខ្លះ?",
+        "expected_doc": "website_1fab36e16db2",
+        "must_be_in": ("dense", "fused"),
     },
     {
         "label": "Bou Chanphirou profile",

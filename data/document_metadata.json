@@ -5510,5 +5510,47 @@
     "release_date": "2026-08-25",
     "source_url": "https://www.irc.gov.kh/en/article/list?category=publication&page=1",
     "source_section": "publication"
+  },
+  "website_1fab36e16db2": {
+    "document_name": "គ្រឹះស្ថានធានារ៉ាប់រង",
+    "document_type": "insurance_institutions",
+    "release_date": "2026-08-25",
+    "source_url": "https://www.irc.gov.kh/insurance-institutions",
+    "source_section": "insurance_institutions"
+  },
+  "website_bbaee43f1602": {
+    "document_name": "Insurance Institutions",
+    "document_type": "insurance_institutions",
+    "release_date": "2026-08-25",
+    "source_url": "https://www.irc.gov.kh/en/insurance-institutions",
+    "source_section": "insurance_institutions"
+  },
+  "website_c27df612e261": {
+    "document_name": "ចុះបញ្ជីភ្នាក់ងារធានារ៉ាប់រង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://www.irc.gov.kh/agent/registration-menu",
+    "source_section": "public_service"
+  },
+  "website_1caf565249d0": {
+    "document_name": "Insurance Agent Registration",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://www.irc.gov.kh/en/agent/registration-menu",
+    "source_section": "public_service"
+  },
+  "website_5250a3857725": {
+    "document_name": "ដាក់បណ្តឹង",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://www.irc.gov.kh/complaint",
+    "source_section": "public_service"
+  },
+  "website_632f5b0c028e": {
+    "document_name": "Complaint",
+    "document_type": "public_service",
+    "release_date": "2026-08-25",
+    "source_url": "https://www.irc.gov.kh/en/complaint",
+    "source_section": "public_service"
   }
 }

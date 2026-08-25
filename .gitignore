@@ -1,6 +1,44 @@
 # Ignore scraped website cache
 data/00_irc_website_scrape/
 
+# Local hard-linked IRC website raw assets arranged by website section.
+# Regenerate with scripts/21_arrange_irc_raw_sources.py instead of committing
+# hundreds of large website PDFs/images.
+data/01_source_documents/home/*
+!data/01_source_documents/home/.gitkeep
+!data/01_source_documents/home/README.md
+data/01_source_documents/statistics/*
+!data/01_source_documents/statistics/.gitkeep
+!data/01_source_documents/statistics/README.md
+data/01_source_documents/publication/*
+!data/01_source_documents/publication/.gitkeep
+!data/01_source_documents/publication/README.md
+data/01_source_documents/public_service/*
+!data/01_source_documents/public_service/.gitkeep
+!data/01_source_documents/public_service/README.md
+data/01_source_documents/insurance_institutions/*
+!data/01_source_documents/insurance_institutions/.gitkeep
+!data/01_source_documents/insurance_institutions/README.md
+data/01_source_documents/knowledge/*
+!data/01_source_documents/knowledge/.gitkeep
+!data/01_source_documents/knowledge/README.md
+data/01_source_documents/news/*
+!data/01_source_documents/news/.gitkeep
+!data/01_source_documents/news/README.md
+data/01_source_documents/events/*
+!data/01_source_documents/events/.gitkeep
+!data/01_source_documents/events/README.md
+data/01_source_documents/social_programs/*
+!data/01_source_documents/social_programs/.gitkeep
+!data/01_source_documents/social_programs/README.md
+data/01_source_documents/announcement/*
+!data/01_source_documents/announcement/.gitkeep
+!data/01_source_documents/announcement/README.md
+data/01_source_documents/law_regulation/*
+!data/01_source_documents/law_regulation/.gitkeep
+!data/01_source_documents/law_regulation/README.md
+data/01_source_documents/irc_raw_sources_manifest.json
+
 # Ignore generated page images
 data/02_page_images/*
 !data/02_page_images/.gitkeep

@@ -59,6 +59,12 @@ LIST_CATEGORIES = [
 DEFAULT_SEEDS = [
     "https://www.irc.gov.kh/",
     "https://www.irc.gov.kh/en",
+    "https://www.irc.gov.kh/insurance-institutions",
+    "https://www.irc.gov.kh/en/insurance-institutions",
+    "https://www.irc.gov.kh/agent/registration-menu",
+    "https://www.irc.gov.kh/en/agent/registration-menu",
+    "https://www.irc.gov.kh/complaint",
+    "https://www.irc.gov.kh/en/complaint",
 ]
 for category in LIST_CATEGORIES:
     DEFAULT_SEEDS.append(f"https://www.irc.gov.kh/article/list?category={category}&page=1")
