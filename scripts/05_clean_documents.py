@@ -362,6 +362,12 @@ def expand_abbreviations(text):
 
 
 def clean_website_document(text):
+    # Gemini can emit presentation-only HTML around centered captions/page
+    # numbers in scanned PDFs. Keep the visible text, drop the markup, so the
+    # retriever and generator never index UI-looking tokens such as <div>.
+    text = re.sub(r"(?is)<br\s*/?>", "\n", text)
+    text = re.sub(r"(?is)</(?:div|p|li|tr|h[1-6])>", "\n", text)
+    text = re.sub(r"(?is)<[^>\n]+>", "", text)
     text = re.sub(r"(?m)^\s*(Image|Button:.*|FOLLOW US)\s*$", "", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()

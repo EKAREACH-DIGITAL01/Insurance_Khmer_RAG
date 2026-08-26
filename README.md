@@ -195,7 +195,13 @@ Insurance_Khmer_RAG/
 │
 ├── data/
 │   ├── 00_irc_website_scrape/       # gitignored website crawl/download cache
-│   ├── 01_source_documents/         # Raw PDFs, by category
+│   ├── 01_source_documents/         # Raw PDFs/assets, by category
+│   │   ├── home/
+│   │   ├── insurance_institutions/
+│   │   ├── knowledge/
+│   │   ├── publication/
+│   │   ├── public_service/
+│   │   ├── statistics/
 │   │   ├── guidance/
 │   │   ├── laws/
 │   │   ├── prakas/
@@ -278,6 +284,7 @@ Insurance_Khmer_RAG/
 │   ├── 18_export_chat_feedback.py
 │   ├── 19_rag_smoke_tests.py
 │   ├── 20_reclassify_website_categories.py
+│   ├── 22_rag_quality_audit.py
 │   └── irc_website_categories.py
 │
 └── vector_db/
@@ -422,9 +429,10 @@ the models that won the comparisons in `reports/`.
 The vector database in `vector_db/` is already committed — you do **not**
 need to run the data pipeline to use the chatbot.
 
-Current BGE-M3 corpus snapshot: 3,046 chunks across 857 documents, including
-1,611 category-aware website-derived chunks and the original 49 source PDFs. Run
-`python scripts/19_rag_smoke_tests.py` to verify this before a demo.
+Current BGE-M3 corpus snapshot: 3,236 chunks across 857 documents, including
+1,801 category-aware website-derived chunks and the original 49 source PDFs. Run
+`python scripts/19_rag_smoke_tests.py` and `python scripts/22_rag_quality_audit.py`
+to verify this before a demo.
 
 The active embedding model is controlled by `ACTIVE_EMBEDDING_MODEL_DIR`
 at the top of `app.py` (default: `"BAAI-BGE-M3"`). To switch to a
@@ -598,6 +606,7 @@ data is refreshed separately with scripts `00` and `00c`.
 | `07_merge_chunked_documents.py` | Merges per-category chunks into unified files | Any rebuild |
 | `08_generate_embeddings.py` | Builds FAISS indices for all installed models | Any rebuild |
 | `10_compare_retrieval_modes.py` | Measures retrieval quality on gold questions | Any rebuild |
+| `22_rag_quality_audit.py` | Verifies production index shape, category coverage, chunk sizes, and text hygiene | Before demos and after corpus rebuilds |
 
 ```bash
 # Optional: add/refresh website-derived IRC pages first
@@ -616,6 +625,7 @@ python scripts/07_merge_chunked_documents.py
 python scripts/08_generate_embeddings.py
 
 python scripts/19_rag_smoke_tests.py
+python scripts/22_rag_quality_audit.py
 python scripts/10_compare_retrieval_modes.py
 ```
 

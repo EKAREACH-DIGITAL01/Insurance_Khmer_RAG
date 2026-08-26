@@ -59,6 +59,10 @@ chatbot.
   it is split into `home`, `statistics`, `publication`, `public_service`,
   `insurance_institutions`, `knowledge`, `news`, `events`, `social_programs`,
   `announcement`, and `law_regulation` for section-specific chunking.
+- Website catalog pages now have an oversized-paragraph guard in
+  `scripts/06_chunk_documents.py`, so public-service and institution directory
+  pages are split into retrieval-sized chunks instead of 14k-27k character
+  prompt blocks.
 
 ## Current Gaps And Risks
 
@@ -70,12 +74,16 @@ chatbot.
 - The formal gold/evaluation set still focuses mainly on the original 49 PDFs.
   Website coverage now exists in the vector DB, but it needs a dedicated
   website gold set for repeatable quality scoring.
-- There is no fast unit-test suite. The new smoke test fills the most important
-  demo gap by verifying corpus/index shape and critical IRC website retrieval.
+- There is no fast unit-test suite. The smoke test and RAG quality audit fill
+  the most important demo gap by verifying corpus/index shape, critical IRC
+  website retrieval, category coverage, chunk sizes, and text hygiene.
 - No cross-encoder reranker is used. That is acceptable for the local demo
   because BGE-M3 + BM25 + curated extractors gives good latency and reliability;
   a reranker can be evaluated later if answer quality still depends on weak
   top-k ordering.
+- The student report correctly warns that `chunk_id` is positional. Any future
+  re-chunking still requires rebuilding the index and reviewing gold questions
+  that refer to exact chunk IDs.
 - The app is designed for local use. If exposed on a public network, add
   authentication, rate limiting, and deployment-specific logging before use.
 
@@ -91,8 +99,8 @@ chatbot.
   Rebuild only when source text or chunking changes.
 - Add website-specific gold questions next, especially for statistics,
   publications, management profiles, and annual reports.
-- Use `scripts/19_rag_smoke_tests.py` after any corpus, chunking, or retrieval
-  change before demoing the chatbot.
+- Use `scripts/19_rag_smoke_tests.py` and `scripts/22_rag_quality_audit.py`
+  after any corpus, chunking, or retrieval change before demoing the chatbot.
 
 ## Verification Command
 
@@ -100,10 +108,11 @@ Run this after installing dependencies and models, without starting the chatbot:
 
 ```bash
 python scripts/19_rag_smoke_tests.py
+python scripts/22_rag_quality_audit.py
 ```
 
-The smoke test checks that the committed BGE-M3 index matches its metadata,
-contains the expanded section-aware IRC website corpus, avoids the known
-generated typo `ធានរបង`, retrieves the exact top-k sources for the current demo
-questions, and verifies the curated policy-count source used by the fallback
-extractor.
+The smoke test checks that the committed BGE-M3 index matches its metadata and
+retrieves the exact top-k sources for the current demo questions. The quality
+audit checks corpus size, website category coverage, maximum website chunk
+length, required IRC source documents, absence of HTML/UI artifacts, and absence
+of the known typo `ធានរបង` in indexed text.

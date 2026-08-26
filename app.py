@@ -2045,6 +2045,15 @@ HTML_ARTIFACT_PATTERN = re.compile(
     r"(?:data-tip=|aria-label=|<button|</button|<svg|</svg|<div|</div|<ul|</ul|<li|</li)",
     re.IGNORECASE,
 )
+CONTEXT_SOURCE_NOISE_PATTERN = re.compile(
+    r"^\s*(?:"
+    r"Source file:|OCR method:|\[Page \d+\]|"
+    r"Source URL:|URL:|File URL:|Download(?: file)?:|"
+    r"Logo:|Image:|Image file:|Asset:|https?://"
+    r")",
+    re.IGNORECASE,
+)
+CONTEXT_URL_PATTERN = re.compile(r"https?://\S+", re.IGNORECASE)
 
 
 def _dedupe_consecutive_lines(lines):
@@ -2138,6 +2147,27 @@ def fix_common_generation_typos(text):
     for wrong, right in replacements.items():
         text = text.replace(wrong, right)
     return text
+
+
+def clean_context_text_for_prompt(text):
+    """Strip retrieval metadata/UI artifacts before the generator sees context."""
+    lines = []
+    for raw_line in (text or "").replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        line = raw_line.strip()
+        if not line:
+            if lines and lines[-1]:
+                lines.append("")
+            continue
+        if CONTEXT_SOURCE_NOISE_PATTERN.search(line):
+            continue
+        if HTML_ARTIFACT_PATTERN.search(line):
+            continue
+        line = CONTEXT_URL_PATTERN.sub("", line).strip()
+        if not line:
+            continue
+        lines.append(line)
+    cleaned = "\n".join(lines).strip()
+    return re.sub(r"\n{3,}", "\n\n", cleaned)
 
 
 def has_repetition_loop(text):
@@ -2352,11 +2382,20 @@ def build_context(results):
         section = metadata.get("section_title", metadata.get("section", "N/A"))
         legal_unit = metadata.get("legal_unit", "N/A")
         release_date = metadata.get("release_date", "N/A")
-        header = (
-            f"[Source {rank}] {doc_name} ({doc_type}, {release_date}) | "
-            f"{chapter} > {section} | {legal_unit} | {chunk['chunk_id']}"
-        )
-        context_parts.append(f"{header}\n{chunk['text']}")
+        header_parts = [f"[Source {rank}] {doc_name}", f"ប្រភេទ: {doc_type}"]
+        if release_date and release_date != "N/A":
+            header_parts.append(f"កាលបរិច្ឆេទ: {release_date}")
+        if chapter and chapter != "N/A":
+            header_parts.append(f"ជំពូក/ផ្នែក: {chapter}")
+        if section and section != "N/A":
+            header_parts.append(f"ចំណុច: {section}")
+        if legal_unit and legal_unit != "N/A":
+            header_parts.append(f"ឯកតាច្បាប់: {legal_unit}")
+        context_text = clean_context_text_for_prompt(chunk.get("text") or "")
+        if not context_text:
+            continue
+        header = " | ".join(header_parts)
+        context_parts.append(f"{header}\n{context_text}")
     context = "\n\n".join(context_parts)
     context_length = len(context)
     context_time = time.time() - context_start

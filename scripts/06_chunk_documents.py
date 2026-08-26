@@ -208,8 +208,60 @@ def legal_unit_chunking(text):
     return chunks
 
 
+def hard_wrap_text(text, max_chars):
+    """Last-resort split for a single oversized line.
+
+    Most Khmer website pages arrive as useful newline-separated records. A few
+    OCR/table fragments arrive as one very long line; keeping those as one chunk
+    makes retrieval less precise and can swamp the generation prompt. This
+    fallback wraps on whitespace where possible, then on character count.
+    """
+    pieces = []
+    remaining = text.strip()
+    while len(remaining) > max_chars:
+        split_at = remaining.rfind(" ", 0, max_chars)
+        if split_at < max_chars * 0.55:
+            split_at = max_chars
+        pieces.append(remaining[:split_at].strip())
+        remaining = remaining[split_at:].strip()
+    if remaining:
+        pieces.append(remaining)
+    return pieces
+
+
+def split_oversized_paragraph(paragraph, max_chars):
+    """Split one long paragraph into line/sentence windows.
+
+    The IRC website often renders catalogs as a single block separated by
+    single newlines, not blank lines. The old paragraph-only chunker therefore
+    produced 14k-27k character chunks for public-service and institution
+    directory pages. This keeps natural list lines together while enforcing the
+    per-category max_chars target used by the rest of the pipeline.
+    """
+    if len(paragraph) <= max_chars:
+        return [paragraph]
+
+    lines = [line.strip() for line in paragraph.splitlines() if line.strip()]
+    if len(lines) > 1:
+        return lines
+
+    sentence_parts = [
+        part.strip()
+        for part in re.split(r"(?<=[។៕.!?])\s+", paragraph)
+        if part.strip()
+    ]
+    if len(sentence_parts) > 1:
+        return sentence_parts
+
+    return hard_wrap_text(paragraph, max_chars)
+
+
 def paragraph_window_chunking(text, max_chars=1400):
-    paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+    raw_paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+    paragraphs = []
+    for paragraph in raw_paragraphs:
+        paragraphs.extend(split_oversized_paragraph(paragraph, max_chars))
+
     chunks = []
     current = []
     current_size = 0
@@ -219,6 +271,11 @@ def paragraph_window_chunking(text, max_chars=1400):
             chunks.append({"content": "\n\n".join(current)})
             current = []
             current_size = 0
+        if len(paragraph) > max_chars and not current:
+            for piece in hard_wrap_text(paragraph, max_chars):
+                chunks.append({"content": piece})
+            current_size = 0
+            continue
         current.append(paragraph)
         current_size += len(paragraph)
 
