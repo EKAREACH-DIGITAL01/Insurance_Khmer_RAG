@@ -25,14 +25,14 @@ INDEX_PATH = PROJECT_ROOT / "vector_db" / ACTIVE_MODEL_DIR / "khmer_insurance.in
 METADATA_PATH = PROJECT_ROOT / "vector_db" / ACTIVE_MODEL_DIR / "khmer_insurance_metadata.json"
 MODEL_INFO_PATH = PROJECT_ROOT / "vector_db" / ACTIVE_MODEL_DIR / "embedding_model_info.json"
 
-MIN_TOTAL_CHUNKS = 3230
-MIN_WEBSITE_CHUNKS = 1800
+MIN_TOTAL_CHUNKS = 3000
+MIN_WEBSITE_CHUNKS = 1600
 MIN_DOCUMENTS = 850
 MAX_WEBSITE_CHUNK_CHARS = 3000
 MIN_CATEGORY_CHUNKS = {
-    "home": 500,
+    "home": 100,
     "statistics": 140,
-    "publication": 230,
+    "publication": 300,
     "public_service": 175,
     "insurance_institutions": 20,
     "knowledge": 70,
@@ -46,6 +46,7 @@ REQUIRED_DOCUMENT_IDS = {
     "website_1fab36e16db2": "insurance institutions Khmer directory",
     "website_bbaee43f1602": "insurance institutions English directory",
     "website_file_ceab89ff2b0c": "Bou Chanphirou profile PDF",
+    "website_file_db047ce07365": "2025 Khmer annual report publication PDF",
 }
 WEBSITE_DERIVED_CATEGORIES = {
     "announcement",

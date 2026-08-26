@@ -6,6 +6,10 @@
   "task_aware": false,
   "native_hf": false,
   "embedding_dimension": 1024,
-  "build_encode_time_sec": 701.5332,
-  "chunk_count": 3236
+  "build_encode_time_sec": 253.4496,
+  "chunk_count": 3092,
+  "incremental_reused_vectors": 2682,
+  "incremental_reused_student_vectors": 1435,
+  "incremental_reused_unchanged_vectors": 1247,
+  "max_embedding_chars": 12000
 }

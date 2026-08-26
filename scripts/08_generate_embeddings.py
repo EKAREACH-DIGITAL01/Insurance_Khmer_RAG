@@ -23,6 +23,11 @@ output_root.mkdir(parents=True, exist_ok=True)
 MAX_EMBEDDING_CHARS = int(os.environ.get("MAX_EMBEDDING_CHARS", "12000"))
 EMBEDDING_BATCH_SIZE = int(os.environ.get("EMBEDDING_BATCH_SIZE", "8"))
 SEQUENTIAL_EMBEDDING = os.environ.get("SEQUENTIAL_EMBEDDING", "0") == "1"
+SELECTED_EMBEDDING_MODEL_KEYS = {
+    key.strip()
+    for key in os.environ.get("EMBEDDING_MODEL_KEYS", "").split(",")
+    if key.strip()
+}
 
 DOCUMENT_TYPE_KH = {
     "law": "ច្បាប់",
@@ -220,6 +225,11 @@ skipped_count = 0
 unavailable_count = 0
 
 for key, model_config in EMBEDDING_MODELS.items():
+    if SELECTED_EMBEDDING_MODEL_KEYS and key not in SELECTED_EMBEDDING_MODEL_KEYS:
+        print(f"\nSkipping model key {key}; EMBEDDING_MODEL_KEYS is set.")
+        skipped_count += 1
+        continue
+
     label = model_config["label"]
     model_dir_name = model_config["marker_dir"].name
     subfolder = output_root / model_dir_name

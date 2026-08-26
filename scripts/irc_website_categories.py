@@ -90,8 +90,22 @@ TITLE_CATEGORY_HINTS = [
     (re.compile(r"\binsurance\s+market\s+(?:report|data)\b", re.I), "statistics"),
     (re.compile(r"\bmarket\s+data\b", re.I), "statistics"),
     (re.compile(r"ស្ថិតិ|របាយការណ៍ទីផ្សារធានារ៉ាប់រង|ទិន្នន័យទីផ្សារ"), "statistics"),
-    (re.compile(r"\bpublication|annual report\b", re.I), "publication"),
-    (re.compile(r"ការបោះពុម្ពផ្សាយ|របាយការណ៍ប្រចាំឆ្នាំ"), "publication"),
+    (
+        re.compile(
+            r"\bpublication|annual report|strategic development plan|glossary\b",
+            re.I,
+        ),
+        "publication",
+    ),
+    (
+        re.compile(
+            r"ការបោះពុម្ពផ្សាយ|របាយការណ៍ប្រចាំឆ្នាំ|"
+            r"ផែនការយុទ្ធសាស្ត្រអភិវឌ្ឍន៍វិស័យធានារ៉ាប់រង|"
+            r"របាយការណ៍តាមដាន.*ផែនការយុទ្ធសាស្ត្រ|"
+            r"សទ្ទានុក្រមធានារ៉ាប់រង"
+        ),
+        "publication",
+    ),
     (re.compile(r"\bpublic\s+service|insurance agent registration|company submission|complaint|sandbox\b", re.I), "public_service"),
     (re.compile(r"សេវាសាធារណៈ|ចុះបញ្ជីភ្នាក់ងារ|ដាក់បណ្តឹង|បរិស្ថានសាកល្បង"), "public_service"),
     (re.compile(r"\binsurance institutions?\b", re.I), "insurance_institutions"),

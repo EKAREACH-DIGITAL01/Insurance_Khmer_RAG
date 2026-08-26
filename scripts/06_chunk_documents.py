@@ -24,7 +24,7 @@ CATEGORY_CONFIG = {
     "sub_decrees":            {"chunking_method": "legal_unit"},
     "home":                   {"chunking_method": "homepage_blocks", "max_chars": 1400},
     "statistics":             {"chunking_method": "statistics_table_window", "max_chars": 2200},
-    "publication":            {"chunking_method": "publication_paragraph_window", "max_chars": 1800},
+    "publication":            {"chunking_method": "publication_section_window", "max_chars": 1700},
     "public_service":         {"chunking_method": "public_service_steps", "max_chars": 1400},
     "insurance_institutions": {"chunking_method": "institution_directory", "max_chars": 1400},
     "knowledge":              {"chunking_method": "knowledge_article", "max_chars": 1400},
@@ -38,6 +38,16 @@ CATEGORY_CONFIG = {
 
 LEGAL_CATEGORIES = {"laws", "prakas", "sub_decrees"}
 WEBSITE_CHUNKING_CATEGORIES = set(WEBSITE_DERIVED_CATEGORIES) | {"website"}
+
+# The IRC publication page contains Khmer and English versions of the same
+# reports/plans. The chatbot is Khmer-only, and duplicated English annual
+# reports make retrieval noisier for Khmer demo questions, so we keep the raw
+# files/OCR cache but skip these English publication PDFs in the embedded index.
+SKIP_PUBLICATION_DOCUMENT_IDS = {
+    "website_file_646db1aa65d3",  # Annual Report 2021 on Cambodia Insurance Market
+    "website_file_723cfd5541c1",  # Cambodia Strategic Development Plan 2025-2030
+    "website_file_ea0a6e39a7f9",  # Annual Report 2025 on Cambodia Insurance Market
+}
 
 processed_files = 0
 skipped_files = 0
@@ -285,6 +295,156 @@ def paragraph_window_chunking(text, max_chars=1400):
     return chunks
 
 
+KHMER_DIGITS = "០១២៣៤៥៦៧៨៩"
+PUBLICATION_PAGE_MARKER_RE = re.compile(r"^\[Page\s+[0-9]+\]$")
+PUBLICATION_HEADING_RE = re.compile(
+    r"^(?:"
+    r"ផ្នែកទី\s*[0-9" + KHMER_DIGITS + r"]+\s*[៖:].+"
+    r"|ជំពូកទី\s*[0-9" + KHMER_DIGITS + r"]+\s*[៖:].+"
+    r"|[0-9" + KHMER_DIGITS + r"]+(?:\.[0-9" + KHMER_DIGITS + r"]+){1,3}\.?\s+.+"
+    r")$"
+)
+PUBLICATION_NUMBERED_HEADING_RE = re.compile(
+    r"^([0-9" + KHMER_DIGITS + r"]+(?:\.[0-9" + KHMER_DIGITS + r"]+){1,3})\.?\s+(.+)$"
+)
+
+
+def strip_publication_heading_markup(line):
+    line = line.strip()
+    line = re.sub(r"^\*+\s*", "", line)
+    line = re.sub(r"\s*\*+$", "", line)
+    return line.strip()
+
+
+def is_table_of_contents_line(line):
+    return "....." in line or line.count(".") >= 8
+
+
+def is_publication_heading(line):
+    line = strip_publication_heading_markup(line)
+    if not line or is_table_of_contents_line(line):
+        return False
+    return bool(PUBLICATION_HEADING_RE.match(line))
+
+
+def publication_heading_level(line):
+    line = strip_publication_heading_markup(line)
+    if line.startswith(("ផ្នែកទី", "ជំពូកទី")):
+        return 1
+    match = PUBLICATION_NUMBERED_HEADING_RE.match(line)
+    if match:
+        # ៤.១ -> level 2, ៤.១.១ -> level 3.
+        return min(match.group(1).count(".") + 1, 4)
+    return 2
+
+
+def clean_publication_heading_title(line):
+    line = strip_publication_heading_markup(line)
+    return re.sub(r"\s+", " ", line).strip()
+
+
+def split_publication_section(lines, heading_path, max_chars):
+    prefix_lines = []
+    body_lines = []
+    body_started = False
+
+    for line in lines:
+        clean = clean_publication_heading_title(line)
+        if (
+            not body_started
+            and (PUBLICATION_PAGE_MARKER_RE.match(clean) or is_publication_heading(clean))
+        ):
+            if clean not in prefix_lines:
+                prefix_lines.append(clean)
+            continue
+        body_started = True
+        body_lines.append(line)
+
+    body = "\n".join(body_lines).strip()
+    if not body:
+        return []
+
+    prefix = "\n".join(prefix_lines).strip()
+    full_text = f"{prefix}\n\n{body}".strip() if prefix else body
+    section_title = heading_path[-1] if heading_path else None
+    chunk_base = {
+        "heading_level": len(heading_path) if heading_path else 0,
+        "heading_title": section_title,
+        "section": section_title,
+        "section_title": section_title,
+        "heading_path": " > ".join(heading_path) if heading_path else None,
+    }
+
+    if len(full_text) <= max_chars:
+        return [{**chunk_base, "content": full_text}]
+
+    prefix_for_piece = prefix or "\n".join(heading_path).strip()
+    piece_max = max(500, max_chars - len(prefix_for_piece) - 2)
+    pieces = paragraph_window_chunking(body, max_chars=piece_max)
+    chunks = []
+    for piece in pieces:
+        piece_text = piece["content"].strip()
+        if prefix_for_piece and not piece_text.startswith(prefix_for_piece):
+            piece_text = f"{prefix_for_piece}\n\n{piece_text}".strip()
+        chunks.append({**chunk_base, "content": piece_text})
+    return chunks
+
+
+def publication_section_chunking(text, max_chars=1700):
+    """Chunk IRC publication PDFs by report/plan section headings.
+
+    Annual reports and strategic plans are numerically structured. A generic
+    paragraph window can mix the tail of one table with the heading and first
+    facts of the next section, which is exactly how the 2025 "៣៩ companies"
+    fact became fragile. This scanner starts new chunks at publication
+    headings and repeats the active heading path inside every long split.
+    """
+    chunks = []
+    current = []
+    heading_stack = []
+    last_page_marker = None
+
+    def flush_current():
+        nonlocal current
+        if not current:
+            return
+        chunks.extend(split_publication_section(current, heading_stack, max_chars))
+        current = []
+
+    for raw_line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        line = raw_line.strip()
+        if not line:
+            if current and current[-1] != "":
+                current.append("")
+            continue
+
+        clean_line = clean_publication_heading_title(line)
+        if PUBLICATION_PAGE_MARKER_RE.match(clean_line):
+            last_page_marker = clean_line
+            if current:
+                current.append(clean_line)
+            continue
+
+        if is_publication_heading(clean_line):
+            flush_current()
+            level = publication_heading_level(clean_line)
+            heading_stack = heading_stack[: max(0, level - 1)]
+            heading_stack.append(clean_line)
+            current = []
+            if last_page_marker:
+                current.append(last_page_marker)
+            current.extend(heading_stack)
+            continue
+
+        current.append(line)
+
+    flush_current()
+
+    if chunks:
+        return chunks
+    return paragraph_window_chunking(text, max_chars=max_chars)
+
+
 def chunk_document(text, category, config):
 
     if category == "guidance":
@@ -292,6 +452,9 @@ def chunk_document(text, category, config):
 
     if category in LEGAL_CATEGORIES:
         return legal_unit_chunking(text)
+
+    if category == "publication":
+        return publication_section_chunking(text, max_chars=config.get("max_chars", 1700))
 
     if category in WEBSITE_CHUNKING_CATEGORIES:
         return paragraph_window_chunking(text, max_chars=config.get("max_chars", 1400))
@@ -318,6 +481,12 @@ for input_path in json_files:
         continue
 
     category = relative_path.parts[0]
+
+    if category == "publication" and data["document_id"] in SKIP_PUBLICATION_DOCUMENT_IDS:
+        print(f"Skipping English publication duplicate: {relative_path}")
+        skipped_files += 1
+        continue
+
     config = CATEGORY_CONFIG.get(category)
 
     if not config:
@@ -380,6 +549,11 @@ for input_path in json_files:
                 "source_section"    : doc_meta.get("source_section", category),
                 "chunk_size"        : len(text),
                 "chunking_method"   : chunking_method,
+                "heading_level"     : chunk_data.get("heading_level"),
+                "heading_title"     : chunk_data.get("heading_title"),
+                "heading_path"      : chunk_data.get("heading_path"),
+                "section"           : chunk_data.get("section"),
+                "section_title"     : chunk_data.get("section_title"),
             }
 
         # Final chunk structure stored for embedding and retrieval

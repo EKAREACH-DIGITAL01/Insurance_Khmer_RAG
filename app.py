@@ -2596,6 +2596,19 @@ def question_matches_policy_count(question):
     )
 
 
+def question_matches_insurance_company_count(question):
+    if not re.search(r"(ប៉ុន្មាន|ចំនួន|how many|number of)", question, re.IGNORECASE):
+        return False
+    return bool(
+        re.search(
+            r"(គ្រឹះស្ថានធានារ៉ាប់រង|ក្រុមហ៊ុនធានារ៉ាប់រង|"
+            r"insurance institution|insurance compan)",
+            question,
+            re.IGNORECASE,
+        )
+    )
+
+
 def question_matches_management_profile(question):
     if not re.search(
         r"(ប្រវត្តិ|ជីវប្រវត្តិ|background|biography|profile|cv)",
@@ -2695,6 +2708,7 @@ def find_policy_count_results(results, limit=None):
 
 
 POLICY_COUNT_SOURCE_DOC_ID = "website_file_386481a18166"
+INSURANCE_COMPANY_COUNT_SOURCE_DOC_ID = "website_file_db047ce07365"
 
 
 def find_policy_count_results_in_corpus(limit=1):
@@ -2705,6 +2719,38 @@ def find_policy_count_results_in_corpus(limit=1):
         if chunk.get("metadata", {}).get("document_id") == POLICY_COUNT_SOURCE_DOC_ID
     ]
     return find_policy_count_results(candidates, limit=limit)
+
+
+def _is_insurance_company_count_chunk(chunk):
+    text = chunk.get("text") or ""
+    return (
+        chunk.get("metadata", {}).get("document_id")
+        == INSURANCE_COMPANY_COUNT_SOURCE_DOC_ID
+        and "ក្រុមហ៊ុនធានារ៉ាប់រងសរុបចំនួន" in text
+        and ("៣៩" in text or "39" in text)
+    )
+
+
+def find_insurance_company_count_results(results, limit=None):
+    matches = []
+    seen = set()
+    for score, chunk in results:
+        if not _is_insurance_company_count_chunk(chunk):
+            continue
+        chunk_id = chunk.get("chunk_id")
+        if chunk_id in seen:
+            continue
+        seen.add(chunk_id)
+        matches.append((score, chunk))
+        if limit and len(matches) >= limit:
+            break
+    return matches
+
+
+def find_insurance_company_count_results_in_corpus(limit=1):
+    corpus = globals().get("chunks", [])
+    candidates = [(1.0, chunk) for chunk in corpus if _is_insurance_company_count_chunk(chunk)]
+    return find_insurance_company_count_results(candidates, limit=limit)
 
 
 def curated_candidate_results(question, results):
@@ -2730,6 +2776,11 @@ def curated_candidate_results(question, results):
         if not policy_count_results:
             policy_count_results = find_policy_count_results_in_corpus(limit=1)
         candidates.extend(policy_count_results)
+    if question_matches_insurance_company_count(question):
+        company_count_results = find_insurance_company_count_results(results, limit=1)
+        if not company_count_results:
+            company_count_results = find_insurance_company_count_results_in_corpus(limit=1)
+        candidates.extend(company_count_results)
     if question_matches_publication(question):
         candidates.extend(
             find_results_by_doc_id(
@@ -2907,6 +2958,32 @@ def extract_policy_count_answer(question, context_results):
     return "\n".join(lines) + "។"
 
 
+def extract_insurance_company_count_answer(question, context_results):
+    if not question_matches_insurance_company_count(question):
+        return None
+    chunk = None
+    for _score, candidate in context_results:
+        if _is_insurance_company_count_chunk(candidate):
+            chunk = candidate
+            break
+    if not chunk:
+        return None
+
+    text = chunk.get("text") or ""
+    if "ក្រុមហ៊ុនធានារ៉ាប់រងសរុបចំនួន ៣៩" not in text:
+        return None
+
+    return (
+        "គិតត្រឹមឆ្នាំ២០២៥ ទីផ្សារធានារ៉ាប់រងកម្ពុជាមានក្រុមហ៊ុនធានារ៉ាប់រងសរុបចំនួន ៣៩ ក្នុងនោះ៖\n"
+        "1. ក្រុមហ៊ុនធានារ៉ាប់រងអាយុជីវិតចំនួន ១៣\n"
+        "2. ក្រុមហ៊ុនធានារ៉ាប់រងទូទៅចំនួន ១៨\n"
+        "3. ក្រុមហ៊ុនធានារ៉ាប់រងខ្នាតតូចចំនួន ៧\n"
+        "4. ក្រុមហ៊ុនធានារ៉ាប់រងបន្តចំនួន ១។\n"
+        "ក្នុងចំណោមក្រុមហ៊ុនទាំងនេះ មានក្រុមហ៊ុនបរទេសចំនួន ២០, "
+        "ក្រុមហ៊ុនក្នុងស្រុកចំនួន ១៧ និងក្រុមហ៊ុនចម្រុះរដ្ឋនិងឯកជនចំនួន ២។"
+    )
+
+
 def extract_bou_chanphirou_profile_answer(question, context_results):
     if not question_matches_management_profile(question):
         return None
@@ -2971,6 +3048,8 @@ def resolve_curated_source_answer(question, context_results, best_score):
         if answer := extract_management_answer(context_results):
             return answer
     if answer := extract_policy_count_answer(question, context_results):
+        return answer
+    if answer := extract_insurance_company_count_answer(question, context_results):
         return answer
     if answer := extract_gross_premium_answer(question, context_results):
         return answer

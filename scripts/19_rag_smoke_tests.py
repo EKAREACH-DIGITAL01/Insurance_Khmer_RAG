@@ -41,13 +41,13 @@ BM25_TOP_K = TOP_K
 RRF_K = 60
 NGRAM_SIZE = 3
 
-MIN_TOTAL_CHUNKS = 3230
-MIN_WEBSITE_CHUNKS = 1800
+MIN_TOTAL_CHUNKS = 3000
+MIN_WEBSITE_CHUNKS = 1600
 MIN_DOCUMENTS = 850
 MIN_WEBSITE_CATEGORY_CHUNKS = {
-    "home": 2,
+    "home": 100,
     "statistics": 100,
-    "publication": 20,
+    "publication": 300,
     "public_service": 175,
     "insurance_institutions": 20,
     "knowledge": 20,
@@ -100,6 +100,13 @@ SMOKE_QUERIES = [
         "must_be_in": ("dense", "fused"),
     },
     {
+        "label": "insurance company count 2025",
+        "question": "តើមានគ្រឹះស្ថានធានារ៉ាប់រងប៉ុន្មាននៅប្រទេសកម្ពុជា?",
+        "expected_doc": "website_file_db047ce07365",
+        "must_be_in": (),
+        "curated_corpus_source": True,
+    },
+    {
         "label": "Bou Chanphirou profile",
         "question": "សូមប្រាប់ប្រវត្តិរបស់ឯកឧត្តម ប៊ូ ច័ន្ទភីរូ",
         "expected_doc": "website_file_ceab89ff2b0c",
@@ -122,6 +129,14 @@ EXPECTED_POLICY_ROWS = {
     "ធានារ៉ាប់រងអាយុជីវិត": ("485,249", "398,688"),
     "ធានារ៉ាប់រងខ្នាតតូច": ("301,856", "345,621"),
     "សរុប": ("1,043,565", "952,759"),
+}
+
+EXPECTED_INSURANCE_COMPANY_COUNT_2025 = {
+    "total": "៣៩",
+    "life": "១៣",
+    "general": "១៨",
+    "micro": "៧",
+    "reinsurance": "១",
 }
 
 
@@ -233,6 +248,24 @@ def extract_policy_rows(chunks):
     if total_match:
         rows["សរុប"] = (total_match.group(1), total_match.group(2))
     return rows
+
+
+def extract_insurance_company_count_2025(chunks):
+    text = "\n".join(
+        chunk.get("text") or ""
+        for chunk in chunks
+        if doc_id(chunk) == "website_file_db047ce07365"
+        and "ក្រុមហ៊ុនធានារ៉ាប់រងសរុបចំនួន" in (chunk.get("text") or "")
+    )
+    if not text:
+        return {}
+    return {
+        "total": "៣៩" if "សរុបចំនួន ៣៩" in text else None,
+        "life": "១៣" if "អាយុជីវិតចំនួន ១៣" in text else None,
+        "general": "១៨" if "ទូទៅចំនួន ១៨" in text else None,
+        "micro": "៧" if "ខ្នាតតូចចំនួន ៧" in text else None,
+        "reinsurance": "១" if "បន្តចំនួន ១" in text else None,
+    }
 
 
 def image_asset_reference_count(chunks) -> int:
@@ -366,6 +399,15 @@ def main() -> int:
         check(
             policy_rows.get(label) == expected,
             f"{label}: {policy_rows.get(label)} matches expected {expected}",
+            failures,
+        )
+
+    print("\n2025 annual-report insurance company count")
+    company_counts = extract_insurance_company_count_2025(chunks)
+    for label, expected in EXPECTED_INSURANCE_COMPANY_COUNT_2025.items():
+        check(
+            company_counts.get(label) == expected,
+            f"{label}: {company_counts.get(label)} matches expected {expected}",
             failures,
         )
 

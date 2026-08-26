@@ -30,6 +30,18 @@ SPECIAL_DOC_CATEGORIES = {
     "website_homepage_management_structure": "home",
     "website_homepage_gross_premium_statistics": "home",
     "website_publication_catalog": "publication",
+    # These PDFs are listed under the IRC publication page. Some object-file
+    # URLs do not carry a parent article/category once cached locally, so keep
+    # them in publication instead of letting the fallback put them under home.
+    "website_file_0a0b637917e6": "publication",
+    "website_file_2f70838051e2": "publication",
+    "website_file_39f076910114": "publication",
+    "website_file_646db1aa65d3": "publication",
+    "website_file_723cfd5541c1": "publication",
+    "website_file_a2a9f95557bc": "publication",
+    "website_file_c4a172db1586": "publication",
+    "website_file_db047ce07365": "publication",
+    "website_file_ea0a6e39a7f9": "publication",
 }
 
 
