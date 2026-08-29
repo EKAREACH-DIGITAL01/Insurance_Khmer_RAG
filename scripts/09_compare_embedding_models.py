@@ -446,8 +446,8 @@ def macro_avg_at_5(tables, metric_key):
 def build_unified_comparison_table(model_results):
     """Builds a single comparison table with one row per metric and one
     column per model. Each cell is the macro-average of that metric's @5
-    score across all four document categories (guidance, laws, prakas,
-    sub_decrees). This gives a single at-a-glance number per model per
+    score across all active gold-question categories. This gives a single
+    at-a-glance number per model per
     metric rather than separate per-category breakdowns."""
     labels = list(model_results.keys())
 
@@ -528,7 +528,7 @@ def write_reports(
             "rows": comparison_rows,
             "note": (
                 "Each cell is the macro-average of the @5 score for that metric "
-                "across all four document categories (guidance, laws, prakas, sub_decrees)."
+                "across all active gold-question categories."
             ),
         },
         "ranking": [
@@ -672,7 +672,7 @@ for label, result in model_results.items():
 print_dataset_summary(model_results)
 
 # Single unified comparison table: rows = 4 metrics, columns = 3 models,
-# values = macro-average of the @5 score across all four document categories
+# values = macro-average of the @5 score across all active gold-question categories
 comparison_rows, comparison_headers = build_unified_comparison_table(model_results)
 ranked = rank_models(model_results)
 recommendation = build_recommendation(ranked)
@@ -681,7 +681,7 @@ banner = "=" * SEPARATOR_WIDTH
 print(f"\n\n{banner}")
 print(f"{BOLD}COMPARISON -- MACRO-AVG @5 ACROSS ALL CATEGORIES{RESET}")
 print(
-    f"{BOLD}(each value = average of guidance / laws / prakas / sub_decrees @5){RESET}"
+    f"{BOLD}(each value = average across active gold-question categories @5){RESET}"
 )
 print(banner)
 print(

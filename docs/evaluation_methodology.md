@@ -57,6 +57,12 @@ experts **rewrite target answers**, so the finalised gold set used by evaluation
 Evaluation 6 uses a separate **adversarial set** in
 `data/10_adversarial/*.json` (`question_id · question · expected_behavior`).
 
+Website expansion note: the active repository may also include website-category
+seed questions under `data/09_evaluation/` with ids starting at `qid_026`.
+Retrieval scripts load all present gold-question files, while generator scripts
+continue to use only the hand-checked core ids `001–025`. See
+`docs/gold_questions_methodology.md` for the current category coverage.
+
 ---
 
 ## 1. Embedding Model Comparison — `scripts/09_compare_embedding_models.py`

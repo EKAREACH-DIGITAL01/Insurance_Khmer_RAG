@@ -693,7 +693,8 @@ against `data/10_adversarial/` before trusting it.
 ## Gold Questions Schema
 
 `data/09_evaluation/*/gold_questions.json` is a JSON array whose every entry
-uses the following schema (all five fields are present on all 400 questions):
+uses the following schema (all five fields are present on all current gold
+questions):
 
 ```json
 {

@@ -399,7 +399,7 @@ def macro_avg_at_5(tables, metric_key):
 def print_comparison_summary(dense_tables, hybrid_tables):
     """Single unified before/after comparison table.
     Rows = 4 metrics. Columns = Dense @5, Hybrid @5, Delta.
-    Each value is the macro-average across all four document categories."""
+    Each value is the macro-average across all active gold-question categories."""
     metric_defs = [
         ("Hit Rate", "hit"),
         ("Recall", "recall"),
@@ -426,7 +426,7 @@ def print_comparison_summary(dense_tables, hybrid_tables):
     print(f"\n\n{banner}")
     print(f"{BOLD}BEFORE / AFTER -- DENSE-ONLY vs. HYBRID (FAISS + BM25, RRF){RESET}")
     print(
-        f"{BOLD}(each value = macro-avg across guidance / laws / prakas / sub_decrees){RESET}"
+        f"{BOLD}(each value = macro-avg across active gold-question categories){RESET}"
     )
     print(banner)
     print(
@@ -469,7 +469,7 @@ def write_reports(dense_tables, hybrid_tables):
         "comparison": {
             "note": (
                 "Each value is the macro-average of the @5 score across all "
-                "four document categories (guidance, laws, prakas, sub_decrees)."
+                "active gold-question categories."
             ),
             "rows": comparison_rows,
         },
@@ -511,7 +511,7 @@ def write_reports(dense_tables, hybrid_tables):
     md_parts.append("## Before / After -- Dense-Only vs. Hybrid (Macro-Avg @5)\n\n")
     md_parts.append(
         "> Each value is the macro-average of the @5 score across "
-        "guidance, laws, prakas, and sub_decrees.\n\n"
+        "active gold-question categories.\n\n"
     )
     comp_headers = ["Metric", "Dense-Only @5", "Hybrid @5", "Δ (Hybrid − Dense)"]
     comp_md_rows = [
@@ -550,7 +550,7 @@ print_dataset_summary(dense_tables)
 
 # Single unified before/after comparison table:
 # rows = 4 metrics, columns = Dense @5 / Hybrid @5 / Delta,
-# values = macro-average across all four document categories
+# values = macro-average across all active gold-question categories
 print_comparison_summary(dense_tables, hybrid_tables)
 
 write_reports(dense_tables, hybrid_tables)
