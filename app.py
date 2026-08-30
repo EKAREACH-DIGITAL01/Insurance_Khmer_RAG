@@ -2,6 +2,9 @@ import os
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+os.environ["TQDM_DISABLE"] = "1"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 MODEL = os.getenv("CHATBOT_MODEL", "Generator")
 
 # Set HF_HOME before any HF import so all HF assets stay inside the
@@ -30,8 +33,11 @@ from PIL import Image
 from openai import OpenAI
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
+from transformers.utils import logging as transformers_logging
 
 import history
+
+transformers_logging.disable_progress_bar()
 
 try:
     from scripts.irc_website_categories import WEBSITE_CATEGORY_LABEL_KH
