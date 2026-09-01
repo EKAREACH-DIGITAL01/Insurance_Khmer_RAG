@@ -5,12 +5,18 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 os.environ["TQDM_DISABLE"] = "1"
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
-MODEL = os.getenv("CHATBOT_MODEL", "Generator")
 
 # Set HF_HOME before any HF import so all HF assets stay inside the
 # project folder. See install_models.py for the full
 # explanation of why this must come before the imports below.
 _APP_DIR = os.path.dirname(os.path.abspath(__file__))
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(os.path.join(_APP_DIR, ".env"))
+except Exception:
+    pass
+
 _HF_CACHE_DIR = os.path.join(_APP_DIR, "models", "retriever", ".cache")
 os.makedirs(_HF_CACHE_DIR, exist_ok=True)
 os.environ["HF_HOME"] = _HF_CACHE_DIR
@@ -44,16 +50,61 @@ try:
 except Exception:
     WEBSITE_CATEGORY_LABEL_KH = {}
 
-# Generator endpoint. Defaults to the local llama-server start_chatbot.py
-# launches, so local runs are unchanged. Deployed (Railway, or any box without
-# a GPU) these point at any OpenAI-compatible API instead -- the only
-# llama.cpp-specific calls below (/tokenize, /models) already fail soft.
-LLAMA_SERVER_URL = os.getenv("GENERATOR_BASE_URL", "http://localhost:8080/v1")
-LLAMA_SERVER_ROOT = LLAMA_SERVER_URL.rsplit("/v1", 1)[0]
-GENERATOR_API_KEY = os.getenv("GENERATOR_API_KEY", "not-needed")
-# Hosted providers need the model id named explicitly; llama-server reports its
-# own, so leaving this unset keeps the local behaviour.
-GENERATOR_MODEL = os.getenv("GENERATOR_MODEL", "")
+def first_csv_value(value):
+    return next((part.strip() for part in (value or "").split(",") if part.strip()), "")
+
+
+def env_value(*names, default=""):
+    for name in names:
+        value = os.getenv(name)
+        if value and value.strip():
+            return value.strip()
+    return default
+
+
+def env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def normalize_base_url(url):
+    return (url or "http://localhost:8080/v1").strip().rstrip("/")
+
+
+def derive_generator_root(base_url):
+    if base_url.endswith("/v1"):
+        return base_url[:-3].rstrip("/")
+    if base_url.endswith("/v1/openai"):
+        return base_url[: -len("/v1/openai")].rstrip("/")
+    return base_url.rstrip("/")
+
+
+DEFAULT_GENERATOR_ROOT = "http://localhost:8080"
+LLAMA_SERVER_URL = normalize_base_url(
+    env_value("GENERATOR_BASE_URL", default=f"{DEFAULT_GENERATOR_ROOT}/v1")
+)
+LLAMA_SERVER_ROOT = normalize_base_url(
+    env_value("GENERATOR_ROOT_URL", default=derive_generator_root(LLAMA_SERVER_URL))
+)
+GENERATOR_MODEL = env_value("GENERATOR_MODEL", default="")
+MODEL = os.getenv("CHATBOT_MODEL") or GENERATOR_MODEL or "Generator"
+USES_LOCAL_LLAMA_SERVER = LLAMA_SERVER_ROOT == DEFAULT_GENERATOR_ROOT
+EMBEDDING_LOCAL_FILES_ONLY = env_bool(
+    "EMBEDDING_LOCAL_FILES_ONLY",
+    default=USES_LOCAL_LLAMA_SERVER,
+)
+if USES_LOCAL_LLAMA_SERVER:
+    GENERATOR_API_KEY = env_value("GENERATOR_API_KEY", "OPENAI_API_KEY", default="not-needed")
+else:
+    GENERATOR_API_KEY = env_value(
+        "GENERATOR_API_KEY",
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        default=first_csv_value(os.getenv("GEMINI_API_KEYS")),
+    )
 
 TOP_K = 15
 CONTEXT_K = 6  # how many chunks actually go into the LLM prompt (<= TOP_K)
@@ -2008,10 +2059,12 @@ def count_tokens(text):
     """Real token count via llama-server's native /tokenize endpoint (not an
     estimate -- character-based heuristics are especially wrong for Khmer).
     Returns None if the server doesn't support it / is unreachable."""
+    tokenize_url = env_value("GENERATOR_TOKENIZE_URL")
+    if not tokenize_url and not USES_LOCAL_LLAMA_SERVER:
+        return None
+    tokenize_url = tokenize_url or f"{LLAMA_SERVER_ROOT}/tokenize"
     try:
-        resp = requests.post(
-            f"{LLAMA_SERVER_ROOT}/tokenize", json={"content": text}, timeout=10
-        )
+        resp = requests.post(tokenize_url, json={"content": text}, timeout=10)
         resp.raise_for_status()
         tokens = resp.json().get("tokens", [])
         return len(tokens)
@@ -2267,7 +2320,7 @@ def load_embedding_model():
     info = load_embedding_model_info()
     kwargs = {
         "trust_remote_code": bool(info.get("trust_remote_code")),
-        "local_files_only": True,
+        "local_files_only": EMBEDDING_LOCAL_FILES_ONLY,
     }
     return SentenceTransformer(info["hf_id"], device="cpu", **kwargs)
 
@@ -3433,19 +3486,27 @@ def run_pipeline_in_thread(
             # a later failure propagates as before.
             for attempt in range(1, GEN_MAX_RETRIES + 1):
                 try:
+                    request_kwargs = {
+                        "model": model_name,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.0,
+                        "max_tokens": max_tokens,
+                        "stream": True,
+                    }
+                    if USES_LOCAL_LLAMA_SERVER:
+                        request_kwargs["frequency_penalty"] = GEN_FREQUENCY_PENALTY
+
                     response = client.chat.completions.create(
-                        model=model_name,
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=0.0,
-                        max_tokens=max_tokens,
-                        frequency_penalty=GEN_FREQUENCY_PENALTY,
-                        stream=True,
+                        **request_kwargs,
                     )
                     for chunk in response:
                         if stop_event.is_set():
                             was_stopped = True
                             break
-                        delta = chunk.choices[0].delta.content
+                        if not getattr(chunk, "choices", None):
+                            continue
+                        delta_obj = getattr(chunk.choices[0], "delta", None)
+                        delta = getattr(delta_obj, "content", None) if delta_obj else None
                         if delta:
                             answer_text += delta
                             total_chars += len(delta)
@@ -4859,8 +4920,21 @@ MODEL_NAME = get_loaded_model()
 
 if MODEL_NAME == "No Model Loaded":
     st.markdown(
-        f'<div class="kc-alert">No generator reachable at {LLAMA_SERVER_URL}. '
-        f'Start llama-server, or set GENERATOR_BASE_URL / GENERATOR_MODEL.</div>',
+        '<div class="kc-alert">'
+        f"No generator reachable at {html.escape(LLAMA_SERVER_URL)}/models. "
+        "For local use, start llama-server. For hosted use, set "
+        "GENERATOR_BASE_URL, GENERATOR_MODEL, and GENERATOR_API_KEY."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
+if not USES_LOCAL_LLAMA_SERVER and not GENERATOR_API_KEY:
+    st.markdown(
+        '<div class="kc-alert">'
+        "Hosted generator is configured, but no API key was found. Set "
+        "GENERATOR_API_KEY, GEMINI_API_KEY, GOOGLE_API_KEY, or GEMINI_API_KEYS."
+        "</div>",
         unsafe_allow_html=True,
     )
     st.stop()

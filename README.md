@@ -660,6 +660,33 @@ missing is listed without a link rather than failing the answer.
 
 ## Configuration
 
+### Hosted generator
+
+The default local setup expects `llama-server` at `http://localhost:8080/v1`.
+On Railway, Streamlit Community Cloud, Hugging Face Spaces, or any other hosted
+CPU service, that localhost process does not exist unless you run a second
+generator server in the same deployment. For a free/low-cost hosted demo, keep
+retrieval in this Streamlit app and send generation to an OpenAI-compatible API.
+
+For Gemini's OpenAI-compatible endpoint, set these deployment environment
+variables:
+
+```bash
+GENERATOR_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+GENERATOR_MODEL=gemini-3.7-flash
+GENERATOR_API_KEY=<your Gemini API key>
+EMBEDDING_LOCAL_FILES_ONLY=false
+```
+
+If `GENERATOR_API_KEY` is not set, the app also accepts `GEMINI_API_KEY`,
+`GOOGLE_API_KEY`, or the first comma-separated value in `GEMINI_API_KEYS`.
+Keep keys in deployment secrets or local `.env`; never commit them.
+
+`EMBEDDING_LOCAL_FILES_ONLY=false` is important on hosts such as Railway
+because the local `models/retriever/.cache/` directory is intentionally not
+committed to GitHub. The app will download BGE-M3 into the container cache on
+startup. Local development defaults to offline loading from the existing cache.
+
 The main tunable constants live at the top of `app.py`:
 
 | Constant | Default | What it controls |
