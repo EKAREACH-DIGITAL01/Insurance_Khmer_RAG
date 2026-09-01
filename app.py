@@ -44,8 +44,16 @@ try:
 except Exception:
     WEBSITE_CATEGORY_LABEL_KH = {}
 
-LLAMA_SERVER_URL = "http://localhost:8080/v1"
-LLAMA_SERVER_ROOT = "http://localhost:8080"
+# Generator endpoint. Defaults to the local llama-server start_chatbot.py
+# launches, so local runs are unchanged. Deployed (Railway, or any box without
+# a GPU) these point at any OpenAI-compatible API instead -- the only
+# llama.cpp-specific calls below (/tokenize, /models) already fail soft.
+LLAMA_SERVER_URL = os.getenv("GENERATOR_BASE_URL", "http://localhost:8080/v1")
+LLAMA_SERVER_ROOT = LLAMA_SERVER_URL.rsplit("/v1", 1)[0]
+GENERATOR_API_KEY = os.getenv("GENERATOR_API_KEY", "not-needed")
+# Hosted providers need the model id named explicitly; llama-server reports its
+# own, so leaving this unset keeps the local behaviour.
+GENERATOR_MODEL = os.getenv("GENERATOR_MODEL", "")
 
 TOP_K = 15
 CONTEXT_K = 6  # how many chunks actually go into the LLM prompt (<= TOP_K)
@@ -2196,6 +2204,8 @@ def render_answer_html(answer, final=True):
 
 
 def get_loaded_model():
+    if GENERATOR_MODEL:
+        return GENERATOR_MODEL
     try:
         response = requests.get(f"{LLAMA_SERVER_URL}/models", timeout=5)
         response.raise_for_status()
@@ -4849,12 +4859,13 @@ MODEL_NAME = get_loaded_model()
 
 if MODEL_NAME == "No Model Loaded":
     st.markdown(
-        '<div class="kc-alert">llama-server is not running. Start it before using the assistant.</div>',
+        f'<div class="kc-alert">No generator reachable at {LLAMA_SERVER_URL}. '
+        f'Start llama-server, or set GENERATOR_BASE_URL / GENERATOR_MODEL.</div>',
         unsafe_allow_html=True,
     )
     st.stop()
 
-client = OpenAI(base_url=LLAMA_SERVER_URL, api_key="not-needed")
+client = OpenAI(base_url=LLAMA_SERVER_URL, api_key=GENERATOR_API_KEY)
 embedding_model_info = load_embedding_model_info()
 embedding_model = load_embedding_model()
 index = load_index()
