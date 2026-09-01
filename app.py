@@ -82,13 +82,40 @@ def derive_generator_root(base_url):
 
 
 DEFAULT_GENERATOR_ROOT = "http://localhost:8080"
+HOSTED_DEFAULT_GENERATOR_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+HOSTED_DEFAULT_GENERATOR_MODEL = "gemini-3.7-flash"
+IS_HOSTED_RUNTIME = bool(
+    env_value(
+        "RAILWAY_ENVIRONMENT",
+        "RAILWAY_SERVICE_NAME",
+        "RENDER",
+        "K_SERVICE",
+        "STREAMLIT_SHARING_MODE",
+    )
+)
+DEFAULT_GENERATOR_BASE_URL = (
+    HOSTED_DEFAULT_GENERATOR_BASE_URL
+    if IS_HOSTED_RUNTIME
+    else f"{DEFAULT_GENERATOR_ROOT}/v1"
+)
 LLAMA_SERVER_URL = normalize_base_url(
-    env_value("GENERATOR_BASE_URL", default=f"{DEFAULT_GENERATOR_ROOT}/v1")
+    env_value(
+        "GENERATOR_BASE_URL",
+        "OPENAI_BASE_URL",
+        "GEMINI_BASE_URL",
+        default=DEFAULT_GENERATOR_BASE_URL,
+    )
 )
 LLAMA_SERVER_ROOT = normalize_base_url(
     env_value("GENERATOR_ROOT_URL", default=derive_generator_root(LLAMA_SERVER_URL))
 )
-GENERATOR_MODEL = env_value("GENERATOR_MODEL", default="")
+GENERATOR_MODEL = env_value(
+    "GENERATOR_MODEL",
+    "OPENAI_MODEL",
+    "GEMINI_MODEL",
+    "GOOGLE_MODEL",
+    default=HOSTED_DEFAULT_GENERATOR_MODEL if IS_HOSTED_RUNTIME else "",
+)
 MODEL = os.getenv("CHATBOT_MODEL") or GENERATOR_MODEL or "Generator"
 USES_LOCAL_LLAMA_SERVER = LLAMA_SERVER_ROOT == DEFAULT_GENERATOR_ROOT
 EMBEDDING_LOCAL_FILES_ONLY = env_bool(
@@ -105,6 +132,7 @@ else:
         "GOOGLE_API_KEY",
         default=first_csv_value(os.getenv("GEMINI_API_KEYS")),
     )
+DEPLOYMENT_COMMIT = env_value("RAILWAY_GIT_COMMIT_SHA", "GIT_COMMIT_SHA", default="")
 
 TOP_K = 15
 CONTEXT_K = 6  # how many chunks actually go into the LLM prompt (<= TOP_K)
@@ -4919,11 +4947,17 @@ inject_css()
 MODEL_NAME = get_loaded_model()
 
 if MODEL_NAME == "No Model Loaded":
+    deployment_hint = (
+        f" Deployment commit: {html.escape(DEPLOYMENT_COMMIT[:12])}."
+        if DEPLOYMENT_COMMIT
+        else ""
+    )
     st.markdown(
         '<div class="kc-alert">'
         f"No generator reachable at {html.escape(LLAMA_SERVER_URL)}/models. "
         "For local use, start llama-server. For hosted use, set "
         "GENERATOR_BASE_URL, GENERATOR_MODEL, and GENERATOR_API_KEY."
+        f"{deployment_hint}"
         "</div>",
         unsafe_allow_html=True,
     )

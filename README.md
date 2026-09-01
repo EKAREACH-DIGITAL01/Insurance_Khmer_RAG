@@ -668,8 +668,14 @@ CPU service, that localhost process does not exist unless you run a second
 generator server in the same deployment. For a free/low-cost hosted demo, keep
 retrieval in this Streamlit app and send generation to an OpenAI-compatible API.
 
-For Gemini's OpenAI-compatible endpoint, set these deployment environment
-variables:
+On Railway, the app defaults to Gemini's OpenAI-compatible endpoint, so the
+only required variable is:
+
+```bash
+GENERATOR_API_KEY=<your Gemini API key>
+```
+
+For clarity, you can also set the full hosted configuration explicitly:
 
 ```bash
 GENERATOR_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
