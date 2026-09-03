@@ -81,6 +81,17 @@ def derive_generator_root(base_url):
     return base_url.rstrip("/")
 
 
+def is_local_generator_url(url):
+    normalized = normalize_base_url(url).lower()
+    return normalized.startswith(
+        (
+            "http://localhost:",
+            "http://127.0.0.1:",
+            "http://0.0.0.0:",
+        )
+    )
+
+
 DEFAULT_GENERATOR_ROOT = "http://localhost:8080"
 HOSTED_DEFAULT_GENERATOR_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 HOSTED_DEFAULT_GENERATOR_MODEL = "gemini-3.7-flash"
@@ -117,7 +128,7 @@ GENERATOR_MODEL = env_value(
     default=HOSTED_DEFAULT_GENERATOR_MODEL if IS_HOSTED_RUNTIME else "",
 )
 MODEL = os.getenv("CHATBOT_MODEL") or GENERATOR_MODEL or "Generator"
-USES_LOCAL_LLAMA_SERVER = LLAMA_SERVER_ROOT == DEFAULT_GENERATOR_ROOT
+USES_LOCAL_LLAMA_SERVER = is_local_generator_url(LLAMA_SERVER_URL)
 EMBEDDING_LOCAL_FILES_ONLY = env_bool(
     "EMBEDDING_LOCAL_FILES_ONLY",
     default=USES_LOCAL_LLAMA_SERVER,
@@ -325,6 +336,54 @@ REDIRECT_TEXT = (
 NOT_KHMER_QUESTION_TEXT = (
     "សូមសួរសំណួរជាភាសាខ្មែរដែលពាក់ព័ន្ធនឹងធានារ៉ាប់រងកម្ពុជា"
 )
+
+GREETING_RESPONSE_TEXT = (
+    "ជម្រាបសួរ! ខ្ញុំជាជំនួយការធានារ៉ាប់រងកម្ពុជា។ "
+    "តើលោក/លោកស្រី មានចម្ងល់អ្វីខ្លះដែរទាក់ទងនឹងការធានារ៉ាប់រង?"
+)
+
+KHMER_GREETING_TERMS = {
+    "សួស្តី",
+    "សួស្ដី",
+    "ជម្រាបសួរ",
+    "ជំរាបសួរ",
+    "សូមជម្រាបសួរ",
+    "សូមជំរាបសួរ",
+    "សូមគោរពជម្រាបសួរ",
+    "សូមគោរពជំរាបសួរ",
+    "អរុណសួស្តី",
+    "អរុណសួស្ដី",
+    "ទិវាសួស្តី",
+    "ទិវាសួស្ដី",
+    "សាយណ្ហសួស្តី",
+    "សាយណ្ហសួស្ដី",
+    "រាត្រីសួស្តី",
+    "រាត្រីសួស្ដី",
+    "ស្វាគមន៍",
+}
+GREETING_POLITE_SUFFIXES = {"", "បាទ", "ចាស", "ចា", "លោក", "លោកស្រី"}
+
+
+def normalize_greeting_text(text):
+    text = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", text or "")
+    return re.sub(r"[\s!?,.។៕:;\"'«»“”‘’()\[\]{}<>…-]+", "", text)
+
+
+NORMALIZED_KHMER_GREETING_TERMS = {
+    normalize_greeting_text(term) for term in KHMER_GREETING_TERMS
+}
+
+
+def is_khmer_greeting(text):
+    normalized = normalize_greeting_text(text)
+    if not normalized:
+        return False
+    if normalized in NORMALIZED_KHMER_GREETING_TERMS:
+        return True
+    for term in NORMALIZED_KHMER_GREETING_TERMS:
+        if normalized.startswith(term) and normalized[len(term):] in GREETING_POLITE_SUFFIXES:
+            return True
+    return False
 
 # ----------------------------------------------------------------------------
 # Deterministic scope-violation gate
@@ -3332,6 +3391,26 @@ def run_pipeline_in_thread(
             )
             return
 
+        if is_khmer_greeting(question):
+            out_q.put(("phase", "completed"))
+            out_q.put(
+                (
+                    "canned_response",
+                    {
+                        "answer": GREETING_RESPONSE_TEXT,
+                        "reason": "khmer_greeting",
+                        "results": [],
+                        "best_score": 0.0,
+                        "min_score": 0.0,
+                        "spread_score": 0.0,
+                        "embed_time": 0.0,
+                        "search_time": 0.0,
+                        "retrieval_time": 0.0,
+                    },
+                )
+            )
+            return
+
         if len(question.strip()) < MIN_QUESTION_LENGTH:
             out_q.put(("phase", "completed"))
             out_q.put(
@@ -4211,6 +4290,7 @@ def render_message(msg):
         not msg.get("interrupted")
         and not msg.get("errored")
         and not msg.get("out_of_domain")
+        and not msg.get("no_sources")
     ):
         render_used_sources(msg["used_sources"])
         render_message_actions(msg)
@@ -4304,6 +4384,7 @@ def handle_new_question(
     final_payload = None
     error_text = None
     out_of_domain_payload = None
+    canned_response_payload = None
 
     def save_progress():
         # Stores BOTH the raw numeric state needed to seamlessly resume
@@ -4374,6 +4455,15 @@ def handle_new_question(
                 out_of_domain_payload = payload
                 finished = True
                 scroll_to_bottom()
+            elif kind == "canned_response":
+                phase_elapsed[PHASES[current_idx]] = (
+                    now - phase_start_times[PHASES[current_idx]]
+                )
+                current_idx = PHASES.index("completed")
+                phase_elapsed["completed"] = now - overall_start
+                canned_response_payload = payload
+                finished = True
+                scroll_to_bottom()
         except queue.Empty:
             pass
 
@@ -4397,6 +4487,26 @@ def handle_new_question(
 
     time.sleep(0.4)
     ladder_ph.empty()
+
+    if canned_response_payload is not None:
+        st.session_state["active_run"] = None
+        answer = canned_response_payload["answer"]
+        answer_ph.markdown(render_answer_html(answer), unsafe_allow_html=True)
+        commit_message(
+            {
+                "id": str(uuid.uuid4()),
+                "question": question,
+                "answer": answer,
+                "used_sources": [],
+                "all_results": canned_response_payload["results"],
+                "best_score": canned_response_payload["best_score"],
+                "low_confidence": False,
+                "interrupted": False,
+                "no_sources": True,
+                "canned_response_reason": canned_response_payload["reason"],
+            }
+        )
+        return
 
     if out_of_domain_payload is not None:
         st.session_state["active_run"] = None
@@ -4568,6 +4678,26 @@ def render_chat_page(
     st.markdown('<div class="kc-thread">', unsafe_allow_html=True)
     for msg in messages:
         render_message(msg)
+
+    if pending and is_khmer_greeting(pending):
+        commit_message(
+            {
+                "id": str(uuid.uuid4()),
+                "question": pending,
+                "answer": GREETING_RESPONSE_TEXT,
+                "used_sources": [],
+                "all_results": [],
+                "best_score": 0.0,
+                "low_confidence": False,
+                "interrupted": False,
+                "no_sources": True,
+                "canned_response_reason": "khmer_greeting",
+            }
+        )
+        st.session_state["pending_question"] = None
+        st.session_state["is_generating"] = False
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.rerun()
 
     # A question is about to start processing this run -- lock the input
     # bar down to its generating/stop state before the (blocking) pipeline
