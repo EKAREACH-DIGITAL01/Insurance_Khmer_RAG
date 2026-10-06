@@ -1,14 +1,17 @@
 import base64
 import json
+import os
+import platform
 import re
+import shutil
 import subprocess
 import sys
 import time
-import requests
-import platform
-import shutil
-import os
 from pathlib import Path
+
+import requests
+
+from khmer_rag.config import ACTIVE_EMBEDDING_MODEL_DIR, SERVER_CTX_SIZE
 
 OS_NAME = platform.system()
 
@@ -17,16 +20,10 @@ print(f"Detected OS: {OS_NAME}")
 LLAMA_SERVER = shutil.which("llama-server")
 
 if LLAMA_SERVER is None:
-
     if OS_NAME == "Windows":
-        raise SystemExit(
-            "llama-server.exe not found. "
-            "Please install llama.cpp and add it to PATH."
-        )
+        raise SystemExit("llama-server.exe not found. Please install llama.cpp and add it to PATH.")
 
-    raise SystemExit(
-        "llama-server not found. " "Please install llama.cpp and add it to PATH."
-    )
+    raise SystemExit("llama-server not found. Please install llama.cpp and add it to PATH.")
 
 print(f"llama-server: {LLAMA_SERVER}")
 
@@ -73,20 +70,8 @@ print(f"Generator model  : {model}")
 
 
 def active_embedding_model_dir():
-    """Reads ACTIVE_EMBEDDING_MODEL_DIR straight out of app.py's source.
-
-    app.py can't be imported here (importing it executes Streamlit
-    page setup), so the constant is scraped textually instead. Keeping
-    the launcher pointed at the SAME subfolder app.py will load is the
-    whole point of verify_embedding_model() below."""
-    try:
-        src = (PROJECT_ROOT / "app.py").read_text(encoding="utf-8")
-    except OSError:
-        return None
-    m = re.search(
-        r'^ACTIVE_EMBEDDING_MODEL_DIR\s*=\s*["\'](.+?)["\']', src, re.M
-    )
-    return m.group(1) if m else None
+    """Use the same retriever setting as the application."""
+    return ACTIVE_EMBEDDING_MODEL_DIR
 
 
 def verify_embedding_model():
@@ -102,7 +87,7 @@ def verify_embedding_model():
     active_dir = active_embedding_model_dir()
     if not active_dir:
         raise SystemExit(
-            "Could not read ACTIVE_EMBEDDING_MODEL_DIR from app.py -- "
+            "No ACTIVE_EMBEDDING_MODEL_DIR in khmer_rag.config -- "
             "cannot tell which vector_db/ index the app will load."
         )
 
@@ -122,9 +107,7 @@ def verify_embedding_model():
     label = active_dir
     if info_path.exists():
         try:
-            label = json.loads(info_path.read_text(encoding="utf-8")).get(
-                "label", active_dir
-            )
+            label = json.loads(info_path.read_text(encoding="utf-8")).get("label", active_dir)
         except (json.JSONDecodeError, OSError):
             pass
 
@@ -135,23 +118,24 @@ def verify_embedding_model():
 verify_embedding_model()
 
 
-SERVER_CTX_SIZE = 16384  # must match app.py's SERVER_CTX_SIZE
-
-
 def process_name(pid):
     """Best-effort executable name for a pid, or None if it can't be read."""
     try:
         if OS_NAME == "Windows":
             out = subprocess.run(
                 ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             ).stdout.strip()
             if out.startswith('"'):
                 return out.split('","')[0].strip('"')
             return None
         out = subprocess.run(
             ["ps", "-p", str(pid), "-o", "comm="],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         ).stdout.strip()
         return out or None
     except Exception:
@@ -194,7 +178,9 @@ def free_port_8080():
         if OS_NAME == "Windows":
             out = subprocess.run(
                 ["netstat", "-ano", "-p", "TCP"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             ).stdout
             for line in out.splitlines():
                 if ":8080" in line and "LISTENING" in line:
@@ -204,7 +190,9 @@ def free_port_8080():
         else:
             out = subprocess.run(
                 ["lsof", "-nP", "-iTCP:8080", "-sTCP:LISTEN", "-t"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             ).stdout
             pids = [p for p in out.split() if p.isdigit()]
     except Exception:
@@ -243,7 +231,9 @@ def free_port_8080():
         try:
             still = subprocess.run(
                 ["lsof", "-nP", "-iTCP:8080", "-sTCP:LISTEN", "-t"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             ).stdout.split()
             for pid in still:
                 # Re-check the name: by now the port could have been picked
@@ -267,10 +257,7 @@ def verify_server_ctx(expected_ctx):
     except Exception as e:
         print(f"WARNING: could not read /props to verify n_ctx: {e}")
         return
-    n_ctx = (
-        props.get("default_generation_settings", {}).get("n_ctx")
-        or props.get("n_ctx")
-    )
+    n_ctx = props.get("default_generation_settings", {}).get("n_ctx") or props.get("n_ctx")
     if n_ctx is None:
         print("WARNING: server did not report n_ctx; could not verify context size.")
         return
@@ -333,7 +320,6 @@ print("Waiting for llama-server...")
 start_time = time.time()
 
 while True:
-
     if time.time() - start_time > 120:
         llama_process.kill()
         raise SystemExit("llama-server failed to start within 120 seconds.")

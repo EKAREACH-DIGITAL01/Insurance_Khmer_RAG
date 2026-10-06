@@ -1,0 +1,1210 @@
+@import url('https://fonts.googleapis.com/css2?family=Moul&family=Hanuman:wght@300;400;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --ink: #0E2F20;
+  --ink-soft: #123D2A;
+  --ink-line: #246344;
+  --parchment: #F7FAF8;
+  --parchment-soft: #FFFFFF;
+  --irc-primary: #02913F;
+  --irc-secondary: #5AA87B;
+  --irc-gold: #B19F50;
+  --irc-white: #F9FAF9;
+  --lacquer: var(--irc-primary);
+  --lacquer-deep: #006F31;
+  --lacquer-mist: rgba(2,145,63,0.10);
+  --brass: var(--irc-gold);
+  --brass-soft: rgba(177,159,80,0.34);
+  --stone: #163326;
+  --mist: #A9B9AF;
+  --signal: var(--irc-secondary);
+  --danger: #C0524A;
+  /* Conversation rail. A tint of --parchment rather than the --ink surface
+     the diagnostics page uses: the rail is a quiet index the eye passes over
+     on its way to the answer, and a full dark panel next to a near-white
+     thread pulls attention the wrong way. It reads as a recessed shelf of the
+     same material, separated by tone alone. */
+  --rail: #EDF2EE;
+  --rail-hover: #E2EAE4;
+  --rail-line: rgba(22,51,38,0.10);
+  /* Live width of the rail, in px, kept in sync by the observer in
+     sync_rail_width(). Fixed-position chrome (top bar, chat bar) is
+     positioned against the chat area rather than the viewport, so it can't
+     run under the rail or center itself against the wrong box. 0 is the
+     correct fallback: if the script never runs, the rail is not there. */
+  --kc-rail-w: 0px;
+  /* Side-panel toggle mark, inlined as a data URI (no external requests). */
+  --kc-panel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2.5'/%3E%3Cline x1='9.5' y1='4' x2='9.5' y2='20'/%3E%3Cpolyline points='16.2,9.5 13.7,12 16.2,14.5'/%3E%3C/svg%3E");
+}
+
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+/* The toolbar is kept in the layout because Streamlit nests the control that
+   re-opens a collapsed rail inside it; its own actions are hidden below. */
+[data-testid="stToolbar"] {
+  background: transparent !important;
+  padding: 0 !important;
+}
+[data-testid="stAppDeployButton"],
+[data-testid="stMainMenu"] {display: none !important;}
+[data-testid="stExpandSidebarButton"] {
+  display: inline-flex !important;
+  position: fixed !important;
+  top: 10px !important;
+  left: 12px !important;
+  z-index: 1000 !important;
+}
+[data-testid="stExpandSidebarButton"] button,
+[data-testid="stExpandSidebarButton"] svg {
+  color: var(--stone) !important;
+  fill: var(--stone) !important;
+  opacity: 0.55;
+}
+[data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"] {
+  width: 19px !important;
+  height: 19px !important;
+  font-size: 0 !important;
+  background-color: var(--stone);
+  -webkit-mask: var(--kc-panel-icon) center / contain no-repeat;
+  mask: var(--kc-panel-icon) center / contain no-repeat;
+  opacity: 0.6;
+  transform: scaleX(-1);  /* chevron points the way the rail will move */
+}
+[data-testid="stDecoration"] {display: none !important;}
+[data-testid="stStatusWidget"] {display: none !important;}
+[data-testid="stForm"] div[data-testid="InputInstructions"] {display: none !important;}
+/* The header is flattened to nothing rather than removed. Streamlit renders
+   control that RE-OPENS a collapsed rail into this header, and nowhere else
+   -- `display: none` here left the rail collapsible but not reopenable, with
+   a full page reload the only way back. Its decorative contents are hidden
+   individually above. */
+header, [data-testid="stHeader"] {
+  background: transparent !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+
+html, body, [data-testid="stAppViewContainer"], .stApp {
+  background: ${PAGE_BG} !important;
+  color: ${PAGE_FG};
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+${TOP_PADDING_CSS}
+
+.kc-welcome-wrap { margin-top: 26vh; text-align: center; }
+.kc-greeting {
+  font-family: 'Moul', serif;
+  font-size: 27px;
+  line-height: 1.75;
+  color: var(--lacquer);
+}
+.kc-greeting-sub {
+  font-family: 'Hanuman', sans-serif;
+  font-size: 16px;
+  line-height: 1.9;
+  color: var(--stone);
+  opacity: 0.75;
+  margin-top: 10px;
+}
+.kc-greeting-hint {
+  font-family: 'Hanuman', sans-serif;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--stone);
+  opacity: 0.5;
+  margin-top: 4px;
+}
+.kc-logo {
+  display: block;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+/* welcome-only input: in-flow under the title, NOT pinned. Arrow is laid out
+   as a real adjacent column rather than absolutely positioned, since the
+   latter kept landing in the wrong place. */
+[data-testid="stForm"] {
+  background: var(--parchment-soft) !important;
+  border: 1px solid var(--brass-soft) !important;
+  border-radius: 26px !important;
+  padding: 6px 16px !important;
+  box-shadow: 0 4px 18px rgba(58,53,43,0.12);
+  max-width: 560px;
+  width: 100%;
+  margin: 32px auto 0 auto !important;
+}
+[data-testid="stForm"] [data-testid="stHorizontalBlock"] {
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+[data-testid="stForm"] [data-testid="column"] { padding: 0 !important; }
+[data-testid="stForm"] [data-testid="stWidgetLabel"] { display: none; }
+[data-testid="stForm"] [data-testid="stTextInput"],
+[data-testid="stForm"] [data-testid="stTextInput"] > div,
+[data-testid="stForm"] [data-testid="stTextInputRootElement"],
+[data-testid="stForm"] [data-testid="stBaseButton-secondary"],
+[data-testid="stForm"] [data-testid="stTextInput"] div[class*="BaseInput"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+[data-testid="stForm"] [data-testid="stTextInput"] input {
+  background: transparent !important;
+  border: none !important;
+  font-family: 'Hanuman', sans-serif;
+  font-size: 15.5px;
+  color: var(--stone);
+  padding: 10px 8px;
+  box-shadow: none !important;
+}
+[data-testid="stForm"] [data-testid="stTextInput"] input::placeholder {
+  color: rgba(22, 51, 38, 0.58) !important;
+  opacity: 1 !important;
+}
+[data-testid="stForm"] [data-baseweb="input"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+[data-testid="stForm"] [data-baseweb="input"] > div {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+[data-testid="stForm"] [data-testid="stTextInput"] input:focus { box-shadow: none !important; }
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button {
+  background: var(--lacquer) !important;
+  color: var(--parchment-soft) !important;
+  border: none !important;
+
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+
+  border-radius: 50% !important;
+
+  margin-right: 0px !important;
+  margin-left: 10px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+
+  box-shadow: none !important;
+}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button::before {
+    content: "↑";
+    font-size: 20px;
+    font-weight: 500;
+    color: white;
+}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:hover {
+  background: var(--lacquer-deep) !important;
+  transform: translateY(-1px);
+}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+/* The chat area carries no top chrome at all -- the identity lives in the
+   rail (.kc-brand), so the thread starts at the top of its own column. */
+/* The helper scripts (sync_rail_width, disable_rail_resize, scroll_to_bottom,
+   the keydown guard) each render as a 0-height iframe, but they are still flex
+   children of the page's vertical block -- which has a 16px gap -- so every one
+   of them contributed a full gap of dead space above the first message even at
+   zero height. Taking them out of flow drops those gaps while leaving the
+   iframes live; `display: none` would stop their scripts from running at all. */
+/* Every element in a vertical block spends a 16px flex gap, including the ones
+   that render nothing: the helper-script iframes, the injected <style> block,
+   the fixed-position disclaimer, and the empty .kc-thread div. Left in flow
+   they stacked up into a screenful of dead space above the first question --
+   space that was then scrollable. Taken out of flow they cost nothing, and the
+   iframes stay live (display:none would stop their scripts running). */
+[data-testid="stAppViewContainer"] [data-testid="stElementContainer"]:has(> iframe.stIFrame),
+[data-testid="stAppViewContainer"] [data-testid="stElementContainer"]:has(style),
+[data-testid="stAppViewContainer"] [data-testid="stElementContainer"]:has(.kc-disclaimer),
+[data-testid="stAppViewContainer"] [data-testid="stElementContainer"]:has(.kc-thread) {
+  position: absolute !important;
+  top: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* .kc-thread carries NO spacing. It looks like a wrapper around the message
+   list but it never was one: Streamlit sanitises each st.markdown block on its
+   own, so the opening <div> is auto-closed immediately and renders as an empty
+   standalone box -- the messages are siblings after it, not children. Any
+   padding put here therefore became a ~160px empty box sitting above the
+   thread, which is exactly the dead space that pushed the first question down
+   the screen. The real spacing lives on .block-container. */
+.kc-thread { padding: 0; margin: 0; }
+
+.kc-msg-user-row { display: flex; justify-content: flex-end; margin: 18px 0 6px 0; }
+.kc-msg-user {
+  background: var(--lacquer);
+  color: var(--parchment-soft);
+  font-family: 'Hanuman', sans-serif;
+  font-size: 15.5px;
+  line-height: 1.7;
+  padding: 10px 16px;
+  border-radius: 14px 14px 2px 14px;
+  max-width: 80%;
+  white-space: pre-wrap;
+}
+
+.kc-msg-assistant-row { margin: 4px 0 22px 0; }
+.kc-msg-assistant {
+  font-family: 'Hanuman', sans-serif;
+  font-size: 16.5px;
+  line-height: 1.48;
+  color: var(--stone);
+  white-space: pre-line;
+  min-height: 1.4em;
+  overflow-wrap: anywhere;
+}
+.kc-msg-assistant br {
+  line-height: 1.15;
+}
+
+/* Sources read as part of the answer, not as a separate labelled panel: body
+   type, ordinary bullets, and the document name as a plain link. The brass
+   rules and monospace chunk ids that used to be here announced a system
+   detail (which chunk was retrieved) in the loudest colour on the page. */
+.kc-sources-title {
+  font-family: 'Hanuman', sans-serif;
+  font-size: 14px;
+  color: var(--stone);
+  opacity: 0.75;
+  margin-top: 14px;
+}
+.kc-sources-list {
+  margin: 4px 0 0 0;
+  padding-left: 20px;
+  list-style: disc;
+}
+.kc-sources-list li {
+  font-family: 'Hanuman', sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--stone);
+  margin: 2px 0;
+}
+.kc-sources-list li::marker { color: var(--stone); opacity: 0.45; }
+.kc-sources-list a {
+  color: var(--lacquer);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.kc-sources-list a:hover {
+  color: var(--lacquer-deep);
+  border-bottom-color: var(--lacquer-deep);
+}
+.kc-sources-list a:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+.kc-sources-list svg,
+.kc-msg-assistant svg:not(.kc-inline-svg) {
+  max-width: 18px;
+  max-height: 18px;
+}
+
+/* Pinned under the chat bar, sharing its exact left/right bracket so the two
+   read as one unit sitting in the chat area. */
+.kc-disclaimer {
+  position: fixed;
+  left: var(--kc-rail-w, 0px);
+  right: 0;
+  bottom: 14px;
+  margin: 0 auto;
+  width: min(560px, calc(100vw - var(--kc-rail-w, 0px) - 48px));
+  z-index: 999;
+  font-family: 'Hanuman', sans-serif;
+  font-size: 10.5px;
+  line-height: 1.75;
+  text-align: center;
+  color: var(--stone);
+  opacity: 0.5;
+}
+
+/* ---- Answer action row ----
+   Four controls of the same kind in one flex row: they align by construction,
+   and each carries a plain title attribute so the tooltips match. */
+.kc-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  overflow: visible;
+}
+.kc-act {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--stone);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: background 120ms ease, opacity 120ms ease, color 120ms ease;
+}
+/* Tooltip. The four controls are plain elements, so they'd otherwise fall back
+   to the browser's native title bubble -- which is what made the copy icon look
+   different from its neighbours in the first place. Drawing it here gives all
+   four the same styled tooltip, matching the ones Streamlit renders elsewhere
+   in the app. */
+.kc-act::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--parchment-soft);
+  color: var(--stone);
+  font-family: 'Hanuman', sans-serif;
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 3px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  /* The page is near-white too, so the tooltip needs an edge and a shadow to
+     separate from it -- colour alone won't do the work here. */
+  border: 1px solid var(--rail-line);
+  box-shadow: 0 2px 8px rgba(22,51,38,0.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 1000;
+}
+.kc-act:hover::after,
+.kc-act:focus-visible::after { opacity: 1; }
+
+/* The diagnostics control is an anchor, and Streamlit colours markdown links
+   its own link-blue with a rule that outranks .kc-act -- so it is restated
+   here for the anchor specifically, or one of the four icons would be blue. */
+a.kc-act, a.kc-act:hover, a.kc-act:visited {
+  color: var(--stone) !important;
+  text-decoration: none !important;
+}
+.kc-act svg { width: 18px; height: 18px; }
+.kc-act:hover {
+  background: rgba(22,51,38,0.07);
+  color: var(--stone);
+  opacity: 1;
+}
+.kc-act:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 1px;
+}
+/* Copy confirms itself for a moment; the reactions stay lit while chosen. */
+.kc-act-copy.is-done,
+.kc-act-thumb.is-on {
+  color: var(--lacquer);
+  opacity: 1;
+}
+/* A chosen reaction is a SOLID icon, not just a recoloured outline. The icons
+   are drawn as strokes with `fill="none"`, so recolouring alone tinted the
+   line and left the glyph hollow -- too quiet to read as "this is selected"
+   at 18px. Filling the same shape is what makes the state obvious. */
+.kc-act-thumb.is-on svg {
+  fill: currentColor;
+}
+
+/* Streamlit wraps every element (markdown, button, etc.) in its own
+   container that carries built-in vertical spacing, and a st.button's
+   wrapper carries noticeably MORE of it than a plain st.markdown HTML
+   block does. That's what produced a large visible gap specifically
+   between the "Details" button and the disclaimer right below it --
+   compare to the out-of-domain answer path, which has no button between
+   the answer text and the disclaimer and looks fine as-is. The exact
+   wrapper testid Streamlit uses for this has varied across versions, so
+   this targets every plausible candidate rather than guessing one -- same
+   defensive multi-candidate approach as scroll_to_bottom() above. */
+[data-testid="stButton"],
+[data-testid="element-container"]:has([data-testid="stButton"]),
+[data-testid="stElementContainer"]:has([data-testid="stButton"]) {
+  margin-bottom: -14px !important;
+}
+
+[data-testid="stButton"] button {
+  background: transparent !important;
+  border: none !important;
+  color: var(--brass) !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 0 !important;
+  box-shadow: none !important;
+}
+[data-testid="stButton"] button:hover { color: ${BUTTON_HOVER_COLOR} !important; text-decoration: underline; }
+
+/* ---------- Persistent pinned chat bar (idle + generating share one bar) ----------
+   st.chat_input anchors itself in Streamlit's persistent "stBottom" slot,
+   which isn't reliably cleared on runs where it's skipped -- that caused an
+   old input to ghost on screen. A plain st.container has no such
+   special-cased persistence. Both idle/generating states render through
+   the SAME st.container(key="kc_chatbar") call, with a borderless st.form
+   nested inside purely for widget grouping -- the outer container is what
+   carries the CSS-targetable "st-key-kc_chatbar" class reliably (a
+   borderless st.form's own key does not reliably expose the same class).
+   Only the inner content (text field vs status text) and the submit
+   button's icon differ between states, toggled purely with CSS via
+   :has(), so the outer box itself never moves or resizes. */
+.st-key-kc_chatbar {
+  position: fixed !important;
+  /* Centred on the chat area, not the viewport: left/right bracket the space
+     beside the rail and `margin: auto` centres within that bracket, so the bar
+     sits under the thread it belongs to at any rail width (including 0, when
+     the rail is collapsed). Sits above the pinned disclaimer. */
+  left: var(--kc-rail-w, 0px) !important;
+  right: 0 !important;
+  bottom: 72px !important;
+  transform: none !important;
+  margin: 0 auto !important;
+  contain: none !important;
+  filter: none !important;
+  will-change: auto !important;
+  z-index: 999;
+  width: min(560px, calc(100vw - var(--kc-rail-w, 0px) - 48px));
+}
+.st-key-kc_chatbar [data-testid="stForm"] {
+  margin: 0 !important;
+}
+.st-key-kc_chatbar [data-testid="stHorizontalBlock"] {
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+.st-key-kc_chatbar [data-testid="column"] { padding: 0 !important; }
+
+.kc-stopbar-text {
+  font-family: 'Hanuman', sans-serif;
+  font-size: 15.5px;
+  color: var(--stone);
+  opacity: 0.55;
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 8px;
+
+  position: relative;
+  top: -5px;
+}
+
+/* Stop-mode icon swap: detected via the .kc-stopbar-text marker that only
+   exists in the form's DOM while generating. Same 42px circular button as
+   the send arrow -- only the glyph inside changes. */
+.st-key-kc_chatbar:has(.kc-stopbar-text) [data-testid="stFormSubmitButton"] button {
+  background: var(--lacquer) !important;
+  position: relative !important;
+}
+.st-key-kc_chatbar:has(.kc-stopbar-text) [data-testid="stFormSubmitButton"] button::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 13px;
+  height: 13px;
+  background: var(--parchment-soft);
+  border-radius: 3px;
+}
+.st-key-kc_chatbar:has(.kc-stopbar-text) [data-testid="stFormSubmitButton"] button:hover {
+  background: var(--lacquer-deep) !important;
+}
+
+.kc-alert {
+  background: var(--lacquer-mist);
+  border: 1px solid var(--lacquer);
+  color: var(--lacquer-deep);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12.5px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 4px 0 10px 0;
+  display: inline-block;
+}
+
+/* ---------- Progress ladder ---------- */
+.kc-ladder {
+  border-left: 2px solid var(--brass-soft);
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 6px 0 18px 0;
+}
+.kc-step-row { display: flex; align-items: center; }
+.kc-step-row-pending { opacity: 0.4; }
+.kc-step-icon {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--ink);
+  margin-right: 9px; flex-shrink: 0;
+}
+.kc-step-done { background: var(--signal); }
+.kc-step-pending { background: var(--brass-soft); }
+.kc-step-active { background: var(--lacquer); animation: kc-pulse 1s ease-in-out infinite; }
+@keyframes kc-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.75); } }
+.kc-step-label { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--stone); }
+.kc-step-time { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--brass); }
+
+/* ---------- Diagnostics page (ink register) ---------- */
+.kc-diag-header {
+  text-align: center;
+  border-bottom: 1px solid var(--ink-line);
+  margin-top: 22px;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+.kc-diag-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--brass);
+  text-align: center;
+}
+.kc-diag-question {
+  font-family: 'Moul', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--brass);
+}
+
+/* Provenance badge + legend -- each chunk card's badge is a miniature
+   seal showing which retrieval engine(s) "stamped" that chunk as
+   relevant: brass ring = FAISS only, lacquer ring = BM25 only, ring AND
+   center both split brass/lacquer = found and confirmed by both. */
+.kc-diag-src-name-row { display: flex; align-items: center; gap: 7px; }
+.kc-diag-src-name-row svg { flex-shrink: 0; }
+.kc-diag-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 16px 0;
+}
+.kc-diag-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink-soft);
+  border: 1px solid var(--ink-line);
+  border-radius: 999px;
+  padding: 5px 12px 5px 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--mist);
+}
+.kc-diag-legend-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* Pipeline rail -- the four SYSTEM/RETRIEVAL/CONTEXT/GENERATION blocks
+   read top-to-bottom as a real sequence (question -> vector -> ranking ->
+   context -> tokens), so this echoes the live progress ladder's visual
+   language (connecting line + dot per stage) for that same pipeline,
+   instead of presenting four unrelated cards.
+   The line is a background-image gradient (not border-left) specifically
+   so it can fade out softly at the bottom rather than ending in a hard
+   edge. The dot is a real flex element rendered by console_block() (see
+   kc-pipeline-dot below) with a deterministic negative margin computed
+   from this container's own padding-left + line width, rather than a
+   guessed absolute-position offset. */
+.st-key-kc_diag_pipeline {
+  padding-left: 26px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to bottom, var(--brass-soft), var(--brass-soft) 85%, transparent);
+  background-repeat: no-repeat;
+  background-size: 2px 100%;
+  background-position: left top;
+}
+.kc-pipeline-title { display: flex; align-items: center; }
+.kc-pipeline-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--brass);
+  margin-left: -30px;
+  margin-right: 14px;
+  box-shadow: 0 0 0 4px var(--ink), 0 0 8px rgba(177, 159, 80, 0.45);
+}
+
+.kc-console-block {
+  background: var(--ink-soft);
+  border: 1px solid var(--ink-line);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.kc-console-block:hover {
+  transform: translateY(-2px);
+  border-color: var(--brass);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+}
+.kc-console-title {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px;
+  letter-spacing: 0.08em; color: var(--brass); text-transform: uppercase;
+  margin: 6px 0 8px 0;
+}
+.kc-row {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  padding: 6px 0; border-bottom: 1px dashed rgba(157,182,171,0.15);
+}
+.kc-row:last-child { border-bottom: none; }
+.kc-row-label { color: var(--mist); opacity: 0.85; }
+.kc-row-value { color: var(--parchment-soft); text-align: right; }
+
+/* ---------- Diagnostics source cards (right column, ink register) ---------- */
+.kc-diag-src-list { display: flex; flex-direction: column; gap: 10px; }
+.kc-diag-src-card {
+  background: var(--ink-soft);
+  border: 1px solid var(--ink-line);
+  border-radius: 6px;
+  padding: 14px 16px;
+  opacity: 0;
+  animation: kc-rise 0.5s ease forwards;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.kc-diag-src-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--brass);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+}
+.kc-diag-src-top { display: flex; align-items: flex-start; gap: 12px; }
+.kc-diag-src-rank {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--brass);
+  width: 20px; flex-shrink: 0; padding-top: 2px;
+}
+.kc-diag-src-main { flex: 1; min-width: 0; }
+.kc-diag-src-name { font-family: 'Hanuman', sans-serif; font-size: 14px; color: var(--parchment-soft); line-height: 1.5; }
+.kc-diag-src-id { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--brass); margin-top: 4px; }
+.kc-diag-src-scores {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 92px;
+}
+.kc-diag-src-score-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+}
+.kc-diag-src-score-key {
+  color: var(--mist);
+  opacity: 0.65;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.kc-diag-src-score-val { color: var(--parchment-soft); }
+.kc-diag-src-score-row--rrf .kc-diag-src-score-key,
+.kc-diag-src-score-row--rrf .kc-diag-src-score-val {
+  color: var(--signal);
+  font-weight: 600;
+  font-size: 13px;
+}
+.kc-diag-src-bar { width: 100%; height: 5px; background: var(--ink-line); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+.kc-diag-src-fill {
+  height: 100%; width: 0; border-radius: 3px;
+  background: linear-gradient(90deg, var(--brass), var(--lacquer));
+  animation: kc-fill 0.9s cubic-bezier(.2,.8,.2,1) forwards;
+}
+@keyframes kc-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes kc-fill { from { width: 0; } to { width: var(--w, 0%); } }
+
+.kc-detail-grid {
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 14px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; margin-bottom: 12px;
+}
+.kc-detail-grid .k { color: var(--brass); }
+.kc-detail-grid .v { color: var(--parchment-soft); }
+.kc-detail-text {
+  font-family: 'Hanuman', sans-serif; font-size: 14px; line-height: 1.85; color: var(--mist);
+  border-top: 1px dashed var(--ink-line); padding-top: 12px; white-space: pre-wrap;
+}
+
+/* Full Source Details -- back to native st.expander: simple, reliable,
+   guaranteed clickable. Styled to match the ink card system. The
+   .kc-diag-page wrapping div used to scope these never actually contained
+   the expanders in the real DOM (opening/closing a div across separate
+   st.markdown calls doesn't nest the content in between), so every rule
+   below was previously matching nothing. st.expander is only used on this
+   one page in the whole app, so these are safe to leave unscoped. */
+[data-testid="stExpander"] {
+  background: var(--ink-soft) !important;
+  border: 1px solid var(--ink-line) !important;
+  border-radius: 6px !important;
+  margin-bottom: 10px !important;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+[data-testid="stExpander"]:hover {
+  transform: translateY(-2px);
+  border-color: var(--brass) !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+}
+/* Force every background inside the expander to transparent first -- we
+   don't know exactly which element/attribute Streamlit uses to paint the
+   "open" state in this version, so rather than guess a single selector,
+   blank everything out and re-apply our own color via more specific rules
+   below (which win on specificity regardless of source order). */
+[data-testid="stExpander"] * {
+  background-color: transparent !important;
+}
+[data-testid="stExpander"] summary {
+  font-family: 'IBM Plex Mono', monospace !important;
+  color: var(--parchment-soft) !important;
+  font-size: 12px !important;
+  padding: 12px 16px !important;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+[data-testid="stExpander"] summary:hover,
+[data-testid="stExpander"] details[open] summary,
+[data-testid="stExpander"] summary[aria-expanded="true"],
+[data-testid="stExpander"] [aria-expanded="true"] summary {
+  background-color: rgba(177,159,80,0.12) !important;
+  color: var(--brass) !important;
+}
+[data-testid="stExpander"] summary svg { fill: var(--brass) !important; }
+[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+  padding: 4px 16px 16px 16px !important;
+  border-top: 1px solid var(--ink-line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 560px) {
+  .kc-thread {
+    padding-bottom: 168px;
+  }
+  .kc-greeting {
+    font-size: 20px;
+  }
+  .kc-welcome-wrap {
+    margin-top: 16vh;
+  }
+}
+
+/* ---------- Conversation rail ----------
+   The rail sits on --rail, a tint of the parchment used by the
+   thread, separated by tone rather than by a change of material. Active rows
+   are marked with the brass left rule used by .kc-source-chip, tying the rail
+   to the rest of the system. Everything below is scoped under
+   [data-testid="stSidebar"] so it can't leak into the chat surface's own
+   button and input styling. */
+[data-testid="stSidebar"] {
+  background: var(--rail) !important;
+  border-right: 1px solid var(--rail-line);
+  /* Fixed width, not resizable. The rail holds one thing -- a list of
+     conversation titles -- and it is sized so the brand lockup sits on one
+     line; letting it be dragged only offers the chance to break that. It is
+     either open at this width or closed. Locking all three width properties
+     overrides the inline width Streamlit's drag handle writes. */
+  width: 290px !important;
+  min-width: 290px !important;
+  max-width: 290px !important;
+  flex: 0 0 290px !important;
+  /* Pinned to the viewport: the rail is navigation, and navigation that
+     scrolls away with the conversation is navigation you have to scroll back
+     to find. Sticky rather than fixed so it stays a flex sibling of the chat
+     column -- fixed would take it out of flow and let the thread run beneath
+     it. */
+  position: sticky !important;
+  top: 0 !important;
+  align-self: flex-start !important;
+  height: 100vh !important;
+}
+/* The drag handle itself is removed by disable_rail_resize() -- it carries no
+   test id and only a build-generated class name, so there is no stable
+   selector to write here. */
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+  background: var(--rail) !important;
+}
+/* Streamlit reserves a 60px band at the top of the rail for the collapse
+   control alone, which is pure dead space above the brand. The band is
+   collapsed to nothing and the control is pinned into the brand's own row --
+   brand left, collapse right, on one line at the very top. .kc-brand keeps a
+   right inset so a long title never runs under the control. */
+[data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  position: relative !important;
+}
+/* Pinned to the rail's top-right corner, level with the brand on its left --
+   one row holding identity and the control that hides it. */
+[data-testid="stSidebarCollapseButton"] {
+  position: absolute !important;
+  /* Centred on the brand's two-line block -- level with the gap between the
+     Khmer title and the English line, not with the top of the rail. */
+  top: 30px !important;
+  /* Aligns the GLYPH -- not the button box -- with the right end of the rail's
+     divider rules, so the icon terminates the line. The glyph sits 6px inside
+     its own hit area (button margin plus centring slack), so the box is pushed
+     that far past the line to put the mark itself on it. The hit area still
+     ends well inside the rail. */
+  right: -6px !important;
+  z-index: 3;
+  /* Streamlit reveals this only on hover. It stays visible here: it is the
+     only way to collapse the rail, and a control you have to discover by
+     hovering is not one users find. */
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+[data-testid="stSidebarCollapseButton"] button {
+  padding-right: 0 !important;
+}
+/* Streamlit's glyph here is a double chevron, which reads as "skip to the
+   end" rather than "hide this panel". Swapped for the standard side-panel
+   mark -- a panel outline with the rail picked out and a chevron pointing
+   the way it will move. Drawn as a mask so it takes its colour from the
+   rule above rather than carrying its own. */
+[data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"] {
+  width: 19px !important;
+  height: 19px !important;
+  font-size: 0 !important;
+  background-color: var(--stone);
+  -webkit-mask: var(--kc-panel-icon) center / contain no-repeat;
+  mask: var(--kc-panel-icon) center / contain no-repeat;
+  opacity: 0.6;
+}
+[data-testid="stSidebar"] .block-container,
+[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+  padding-top: 0 !important;
+}
+/* Streamlit's collapse chevron is near-invisible against the rail. */
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stSidebarCollapseButton"] svg {
+  color: var(--stone) !important;
+  fill: var(--stone) !important;
+  opacity: 0.55;
+}
+
+.kc-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 44px 16px 10px;
+}
+.kc-brand .kc-logo { width: 34px; height: 34px; }
+.kc-brand-title {
+  font-family: 'Moul', serif;
+  /* Sized to clear the drag floor on one line -- see the rail's min-width. */
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--lacquer);
+  white-space: nowrap;
+}
+.kc-brand-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.02em;
+  color: var(--brass);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.kc-rail-label {
+  /* Hanuman, not the mono face the chat surface uses for its eyebrows: IBM
+     Plex Mono has no Khmer coverage, so a mono label renders through a
+     fallback face at a size that clips the diacritics. */
+  font-family: 'Hanuman', sans-serif;
+  font-size: 11.5px;
+  line-height: 2;
+  letter-spacing: 0.04em;
+  color: var(--brass);
+  padding: 14px 10px 10px 10px;
+  border-top: 1px solid var(--rail-line);
+  margin-top: 10px;
+}
+/* Centred and set down from the heading: with no rows to head, a line hugging
+   the left edge reads as a truncated first entry rather than as the state of
+   an empty list. */
+.kc-rail-empty {
+  font-family: 'Hanuman', sans-serif;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--stone);
+  opacity: 0.55;
+  padding: 34px 10px 6px 10px;
+  text-align: center;
+}
+
+/* Row buttons: tertiary = an inactive conversation, primary = the open one. */
+[data-testid="stSidebar"] .stButton button {
+  font-family: 'Hanuman', sans-serif !important;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
+  /* Khmer stacks diacritics above and below the baseline; the tighter
+     line-heights used on Latin UI text clip them. */
+  line-height: 1.9 !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  /* The chat surface styles buttons as mono uppercase brass links; the rail's
+     rows are navigation carrying Khmer sentences, so both of those inherited
+     text treatments have to be explicitly undone here. */
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  transition: background 120ms ease, color 120ms ease;
+}
+/* Undo the chat surface's negative button margin, which exists to tighten the
+   "មើលព័ត៌មានលម្អិត" link under an answer and would overlap the rail's rows. */
+[data-testid="stSidebar"] [data-testid="stButton"],
+[data-testid="stSidebar"] [data-testid="stElementContainer"]:has([data-testid="stButton"]) {
+  margin-bottom: 0 !important;
+}
+/* Long Khmer titles are truncated with an ellipsis rather than wrapping, so
+   every row is the same height. The line box has to clear Khmer's stacked
+   diacritics first -- at a tighter line-height, `overflow: hidden` crops
+   them. */
+[data-testid="stSidebar"] .stButton button p {
+  /* Streamlit sets the font on this inner <p>, not on the button, so the
+     button-level family never reaches the label -- Khmer fell back to a Latin
+     face that has no room for its stacked diacritics and cropped them. */
+  font-family: 'Hanuman', sans-serif !important;
+  font-size: 13.5px !important;
+  line-height: 2.1 !important;
+}
+/* Streamlit wraps the label in two nested flex divs that centre it, which is
+   what actually positions the text -- text-align on the button never reaches
+   it. The rows are nav targets, so the label starts at the row's own padding
+   edge, in line with the section heading above it. */
+[data-testid="stSidebar"] .stButton button > div,
+[data-testid="stSidebar"] .stButton button > div > span {
+  width: 100% !important;
+  justify-content: flex-start !important;
+}
+[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"] {
+  width: 100% !important;
+  text-align: left !important;
+}
+[data-testid="stSidebar"] .stButton button p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-testid="stSidebar"] .stButton button[kind="tertiary"] {
+  background: transparent !important;
+  color: var(--stone) !important;
+  border: none !important;
+}
+[data-testid="stSidebar"] .stButton button:hover {
+  /* The chat surface underlines its buttons because they read as links; the
+     rail's rows are full-width nav targets and use a fill instead. */
+  text-decoration: none !important;
+  background: transparent !important;
+}
+
+/* ---- Conversation row ----
+   Hover and selection are painted on the row wrapper, so the fill runs the
+   full width of the row and the overflow menu sits inside it rather than
+   stranded on the rail beside it. Selection is the fill alone -- an extra
+   rule down the edge was one marker too many for a two-state list. */
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_"] {
+  border-radius: 8px;
+  transition: background 120ms ease;
+}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_"]:hover {
+  background: var(--rail-hover);
+}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_active"],
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_active"]:hover {
+  background: var(--lacquer-mist);
+}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_active"] .stButton button {
+  color: var(--lacquer-deep) !important;
+  font-weight: 500 !important;
+}
+[data-testid="stSidebar"] .stButton button:focus-visible {
+  outline: 2px solid var(--brass) !important;
+  outline-offset: 1px;
+}
+
+/* New chat is the same shape as a conversation row -- it belongs to the same
+   list and does the same kind of thing -- distinguished only by the accent
+   colour and the leading +. A solid full-width CTA here would outweigh the
+   conversations it sits above. */
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] {
+  margin-top: 10px !important;
+}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button {
+  color: var(--lacquer) !important;
+  font-weight: 500 !important;
+  align-items: center !important;
+}
+/* The label carries a 2.1 line-height so Khmer diacritics clear; the icon
+   does not, so without an explicit centre the two sit on different lines. */
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button > div,
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button > div > span {
+  align-items: center !important;
+}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button p {
+  overflow: visible !important;
+}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button:hover {
+  background: var(--rail-hover) !important;
+  color: var(--lacquer-deep) !important;
+}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_new"] button [data-testid="stIconMaterial"] {
+  font-size: 17px !important;
+  line-height: 2.1 !important;
+  margin-right: 2px;
+}
+
+[data-testid="stSidebar"] .stButton button:disabled {
+  opacity: 0.45 !important;
+}
+
+/* Per-row overflow menu. Hidden until the row is hovered -- a column of dots
+   down a list of titles is noise, and the menu is only ever wanted for the row
+   the pointer is already on. It stays visible while its own menu is open
+   (aria-expanded), or the trigger would vanish under the panel it opened, and
+   while focused, so keyboard users can reach it at all. */
+[data-testid="stSidebar"] [data-testid="stPopover"] button {
+  background: transparent !important;
+  color: var(--stone) !important;
+  border: 1px solid transparent !important;
+  padding: 7px 4px !important;
+  min-height: 0 !important;
+  justify-content: center !important;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+[data-testid="stSidebar"] [class*="st-key-kc_rail_row_"]:hover [data-testid="stPopover"] button,
+[data-testid="stSidebar"] [data-testid="stPopover"] button[aria-expanded="true"],
+[data-testid="stSidebar"] [data-testid="stPopover"] button:focus-visible {
+  opacity: 1;
+}
+/* The popover's dropdown chevron doubles up with the "⋯" glyph that already
+   says "more actions". */
+[data-testid="stSidebar"] [data-testid="stPopover"] button [data-testid="stIconMaterial"] {
+  display: none !important;
+}
+[data-testid="stSidebar"] [data-testid="stPopover"] button:hover {
+  background: var(--rail-hover) !important;
+  color: var(--lacquer) !important;
+}
+[data-testid="stSidebar"] [data-testid="stTextInput"] input {
+  background: var(--parchment-soft) !important;
+  color: var(--stone) !important;
+  border: 1px solid var(--rail-line) !important;
+  font-family: 'Hanuman', sans-serif !important;
+  font-size: 13px !important;
+}
+[data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
+  gap: 2px !important;
+}
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+  gap: 2px !important;
+}
+/* Menu items: icon, then label, left aligned, one per line. */
+[class*="st-key-kc_rail_rename_open_"] [data-testid="stButton"],
+[class*="st-key-kc_rail_delete_"] [data-testid="stButton"] {
+  margin-bottom: 0 !important;
+}
+[class*="st-key-kc_rail_rename_open_"] button,
+[class*="st-key-kc_rail_delete_"] button {
+  background: transparent !important;
+  border: none !important;
+  min-height: 36px !important;
+  font-family: 'Hanuman', sans-serif !important;
+  font-size: 13.5px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 7px 10px !important;
+  border-radius: 7px !important;
+  color: var(--stone) !important;
+}
+[class*="st-key-kc_rail_rename_open_"] button p,
+[class*="st-key-kc_rail_delete_"] button p {
+  font-family: 'Hanuman', sans-serif !important;
+  font-size: 13.5px !important;
+  line-height: 2.1 !important;
+}
+[class*="st-key-kc_rail_rename_open_"] button:hover {
+  background: var(--rail-hover) !important;
+  color: var(--stone) !important;
+  text-decoration: none !important;
+}
+/* Delete is the only destructive item on the rail, and it reads as one.
+   Declared after the shared menu-item colour above so it wins. */
+[class*="st-key-kc_rail_delete_"] button,
+[class*="st-key-kc_rail_delete_"] button:hover {
+  color: var(--danger) !important;
+}
+[class*="st-key-kc_rail_delete_"] button:hover {
+  background: rgba(192,82,74,0.10) !important;
+  text-decoration: none !important;
+}
+[class*="st-key-kc_rail_delete_"] button [data-testid="stIconMaterial"] {
+  color: var(--danger) !important;
+}
+[class*="st-key-kc_rail_rename_open_"] button [data-testid="stIconMaterial"],
+[class*="st-key-kc_rail_delete_"] button [data-testid="stIconMaterial"] {
+  font-size: 17px !important;
+  opacity: 0.7;
+}
+
+/* Inline rename editor -- sits exactly where the row's title was. */
+[data-testid="stSidebar"] [class*="st-key-kc_rail_editing_"] input {
+  padding: 5px 9px !important;
+  border: 1px solid var(--lacquer) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 3px var(--lacquer-mist) !important;
+}
+
+/* The popover panel ships with padding sized for form content; a two-item
+   menu only needs enough to keep the rows off the edges. */
+[data-testid="stPopoverBody"] {
+  padding: 8px !important;
+  min-width: 0 !important;
+}
+[data-testid="stPopoverBody"] [data-testid="stVerticalBlock"] {
+  gap: 4px !important;
+}
+[data-testid="stPopoverBody"] [data-testid="stElementContainer"] {
+  margin-bottom: 0 !important;
+}

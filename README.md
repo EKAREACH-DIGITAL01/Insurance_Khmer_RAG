@@ -1,786 +1,118 @@
-# Khmer Insurance Law Assistant
+# Khmer Insurance Assistant
 
-![Khmer Insurance Law Assistant demo — asking a Khmer question about insurance law, the live retrieval-and-generation progress ladder, an out-of-domain refusal, and a cited answer](assets/readme/demo.gif)
+A Khmer RAG chatbot for Cambodian insurance information, built on the student's
+49 legal PDFs and an expanded Insurance Regulator of Cambodia website corpus.
+It uses BGE-M3 embeddings, FAISS and BM25 retrieval, and a local llama-server or
+an OpenAI-compatible generator endpoint.
 
-A retrieval-augmented generation (RAG) chatbot that answers questions about
-Cambodian insurance law and the Insurance Regulator of Cambodia (IRC) in Khmer,
-grounded in the original 49 legal/regulatory PDFs plus an expanded IRC website
-corpus covering pages, statistics, publications, annual reports, and management
-profile documents.
+## Run Locally
 
-Built with a local embedding model (BGE-M3), a local FAISS vector index,
-hybrid retrieval (FAISS + BM25, Reciprocal Rank Fusion), and a local
-quantized generator LLM (choice of SeaLLM v3 7B, Qwen 3.5 9B, Sailor2-L 8B
-Chat, or Llama 3.1 8B Instruct) served via `llama.cpp` — no external API calls
-happen at chat time.
+Use Python 3.12 and the existing project environment:
 
----
-
-## Features
-
-- **Khmer-first RAG** over the original legal PDF categories (`laws`,
-  `prakas`, `sub_decrees`, `guidance`) plus category-aware IRC
-  website-derived content (`home`, `statistics`, `publication`,
-  `public_service`, `insurance_institutions`, `knowledge`, `news`,
-  `events`, `social_programs`, `announcement`, and `law_regulation`).
-- **Fully local inference** — embedding, retrieval, and generation all run
-  on your machine via `llama-server`; only the one-time data-build pipeline
-  uses an external API (Gemini, for OCR of source PDFs and website PDFs).
-- **Hybrid retrieval** (FAISS dense search + BM25 lexical search, fused
-  via Reciprocal Rank Fusion) for improved recall on Khmer insurance
-  terminology that semantic search alone misses.
-- **Layered domain/relevance gating** before generation ever runs:
-  - Non-Khmer input is rejected instantly (no LLM call).
-  - Degenerate/too-short input is rejected instantly.
-  - Deterministic scope-violation gate blocks recommendation, pricing, and
-    personal-advice questions before retrieval.
-  - Low-similarity retrieval is rejected before an expensive generation
-    cycle starts, with the threshold calibrated against real test queries
-    (see [Configuration](#configuration) below).
-  - Borderline-confidence retrieval still generates, but with an extra
-    prompt instruction asking the model to double-check topical relevance
-    before answering, plus a visible "low confidence" warning in the UI.
-- **Live progress ladder** showing each pipeline phase (embedding, FAISS
-  search, BM25 search, RRF fusion, context building, generation) with
-  timing, plus a **Stop** button that can interrupt generation mid-stream.
-- **Per-answer diagnostics page** — every answer can be inspected for
-  retrieval scores (FAISS, BM25, and fused RRF per chunk), provenance
-  badges showing which retrieval engine surfaced each chunk, full chunk
-  text, token counts, and timing breakdown. Each answer's diagnostics has
-  its own address (`?view=diagnostics&msg=<message id>`), opened in a new
-  tab from the answer and reloadable on its own — the page looks the
-  message up in `chat_history.db` when the session doesn't hold it.
-- **Source citations** under every answer, listing the documents the
-  answer was drawn from. Each name links to that document's source PDF,
-  served straight from `data/01_source_documents/` (see
-  [Source PDF serving](#source-pdf-serving)).
-- **Conversation history** in a sidebar, persisted to SQLite
-  (`chat_history.db`, gitignored) so conversations survive a page refresh
-  and a server restart. New chat, rename, and delete; every message is
-  written through as it lands, so a crash loses at most the answer still
-  streaming.
-- **Embedding model comparison** — three models are benchmarked
-  (BGE-M3, multilingual-e5-large, MiniLM) with results saved to
-  `reports/embedding_model_comparison/`.
-- **Golden-question evaluation** — a Streamlit rating UI
-  (`scripts/11_human_golden_question_evaluation.py`) has humans score the
-  gold questions themselves (clarity, relevance, difficulty, answer quality,
-  uniqueness) to validate the test set, independent of the live chatbot —
-  **11 evaluators × 50 = 550 ratings over all 400 questions**.
-  `scripts/12_human_golden_question_evaluation_report.py` rolls those scores
-  and target-answer corrections into a report with per-question curation flags.
-- **Answer generation** — `scripts/13_generate_model_answers.py` runs all four
-  quantized LLMs over the 100 core gold questions and stores each
-  answer plus its latency to `reports/generator_model_comparison/`. It generates
-  only; it does not score.
-- **LLM-as-judge scoring** — every answer is scored on the five RAGAS metrics
-  **plus a separate hallucination flag** by an LLM judge, written back into the
-  same JSONL. `scripts/14_prepare_llm_judge_input.py` makes each file
-  self-contained (resolves the chunk ids to text, resets the metrics to 0) and
-  the rubric is `docs/llm_judge_prompt.md`.
-  `scripts/15_generate_comparison_report.py` then aggregates the judged files
-  into per-model summaries and a cross-model report naming the winner.
-- **Safety-gate evaluation** — the adversarial test set is replayed through
-  all three gates by `scripts/16_evaluate_safety_gates.py`.
-- **Data card** — `scripts/17_generate_data_card.py` rolls up the whole
-  pipeline into one JSON + Markdown card.
-
----
-
-## Architecture
-
-![Khmer Insurance Law Assistant — architecture: data-build pipeline (scripts 01–08), evaluation & reporting (scripts 09–17), and the live local RAG chatbot (start_chatbot.py → app.py)](assets/readme/architecture_overview.png)
-
-The diagram above reads in three stages:
-
-- **Stage A — Data-Build Pipeline (`01`–`08`):** raw source PDFs are OCR'd,
-  cleaned, merged, chunked, and embedded into the FAISS indices under
-  `vector_db/`. Run once, or whenever the corpus changes.
-- **Stage B — Evaluation & Reporting (`09`–`17`):** benchmarks the corpus and
-  models (embedding comparison, retrieval modes, answer generation, LLM-judge
-  scoring, human gold-set validation, safety gates) and rolls everything into a data card,
-  writing JSON + Markdown to `reports/`. This is where **BGE-M3 is selected
-  as the production retriever**; it does not affect the live app.
-- **Stage C — Live Chatbot (`start_chatbot.py` → `app.py`):** the fully-local
-  chat-time path — input gates, BGE-M3 embedding, hybrid FAISS + BM25 / RRF
-  retrieval, a score gate, context building, and streamed generation via
-  `llama-server`.
-
-### One question's path through Stage C
-
-![One question's journey: the free input-rule gate, hybrid retrieval, the relevance gate, then streamed generation — with the answer always delivered and qualified rather than withheld](assets/readme/chat_request_path.png)
-
-Both refusal points fire **before** generation, cheapest first. Nothing
-inspects or blocks a finished answer: once generation starts the answer is
-delivered, carrying a low-confidence banner when retrieval was weak and a
-permanent disclaimer in every case.
-
-### Hybrid retrieval
-
-![Semantic and lexical search run independently over the same corpus and are fused by Reciprocal Rank Fusion on rank position, so passages both methods rank highly rise to the top](assets/readme/hybrid_retrieval_rrf.png)
-
-Khmer legal text defeats each method alone: semantic search misses exact
-statutory terminology, lexical search misses paraphrased questions. RRF scores
-each passage by its *position* in each list, so the two incomparable scoring
-systems combine fairly and agreement between them is what gets rewarded.
-
-`start_chatbot.py` is the entry point for actually *using* the assistant:
-it launches `llama-server` with SeaLLM v3 7B, waits for it to report
-healthy, patches the browser tab's title/favicon, and then launches the
-Streamlit app. There is nothing to choose at startup — the generator
-(SeaLLM v3 7B) and the retriever (BGE-M3) are both fixed to the winners
-of the comparisons in `reports/`.
-
-The numbered scripts in `scripts/` are the **one-time (or as-needed) data
-pipeline** used to go from raw source PDFs to the `vector_db/` the app
-actually queries. You only need to re-run any of it if you're adding new
-source documents or rebuilding the corpus.
-
-> **Note on step `[07]` (merge chunked documents):** this step is mainly a
-> convenience, not a functional requirement. Chunking (`[06]`) writes one
-> JSON file *per document*, so the chunks for a single category are spread
-> across many files. Merging them into one file per category
-> (`data/08_merged_chunked_documents/<category>_chunks.json`) makes it easy
-> to (1) eyeball every chunk in a category at a glance — far more readable
-> than the `vector_db/` metadata JSON — and (2) author the per-category gold
-> questions in `data/09_evaluation/`, which need to reference chunk IDs.
-> The embedding step `[08]` reads these merged files, but it would produce a
-> byte-identical index reading the per-document `data/07_chunked_documents/`
-> instead — the merge changes nothing about the chunks themselves, only how
-> they're laid out on disk.
-
----
-
-## Project Structure
-
-```
-Insurance_Khmer_RAG/
-├── .env                             # GEMINI_API_KEY/GEMINI_API_KEYS for offline OCR only
-├── .gitignore
-├── README.md
-├── app.py                           # Streamlit chatbot
-├── history.py                       # SQLite store behind the conversation sidebar
-├── start_chatbot.py                 # Launches llama-server + app
-├── install_models.py                # Download/install model files
-├── requirements.txt
-├── chat_history.db                  # gitignored (local conversations)
-│
-├── .streamlit/
-│   └── config.toml                  # enables static serving for the source PDFs
-│
-├── static/                          # gitignored; hard links to the source PDFs,
-│   └── documents/                   # rebuilt at startup by publish_source_pdfs()
-│
-├── assets/
-│   ├── readme/                      # the 4 diagrams this README embeds,
-│   │   ├── demo.gif                 #   plus the demo recording
-│   │   ├── architecture_overview.png
-│   │   ├── chat_request_path.png
-│   │   ├── hybrid_retrieval_rrf.png
-│   │   └── evaluation_framework.png
-│   ├── research-paper/              # gitignored; the report's figure set
-│   │   └── ...
-│   └── logo/
-│       ├── favicon.png
-│       ├── irc-logo-transparent.png
-│       └── logo.png
-│
-├── docs/
-│   ├── adversarial_test_set.md
-│   ├── evaluation_methodology.md
-│   ├── generation_robustness_and_parity.md  # eval/app.py parity + generation fixes
-│   ├── gold_questions_methodology.md
-│   ├── llm_judge_prompt.md              # RAGAS + hallucination judging rubric
-│   └── rag_project_audit.md             # RAG audit and handoff notes
-│
-├── data/
-│   ├── 00_irc_website_scrape/       # gitignored website crawl/download cache
-│   ├── 01_source_documents/         # Raw PDFs/assets, by category
-│   │   ├── home/
-│   │   ├── insurance_institutions/
-│   │   ├── knowledge/
-│   │   ├── publication/
-│   │   ├── public_service/
-│   │   ├── statistics/
-│   │   ├── guidance/
-│   │   ├── laws/
-│   │   ├── prakas/
-│   │   └── sub_decrees/
-│   │
-│   ├── 02_page_images/              # Original PDF pages rendered to PNG
-│   ├── 02_page_images_irc_gemini/   # gitignored rendered pages for website PDFs
-│   ├── 03_raw_pages/                # Gemini OCR output for original PDFs
-│   ├── 03_raw_pages_irc_gemini/     # gitignored Gemini OCR for website PDFs
-│   ├── 04_cleaned_pages/            # Page-level cleanup
-│   ├── 05_merged_documents/         # Pages stitched into documents
-│   ├── 06_cleaned_documents/        # Document-level cleanup
-│   ├── 07_chunked_documents/        # Per-category chunks
-│   ├── 08_merged_chunked_documents/ # Merged chunk files for embedding
-│   ├── 09_evaluation/               # Gold questions by category
-│   ├── 10_adversarial/              # Safety/refusal test cases
-│   │   ├── recommendation_questions.json
-│   │   ├── pricing_questions.json
-│   │   ├── personal_advice_questions.json
-│   │   └── out_of_domain_questions.json
-│   └── document_metadata.json
-│
-├── reports/
-│   ├── embedding_model_comparison/
-│   │   ├── embedding_model_comparison.json
-│   │   └── embedding_model_comparison.md
-│   ├── retrieval_mode_comparison/
-│   │   ├── retrieval_mode_comparison.json
-│   │   └── retrieval_mode_comparison.md
-│   ├── human_golden_question_evaluation/
-│   │   ├── human_golden_question_evaluation.db   # gitignored (local scores)
-│   │   └── human_golden_question_evaluation_report.{json,md}
-│   ├── generator_model_comparison/
-│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M/   # answers JSONL (judged in place)
-│   │   │   ├── generated_answer_results.jsonl
-│   │   │   └── generated_answer_results_summary.{json,md}
-│   │   ├── Qwen3.5-9B-Q4_K_M/
-│   │   ├── Sailor2-L-8B-Chat-Q4_K_M/
-│   │   ├── Llama-3.1-8B-Instruct-Q4_K_M/
-│   │   └── generator_model_comparison.{json,md}   # cross-model + winner
-│   ├── safety_gate_evaluation/
-│   │   ├── safety_gate_results.jsonl        # per-question gate decisions
-│   │   └── safety_gate_evaluation.{json,md}
-│   └── data_card/
-│       └── data_card.{json,md}
-│
-├── models/
-│   ├── generator/
-│   │   ├── .cache/
-│   │   ├── SeaLLMs-v3-7B-Chat-Q4_K_M.gguf
-│   │   ├── Qwen3.5-9B-Q4_K_M.gguf
-│   │   ├── Sailor2-L-8B-Chat-Q4_K_M.gguf
-│   │   └── Llama-3.1-8B-Instruct-Q4_K_M.gguf
-│   └── retriever/
-│       ├── .cache/                  # Hugging Face cache
-│       ├── BAAI-BGE-M3/
-│       ├── multilingual-e5-large/
-│       └── MiniLM-paraphrase-multilingual-L12-v2/
-│
-├── scripts/
-│   ├── 00_scrape_irc_website.py
-│   ├── 00c_extract_irc_pdf_text_gemini.py
-│   ├── 01_convert_pdf_to_png.py
-│   ├── 02_extract_text_gemini.py
-│   ├── 03_clean_pages.py
-│   ├── 04_merge_documents.py
-│   ├── 05_clean_documents.py
-│   ├── 06_chunk_documents.py
-│   ├── 07_merge_chunked_documents.py
-│   ├── 08_generate_embeddings.py
-│   ├── 09_compare_embedding_models.py
-│   ├── 10_compare_retrieval_modes.py
-│   ├── 11_human_golden_question_evaluation.py
-│   ├── 12_human_golden_question_evaluation_report.py
-│   ├── 13_generate_model_answers.py
-│   ├── 14_prepare_llm_judge_input.py
-│   ├── 15_generate_comparison_report.py
-│   ├── 16_evaluate_safety_gates.py
-│   ├── 17_generate_data_card.py
-│   ├── 18_export_chat_feedback.py
-│   ├── 19_rag_smoke_tests.py
-│   ├── 20_reclassify_website_categories.py
-│   ├── 22_rag_quality_audit.py
-│   └── irc_website_categories.py
-│
-└── vector_db/
-    ├── BAAI-BGE-M3/                 # Production index (default)
-    │   ├── khmer_insurance.index
-    │   ├── khmer_insurance_metadata.json
-    │   └── embedding_model_info.json
-    ├── multilingual-e5-large/       # Alternative index (comparison only)
-    │   ├── khmer_insurance.index
-    │   ├── khmer_insurance_metadata.json
-    │   └── embedding_model_info.json
-    └── MiniLM-paraphrase-multilingual-L12-v2/ # Alternative index (comparison only)
-        ├── khmer_insurance.index
-        ├── khmer_insurance_metadata.json
-        └── embedding_model_info.json
+```sh
+source .venv/bin/activate
+python start_chatbot.py
 ```
 
-**What's committed vs. generated locally:**
+The launcher checks the local models and index, starts llama-server, and opens
+the Streamlit application. With a generator already running:
 
-- **`data/01_source_documents/` and `data/03_raw_pages/` are committed.**
-  The original 49 source PDFs and their Gemini OCR text are kept in version
-  control deliberately — OCR costs real money per page, so once it's done it's
-  checked in rather than left to be re-paid-for.
-- **The website crawl/OCR caches are generated locally.**
-  `data/00_irc_website_scrape/`, `data/02_page_images_irc_gemini/`, and
-  `data/03_raw_pages_irc_gemini/` are gitignored. The committed `vector_db/`
-  already includes the website-expanded corpus, so these caches are needed
-  only when refreshing or rebuilding website-derived data.
-- **The intermediate pipeline stages `data/02_page_images/`,
-  `04_cleaned_pages/`, `05_merged_documents/`, `06_cleaned_documents/`,
-  `07_chunked_documents/`, and `08_merged_chunked_documents/` are gitignored**
-  (kept as `.gitkeep` placeholders). These are deterministic derivatives of the
-  source/OCR inputs. Note that `08_merged_chunked_documents/` is an input to
-  `08_generate_embeddings.py` and `17_generate_data_card.py`, so on a fresh
-  clone you must re-run the relevant pipeline stages before rebuilding either
-  embeddings or the data card — see
-  [Rebuilding the Corpus](#rebuilding-the-corpus-optional).
-- **`data/09_evaluation/` and `10_adversarial/` are committed** — the gold
-  questions and the adversarial test set are inputs the evaluation scripts
-  need.
-- **`models/` is entirely gitignored.** Run `python install_models.py`
-  on a fresh clone to download models.
-- **`vector_db/` is committed.** The FAISS indices for all three embedding
-  models ship with the repo so the chatbot works immediately after cloning
-  + installing models.
-- **`reports/` are committed** as the evaluation deliverables (JSON +
-  Markdown), except the locally-generated human-evaluation SQLite database
-  `reports/human_golden_question_evaluation/*.db`, which is gitignored.
-
----
-
-## Prerequisites
-
-- **Python 3.11**
-- **`llama.cpp`** with `llama-server` on your `PATH`
-  (`brew install llama.cpp` on macOS, or build from source)
-- **At least 16 GB RAM** — 8 GB machines are extremely slow or may fail
-- **~15 GB free disk space** for the embedding models + one generator
-  model (more space if you install more than one generator model)
-- A **Gemini API key** — only needed for offline OCR scripts when adding or
-  refreshing PDFs; not required to run the chatbot. Website PDF OCR can rotate
-  multiple comma-separated keys through `GEMINI_API_KEYS`.
-- (Optional but recommended) Apple Silicon or a CUDA GPU — `start_chatbot.py`
-  launches `llama-server` with `-ngl 999` for full GPU offload
-
----
-
-## Setup
-
-```bash
-# 1. Clone and enter the project
-git clone https://github.com/samlyheng/Insurance_Khmer_RAG.git
-cd Insurance_Khmer_RAG
-
-# 2. Create and activate a virtual environment
-python3.11 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. (Only if rebuilding corpus from new source PDFs/website PDFs) Add Gemini key(s)
-echo "GEMINI_API_KEY=your-key-here" > .env
-# For website PDF OCR with key rotation:
-# echo "GEMINI_API_KEYS=key1,key2,key3" > .env
-
-# 5. Download models
-python install_models.py
+```sh
+streamlit run app.py
 ```
 
-`install_models.py` will ask which embedding model(s) and
-generator model to download:
+For a fresh checkout, create a virtual environment and install
+`requirements.txt`. Run `python install_models.py` to install the required
+local models. The active index lives in `vector_db/BAAI-BGE-M3/`; the embedding
+model must match the model recorded in `embedding_model_info.json`.
 
-**Embedding models** (choose one or more; all three are needed for the
-embedding comparison report):
+## Project Layout
 
-| Choice | Model | Size | Use |
-|---|---|---|---|
-| 1 | BAAI/bge-m3 | ~2.1 GB | Production retriever (default) |
-| 2 | intfloat/multilingual-e5-large | ~1.1 GB | Comparison only |
-| 3 | paraphrase-multilingual-MiniLM-L12-v2 | ~470 MB | Comparison only |
-
-**Generator models** — the chatbot always runs **SeaLLM v3 7B**, so
-choice 1 is the only one required to use the assistant. The other three
-are needed only to re-run the generator comparison
-(`scripts/13_generate_model_answers.py`):
-
-| Choice | Model | Size | Use |
-|---|---|---|---|
-| 1 | SeaLLM v3 7B Q4_K_M | 4.68 GB | **Production generator (required)** |
-| 2 | Qwen 3.5 9B Q4_K_M | 5.68 GB | Comparison only |
-| 3 | Sailor2-L 8B Chat Q4_K_M (128K ctx) | 5.24 GB | Comparison only |
-| 4 | Llama 3.1 8B Instruct Q4_K_M | 4.92 GB | Comparison only |
-
-Embedding models are downloaded into `models/retriever/.cache/` (one copy,
-no duplication) and generator GGUFs into `models/generator/`. Re-running the
-installer safely skips anything already downloaded.
-
----
-
-## Running the Chatbot
-
-```bash
-./run_chatbot.sh
+```text
+app.py                    Streamlit entry point
+start_chatbot.py          Local model/server launcher
+install_models.py        Model installation
+khmer_rag/
+  bootstrap.py           Environment and logging setup
+  config.py              Runtime settings and project paths
+  language.py            Khmer greetings and tokenization
+  policy.py              Scope checks
+  text.py                Source and answer text cleanup
+  answers.py             Source-specific website answer rules
+  provisions.py          Verbatim legal provision lookup
+  pipeline.py            Retrieval-to-answer orchestration
+  storage.py             SQLite conversations and feedback
+  categories.py          Shared IRC category definitions
+  sources.py             Document IDs and source labels
+  retrieval/             Search, ranking, and context selection
+  generation/            Prompts, token limits, and streaming client
+  ui/                    Streamlit pages, session state, and resource caches
+assets/ui/               CSS and browser scripts
+scripts/                 Numbered data and evaluation commands
+tests/                   Offline regression tests
+data/                    Source documents and processing outputs
+vector_db/               Generated retrieval indexes
+reports/                 Recorded evaluation results
+docs/                    Architecture, research, and operations notes
 ```
 
-If you prefer to call Python directly after activating `.venv`, use
-`python start_chatbot.py`.
-
-This will:
-1. Check that SeaLLM v3 7B and the `vector_db/BAAI-BGE-M3/` index are
-   both present, failing immediately (with the command that fixes it) if
-   either is missing.
-2. Start `llama-server` on `localhost:8080` and wait for it to report
-   healthy (up to 120 seconds).
-3. Launch the Streamlit app on `localhost:8501` and open it in your
-   browser.
-
-There is no model selection — the generator and retriever are fixed to
-the models that won the comparisons in `reports/`.
-
-The vector database in `vector_db/` is already committed — you do **not**
-need to run the data pipeline to use the chatbot.
-
-Current BGE-M3 corpus snapshot: 3,236 chunks across 857 documents, including
-1,801 category-aware website-derived chunks and the original 49 source PDFs. Run
-`python scripts/19_rag_smoke_tests.py` and `python scripts/22_rag_quality_audit.py`
-to verify this before a demo.
-
-The active embedding model is controlled by `ACTIVE_EMBEDDING_MODEL_DIR`
-at the top of `app.py` (default: `"BAAI-BGE-M3"`). To switch to a
-different model's index, change this constant to the corresponding folder
-name and restart the app — no pipeline re-run needed since all three
-indices are already in `vector_db/`.
-
----
-
-## Evaluation Framework
-
-![Everything measures against one validated gold set: 11 evaluators produced 550 ratings over 400 questions, and their corrections flow back into the set before the retrieval, generation and safety tracks use it](assets/readme/evaluation_framework.png)
-
-The gold question set is the measuring stick, so it was validated before it
-measured anything. Note that the generation track is judged by a machine while
-the question set was judged by people — different kinds of evidence, carrying
-different weight. The hallucination flag is deliberately kept **out** of the
-combined quality score.
-
----
-
-## Evaluation Scripts
-
-These scripts are run once after the pipeline completes. They do not
-affect the live chatbot. Each writes both JSON (machine-readable) and
-Markdown (human-readable) into its folder under `reports/`.
-
-```bash
-# Fast local corpus/retrieval smoke test (no llama-server, no Gemini)
-python scripts/19_rag_smoke_tests.py
-
-# Embedding model comparison (BGE-M3 vs. e5-large vs. MiniLM)
-# Requires all three models installed and all three indices to exist
-python scripts/09_compare_embedding_models.py
-
-# Retrieval quality (hybrid vs. dense, all categories)
-python scripts/10_compare_retrieval_modes.py
-
-# Golden-question evaluation — Streamlit UI to rate the gold questions themselves
-# (validates the test set; independent of the generator/chatbot)
-python scripts/11_human_golden_question_evaluation.py   # collect scores + corrections
-python scripts/12_human_golden_question_evaluation_report.py  # aggregate + curation flags
-
-# Answer generation for all four models (requires llama-server; ~6h, resumable)
-python scripts/13_generate_model_answers.py
-
-# LLM-as-judge scoring (RAGAS + hallucination) — no llama-server needed
-python scripts/14_prepare_llm_judge_input.py    # score context_relevance, reset the rest to 0
-# then follow docs/llm_judge_prompt.md — the judge scores each JSONL in place
-python scripts/15_generate_comparison_report.py # summaries + winner
-
-# Safety-gate evaluation against the adversarial set (requires llama-server)
-python scripts/16_evaluate_safety_gates.py
-
-# Data card — rolls up every artifact above into one card
-python scripts/17_generate_data_card.py
-
-# Export copy/like/dislike feedback from chat_history.db
-python scripts/18_export_chat_feedback.py
-```
-
----
-
-## Embedding Model Comparison — Key Finding
-
-`scripts/09_compare_embedding_models.py` benchmarks three multilingual
-embedding models on the **full 400-question gold set** (guidance 100,
-laws 75, prakas 150, sub-decrees 75; dense-only retrieval, no BM25/RRF).
-The macro-averaged @5 results across all four document categories are:
-
-| Metric | BAAI/bge-m3 | intfloat/multilingual-e5-large | paraphrase-multilingual-MiniLM-L12-v2 |
-|---|---|---|---|
-| Hit Rate @5 | **0.9658** | 0.6633 | 0.0108 |
-| Recall @5 | **0.9658** | 0.6633 | 0.0108 |
-| MRR @5 | **0.8684** | 0.5485 | 0.0072 |
-| File Hit Rate @5 | **0.9825** | 0.9142 | 0.1633 |
-
-**Why MiniLM scores near-zero on Hit Rate, Recall, and MRR:**
-MiniLM-L12-v2 (118M parameters, 384-dim embeddings) is too small and
-insufficiently trained on Khmer script to produce semantically
-discriminative embeddings for Khmer legal text.
-
-Its scores are also heavily compressed. All top-10 retrieved chunks fall
-between **0.9587 and 0.9706** for a typical Khmer insurance law question —
-a spread of ~0.012 — where BGE-M3 spans **0.6509–0.7718** on the same
-question. Measured across all 400 gold questions, the mean top-1-to-top-10
-spread is **0.021** for MiniLM against **0.104** for BGE-M3.
-
-**Compression alone does not explain the failure, and it should not be
-quoted as the cause.** multilingual-e5-large compresses just as hard — mean
-spread **0.020**, only 0.001 narrower than MiniLM's 0.021 — yet it reaches
-Hit Rate @5 of **0.6633** against MiniLM's **0.0108**. A 0.001 difference in
-spread alongside a 65-point difference in Hit @5 rules compression out as the
-mechanism: a narrow band of scores is plainly compatible with usable
-retrieval. What separates the two is whether the *ordering within* that band
-carries signal — e5's residual ordering is informative, MiniLM's is not.
-Compression is a symptom of the capacity and Khmer-coverage gap, not the
-route by which ranking fails.
-
-This is plotted per model and per rank, with Hit @5 on each panel, as
-`chart 01 - fig_embedding_score_spread.png` among the report figures.
-
-The non-zero File Hit Rate @5 for MiniLM (0.16 macro-avg) confirms the
-model is not completely blind — it occasionally retrieves chunks from the
-right *document* by chance — but chunk-level precision is zero because
-random ranking within a document is not useful for RAG.
-
-**BGE-M3 is selected as the production retriever** based on these
-results. Its substantially higher Hit Rate, Recall, and MRR across all
-four document categories — combined with its purpose-built multilingual
-training that explicitly covers Southeast Asian languages — make it the
-clear choice for Khmer insurance law retrieval.
-
----
-
-## Generator Model Comparison — Key Finding
-
-`scripts/13_generate_model_answers.py` runs all four quantized generators
-over the **100 core gold questions**; an LLM judge
-(Gemini 3.6 Flash, high effort) then scores each answer against its
-`expected_answer`, and `scripts/15_generate_comparison_report.py`
-aggregates the result.
-
-| Model | Combined (1–5) | Hallucinated | Truncated |
-|---|---|---|---|
-| **SeaLLM v3 7B** | **4.8815** | **5** | 0 |
-| Sailor2-L 8B | 4.7865 | 16 | 4 |
-| Llama-3.1 8B | 4.4930 | 7 | 26 |
-| Qwen3.5 9B | 4.2280 | 55 | 32 |
-
-**SeaLLM v3 7B is the shipped generator** — it leads on the weighted
-combined score *and* has the lowest hallucination rate.
-
-Two caveats worth reading alongside the table:
-
-- **Score and hallucination rate disagree in the middle.** Sailor2-L
-  outscores Llama-3.1 by 0.29 while fabricating more than twice as often.
-  Hallucination is deliberately kept out of the combined score, so the
-  ranking alone does not tell you this.
-- **Hallucination counts are an upper bound.** They are judged against the
-  gold answer rather than the retrieved context, so a detail correctly
-  taken from the source document but omitted from the gold answer still
-  counts. Verbose models — Qwen especially — are the most exposed. Each
-  flag carries the quoted span in the per-model summary, so individual
-  cases can be checked.
-
-Judge self-consistency was measured by scoring the same 100 answers twice:
-85–96% exact agreement per metric, 98–100% within ±1, and the model-level
-mean moved only 4.864 → 4.881.
-
----
-
-## Rebuilding the Corpus (optional)
-
-Since `data/01_source_documents/` and `data/03_raw_pages/` are already
-committed, a typical original-PDF rebuild starts at step 3 — the paid OCR
-step only runs again when adding genuinely new source PDFs. Website-derived
-data is refreshed separately with scripts `00` and `00c`.
-
-| Script | What it does | When needed |
-|---|---|---|
-| `00_scrape_irc_website.py` | Crawls `irc.gov.kh`, saves page text for the corpus, and downloads linked files | When refreshing website-derived data |
-| `00c_extract_irc_pdf_text_gemini.py` | OCRs downloaded website PDFs via Gemini, with optional multi-key rotation | New/refreshed website PDFs only |
-| `20_reclassify_website_categories.py` | Moves existing website-derived docs from the legacy `website` bucket into IRC section folders | After website scraping/OCR, or when category rules change |
-| `01_convert_pdf_to_png.py` | Renders PDF pages to PNG | New source PDFs only |
-| `02_extract_text_gemini.py` | OCRs each PNG via Gemini (paid API) | New source PDFs only |
-| `03_clean_pages.py` | Strips OCR artifacts per category | Any rebuild |
-| `04_merge_documents.py` | Stitches cleaned pages into full documents | Any rebuild |
-| `05_clean_documents.py` | Document-level cleanup, abbreviation expansion | Any rebuild |
-| `06_chunk_documents.py` | Legal-unit / heading-hierarchy chunking | Any rebuild |
-| `07_merge_chunked_documents.py` | Merges per-category chunks into unified files | Any rebuild |
-| `08_generate_embeddings.py` | Builds FAISS indices for all installed models | Any rebuild |
-| `10_compare_retrieval_modes.py` | Measures retrieval quality on gold questions | Any rebuild |
-| `22_rag_quality_audit.py` | Verifies production index shape, category coverage, chunk sizes, and text hygiene | Before demos and after corpus rebuilds |
-
-```bash
-# Optional: add/refresh website-derived IRC pages first
-python scripts/00_scrape_irc_website.py
-python scripts/00c_extract_irc_pdf_text_gemini.py
-python scripts/20_reclassify_website_categories.py
-
-# Typical rebuild (starting from committed OCR output):
-python scripts/03_clean_pages.py
-python scripts/04_merge_documents.py
-python scripts/05_clean_documents.py
-python scripts/06_chunk_documents.py
-python scripts/07_merge_chunked_documents.py
-
-# Step 08 rebuilds a model when merged chunks are newer than its index
-python scripts/08_generate_embeddings.py
-
-python scripts/19_rag_smoke_tests.py
-python scripts/22_rag_quality_audit.py
-python scripts/10_compare_retrieval_modes.py
-```
-
-**Note on Gemini OCR:** `02_extract_text_gemini.py` handles the original 49
-PDF corpus. `00c_extract_irc_pdf_text_gemini.py` handles website-downloaded
-PDFs and supports `GEMINI_API_KEYS=key1,key2,key3` for quota rotation. OCR runs
-against a paid API, so keep `.env` local and never commit keys.
-
----
-
-## Source PDF serving
-
-Each document cited under an answer links to its own PDF.
-
-Streamlit's static directory is not configurable — `file_util.py` pins it to
-`<script dir>/static` — so `data/01_source_documents/` cannot be served
-directly. `publish_source_pdfs()` in `app.py` therefore **hard links** every
-PDF into `static/documents/` at startup: same inode, second name, **no extra
-disk** for the ~195 MB corpus. It is not a second copy of the data.
-
-Symlinks do not work as a substitute — Streamlit rejects a static path that
-resolves outside the static directory, so a symlink into `data/` returns
-HTTP 400 while a hard link serves normally. The directory is refreshed once
-per server start, which picks up newly added documents and relinks any whose
-source PDF was replaced, and `static/` is gitignored.
-
-This needs `enableStaticServing` in `.streamlit/config.toml`; without it
-the names still render, just without links. A document whose PDF is
-missing is listed without a link rather than failing the answer.
-
----
+`history.py` and `scripts/irc_website_categories.py` preserve the old import
+paths. New code imports `khmer_rag.storage` and `khmer_rag.categories` directly.
+The existing data folders, script names, SQLite schema, and model paths remain
+compatible with the student's workflow.
 
 ## Configuration
 
-### Hosted generator
+Settings live in `khmer_rag/config.py`. The app loads `.env` at startup; it is
+not committed. Environment variables take precedence over `.env` values.
 
-The default local setup expects `llama-server` at `http://localhost:8080/v1`.
-On Railway, Streamlit Community Cloud, Hugging Face Spaces, or any other hosted
-CPU service, that localhost process does not exist unless you run a second
-generator server in the same deployment. For a free/low-cost hosted demo, keep
-retrieval in this Streamlit app and send generation to an OpenAI-compatible API.
+| Setting | Purpose |
+| --- | --- |
+| `GENERATOR_BASE_URL` | OpenAI-compatible endpoint; local default is `http://localhost:8080/v1` |
+| `GENERATOR_MODEL` | Model ID served by that endpoint |
+| `GENERATOR_API_KEY` | Hosted generator credential |
+| `EMBEDDING_LOCAL_FILES_ONLY` | Require embeddings to load from the local cache |
+| `HF_HOME` | Optional model cache location |
+| `LOG_LEVEL` | Console logging level, normally `INFO` |
 
-On Railway, the app defaults to Gemini's OpenAI-compatible endpoint, so the
-only required variable is:
+Hosted deployments should set the model ID explicitly. Gemini credentials used
+for PDF extraction are separate from the chat generator configuration. The
+runtime also accepts the existing Gemini and OpenAI environment aliases.
 
-```bash
-GENERATOR_API_KEY=<your Gemini API key>
+## Development Checks
+
+The fast tests use fake generators and temporary databases. They do not start
+the chatbot server, call external APIs, download models, or alter your corpus.
+
+```sh
+python -m pip install -r requirements-test.txt -r requirements-dev.txt
+python -m unittest discover -s tests -v
+ruff check .
+ruff format --check .
 ```
 
-For clarity, you can also set the full hosted configuration explicitly:
+Tests cover module boundaries, Khmer greetings, exact provision lookup,
+retrieval ranking, queue events, streaming cancellation, provider options,
+feedback persistence, and Streamlit rendering. CI runs the same fast checks.
 
-```bash
-GENERATOR_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-GENERATOR_MODEL=gemini-3.7-flash
-GENERATOR_API_KEY=<your Gemini API key>
-EMBEDDING_LOCAL_FILES_ONLY=false
+For a model-backed corpus check, run this separately with BGE-M3 installed:
+
+```sh
+python scripts/19_rag_smoke_tests.py
 ```
 
-If `GENERATOR_API_KEY` is not set, the app also accepts `GEMINI_API_KEY`,
-`GOOGLE_API_KEY`, or the first comma-separated value in `GEMINI_API_KEYS`.
-Keep keys in deployment secrets or local `.env`; never commit them.
+See [architecture and debugging](docs/architecture.md) for the request flow,
+module ownership, troubleshooting, and known limitations. See the
+[script guide](scripts/README.md) for dataset and evaluation commands.
 
-`EMBEDDING_LOCAL_FILES_ONLY=false` is important on hosts such as Railway
-because the local `models/retriever/.cache/` directory is intentionally not
-committed to GitHub. The app will download BGE-M3 into the container cache on
-startup. Local development defaults to offline loading from the existing cache.
+## Evaluation Status
 
-The main tunable constants live at the top of `app.py`:
+The original experiments are preserved in `reports/` and the
+[experiment guide](docs/experiment-guide.md). Those scores describe their
+recorded corpus, models, and configuration; they are not new quality measurements
+for this refactor. Evaluation commands now import shared runtime helpers, but
+their model comparisons and gold-answer token budgets remain experiment-specific.
 
-| Constant | Default | What it controls |
-|---|---|---|
-| `ACTIVE_EMBEDDING_MODEL_DIR` | `"BAAI-BGE-M3"` | Which vector_db subfolder the app loads at startup |
-| `TOP_K` | 15 | How many chunks FAISS retrieves; also shown in the diagnostics page |
-| `CONTEXT_K` | 6 | How many of those actually go into the LLM prompt (<= TOP_K) |
-| `MAX_CHUNKS_PER_DOC` | 2 | Caps near-duplicate chunks from the same document in context |
-| `RRF_K` | 60 | Reciprocal Rank Fusion constant (Cormack et al. 2009) |
-| `MIN_SCORE` | 0.49 | Below this, answers are flagged "low confidence" in the UI |
-| `OUT_OF_DOMAIN_THRESHOLD` | 0.49 | Below this, generation is skipped and the user gets an instant refusal |
-| `MIN_QUESTION_LENGTH` | 8 | Questions shorter than this are rejected without embedding |
-
-These same knobs are duplicated in `scripts/13_generate_model_answers.py`
-and `scripts/16_evaluate_safety_gates.py` so each script stays runnable
-standalone — change one and update the others, or the reports will
-describe a pipeline the live chatbot no longer runs.
-
-`OUT_OF_DOMAIN_THRESHOLD` was tuned empirically against real chit-chat
-and off-topic test queries — if you change the corpus, re-validate it
-against `data/10_adversarial/` before trusting it.
-
-`start_chatbot.py` configures `llama-server` with:
-- `--ctx-size 16384` — must exceed your typical prompt size; raise this
-  if you increase `CONTEXT_K` significantly
-- `--flash-attn on` and `--cache-type-k/v q8_0` — performance tuning for
-  the 8–15k token prompts this app typically sends
-
----
-
-## Gold Questions Schema
-
-`data/09_evaluation/*/gold_questions.json` is a JSON array whose every entry
-uses the following schema (all five fields are present on all current gold
-questions):
-
-```json
-{
-  "question_id": "guidance_qid_001",
-  "question": "...",
-  "expected_chunks": ["chunk_id_1", "chunk_id_2"],
-  "context": "...",
-  "expected_answer": "..."
-}
-```
-
-- `question_id` is the stable identifier — `<category>_qid_<nnn>` — that every
-  evaluation keys results by (scripts `11`–`16`).
-- `expected_chunks` is used by `09_compare_embedding_models.py` and
-  `10_compare_retrieval_modes.py` to measure whether the retriever surfaces
-  the right source material.
-- `context` is the text of those expected chunks, shown to the human
-  evaluators in `11_human_golden_question_evaluation.py` so they can judge the
-  question against its source. It is not fed to the retriever or the model.
-- `expected_answer` is used by the LLM judge (see `docs/llm_judge_prompt.md`) to
-  score the generated answers — questions without this field are skipped.
-
----
-
-## Troubleshooting
-
-- **`llama-server not found`** — install `llama.cpp` and make sure
-  `llama-server` is on your `PATH`.
-- **First response is much slower than later ones** — expected.
-  `llama-server`'s prompt cache warms up on shared prefixes; subsequent
-  questions in the same session are typically much faster.
-- **VSCode shows "Import could not be resolved" for everything despite
-  the app running fine in the terminal** — Pylance is analyzing the wrong
-  Python interpreter. `Cmd/Ctrl+Shift+P` → `Python: Select Interpreter`
-  → choose the one under `.venv/bin/python`, then reload the window.
-- **A brief "Streamlit" tab title flash on first launch only** — a
-  Chromium browsing-history quirk, not something the app controls.
-- **Source documents under an answer aren't links** — `enableStaticServing`
-  isn't on. Confirm `.streamlit/config.toml` exists and restart; the app
-  reads it only at startup.
-- **Old conversations disappeared** — `chat_history.db` lives in the project
-  root and is gitignored, so it is per-machine and not carried by a clone or
-  a pull. Deleting it clears every stored conversation.
-- **`No precomputed index` error when running `09_compare_embedding_models.py`**
-  — run `python scripts/08_generate_embeddings.py` first to build the
-  indices for all three models, then retry.
-- **Changing the active embedding model** — edit `ACTIVE_EMBEDDING_MODEL_DIR`
-  in `app.py` to one of `"BAAI-BGE-M3"`, `"multilingual-e5-large"`, or
-  `"MiniLM-paraphrase-multilingual-L12-v2"`, then restart the app.
-  The corresponding index must already exist in `vector_db/`.
-- **MiniLM scores 0.0000 on Hit Rate / Recall / MRR in the embedding
-  comparison** — this is not a bug. See
-  [Embedding Model Comparison — Key Finding](#embedding-model-comparison--key-finding)
-  above for the full explanation. In short: MiniLM cannot discriminate
-  between Khmer legal texts and produces near-identical similarity scores
-  for all chunks (~0.958–0.971), making its ranking essentially random.
+Code restructuring does not certify factual accuracy. Corpus coverage, OCR
+quality, year-specific statistics, and generated answers still require evaluation
+against verified source documents.

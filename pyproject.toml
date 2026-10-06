@@ -1,0 +1,19 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+include = [
+    "app.py", "history.py", "start_chatbot.py", "khmer_rag/**/*.py", "tests/**/*.py",
+    "scripts/10_compare_retrieval_modes.py", "scripts/13_generate_model_answers.py",
+    "scripts/16_evaluate_safety_gates.py", "scripts/19_rag_smoke_tests.py",
+    "scripts/irc_website_categories.py",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["khmer_rag"]
+
+[tool.ruff.lint.per-file-ignores]
+# Script entry points configure paths and OpenMP before model imports.
+"scripts/*.py" = ["E402"]

@@ -1,12 +1,24 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from khmer_rag.bootstrap import configure_runtime
+
+configure_runtime()
+
+# Shared runtime rules; historical reports retain their original results.
 import json
 import os
-import re
 import time
+
 import faiss
 import numpy as np
-from pathlib import Path
-from tabulate import tabulate
 from rank_bm25 import BM25Okapi
+from tabulate import tabulate
+
+from khmer_rag.config import RRF_K
+from khmer_rag.language import khmer_aware_tokenize
 
 # Set HF_HOME before any HF import -- models live in retriever/.cache/,
 # loaded by Hub ID. See install_models.py for the full explanation.
@@ -32,43 +44,6 @@ MAX_K = max(EVAL_KS)
 # ----------------------------------------------------------------------------
 # Hybrid retrieval (BM25 + FAISS, Reciprocal Rank Fusion)
 # ----------------------------------------------------------------------------
-RRF_K = 60
-NGRAM_SIZE = 3
-
-KHMER_SCRIPT_PATTERN = re.compile(r"[ក-៿]")
-# Mirrors app.py:69/83/87/92. These were missing here, so this script's BM25 was
-# weaker than production's -- no article-reference boost, no digit-run
-# extraction -- which understated the hybrid arm of the very comparison this
-# script exists to measure. Kept byte-identical to app.py and scripts/13/16.
-DIGIT_RUN_PATTERN = re.compile(r"[០១២៣៤៥៦៧៨៩0-9]+")
-ARTICLE_REF_PATTERN = re.compile(r"(មាត្រា|ប្រការ)\s*([០១២៣៤៥៦៧៨៩0-9]+)")
-ARTICLE_REF_BOOST = 20
-_ARABIC_TO_KHMER = str.maketrans("0123456789", "០១២៣៤៥៦៧៨៩")
-
-
-def to_khmer_digits(s):
-    """Mirrors app.py:90 -- the corpus writes provision numbers in Khmer
-    digits, so an Arabic-digit query has to be normalised to match."""
-    return s.translate(_ARABIC_TO_KHMER)
-
-
-def khmer_aware_tokenize(text):
-    tokens = []
-    for keyword, ref_num in ARTICLE_REF_PATTERN.findall(text):
-        tokens.extend([keyword + to_khmer_digits(ref_num)] * ARTICLE_REF_BOOST)
-    for word in text.split():
-        if KHMER_SCRIPT_PATTERN.search(word):
-            for digit_run in DIGIT_RUN_PATTERN.findall(word):
-                tokens.append(digit_run)
-            chars = list(word)
-            if len(chars) < NGRAM_SIZE:
-                tokens.append(word)
-            else:
-                for i in range(len(chars) - NGRAM_SIZE + 1):
-                    tokens.append("".join(chars[i : i + NGRAM_SIZE]))
-        else:
-            tokens.append(word.lower())
-    return tokens
 
 
 def reciprocal_rank_fusion(rankings, k=RRF_K):
@@ -93,8 +68,7 @@ def reciprocal_rank_fusion(rankings, k=RRF_K):
 # Check vector_db subfolder exists
 if not Path(INDEX_PATH).exists():
     raise FileNotFoundError(
-        f"FAISS index not found at {INDEX_PATH}.\n"
-        "Run: python scripts/08_generate_embeddings.py"
+        f"FAISS index not found at {INDEX_PATH}.\nRun: python scripts/08_generate_embeddings.py"
     )
 
 print("Loading embedding model...")
@@ -109,8 +83,7 @@ with open(METADATA_PATH, "r", encoding="utf-8") as f:
 
 print("Building BM25 index...")
 bm25_corpus_tokens = [
-    khmer_aware_tokenize(chunk.get("embedding_text") or chunk["text"])
-    for chunk in chunks
+    khmer_aware_tokenize(chunk.get("embedding_text") or chunk["text"]) for chunk in chunks
 ]
 bm25_index = BM25Okapi(bm25_corpus_tokens)
 
@@ -221,9 +194,7 @@ def evaluate_retrieval(retrieve_fn):
 
             retrieved_results = retrieve_fn(question)
             retrieved_chunk_ids = [result["chunk_id"] for result in retrieved_results]
-            retrieved_document_ids = [
-                result["document_id"] for result in retrieved_results
-            ]
+            retrieved_document_ids = [result["document_id"] for result in retrieved_results]
 
             for k in EVAL_KS:
                 top_k_chunks = retrieved_chunk_ids[:k]
@@ -241,9 +212,7 @@ def evaluate_retrieval(retrieve_fn):
                         break
                 mrr_sums[k] += reciprocal_rank
 
-                found_documents = set(top_k_documents).intersection(
-                    relevant_document_ids
-                )
+                found_documents = set(top_k_documents).intersection(relevant_document_ids)
                 if found_documents:
                     file_hit_sums[k] += 1
 
@@ -315,9 +284,7 @@ def print_mode_report(mode_label, tables):
     print(banner)
 
     print(f"\n{SEPARATOR}")
-    print(
-        f"\t\t\t{BOLD}HIT RATE @ K{RESET} - At least one relevant chunk was retrieved."
-    )
+    print(f"\t\t\t{BOLD}HIT RATE @ K{RESET} - At least one relevant chunk was retrieved.")
     print(SEPARATOR)
     print(
         tabulate(
@@ -425,9 +392,7 @@ def print_comparison_summary(dense_tables, hybrid_tables):
     banner = "=" * SEPARATOR_WIDTH
     print(f"\n\n{banner}")
     print(f"{BOLD}BEFORE / AFTER -- DENSE-ONLY vs. HYBRID (FAISS + BM25, RRF){RESET}")
-    print(
-        f"{BOLD}(each value = macro-avg across active gold-question categories){RESET}"
-    )
+    print(f"{BOLD}(each value = macro-avg across active gold-question categories){RESET}")
     print(banner)
     print(
         tabulate(
@@ -496,15 +461,11 @@ def write_reports(dense_tables, hybrid_tables):
         md_parts.append(md_table("Hit Rate @ K", tables["hit"], metric_headers))
         md_parts.append(md_table("Recall @ K", tables["recall"], metric_headers))
         md_parts.append(md_table("MRR @ K", tables["mrr"], metric_headers))
-        md_parts.append(
-            md_table("File Hit Rate @ K", tables["file_hit"], metric_headers)
-        )
+        md_parts.append(md_table("File Hit Rate @ K", tables["file_hit"], metric_headers))
 
     # Dataset summary once in the markdown report too
     md_parts.append("## Dataset Summary\n\n")
-    md_parts.append(
-        tabulate(dense_tables["summary"], headers=summary_headers, tablefmt="github")
-    )
+    md_parts.append(tabulate(dense_tables["summary"], headers=summary_headers, tablefmt="github"))
     md_parts.append("\n\n")
 
     # Unified before/after comparison table

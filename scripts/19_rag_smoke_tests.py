@@ -9,11 +9,26 @@ demo questions.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from khmer_rag.bootstrap import configure_runtime
+
+configure_runtime()
+
+# Shared runtime rules; historical reports retain their original results.
 import json
 import os
 import re
 from collections import Counter
-from pathlib import Path
+
+from khmer_rag.config import BM25_TOP_K, TOP_K
+from khmer_rag.language import (
+    khmer_aware_tokenize,
+)
+from khmer_rag.retrieval.search import reciprocal_rank_fusion
 
 # Must be set before importing faiss/torch through sentence_transformers.
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
@@ -25,21 +40,15 @@ os.environ.setdefault("HF_HOME", str(HF_CACHE_DIR))
 
 import faiss
 import numpy as np
+from irc_website_categories import WEBSITE_DERIVED_CATEGORIES
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
-
-from irc_website_categories import WEBSITE_DERIVED_CATEGORIES
-
 
 ACTIVE_MODEL_DIR = "BAAI-BGE-M3"
 INDEX_PATH = PROJECT_ROOT / "vector_db" / ACTIVE_MODEL_DIR / "khmer_insurance.index"
 METADATA_PATH = PROJECT_ROOT / "vector_db" / ACTIVE_MODEL_DIR / "khmer_insurance_metadata.json"
 MODEL_INFO_PATH = PROJECT_ROOT / "vector_db" / ACTIVE_MODEL_DIR / "embedding_model_info.json"
 
-TOP_K = 15
-BM25_TOP_K = TOP_K
-RRF_K = 60
-NGRAM_SIZE = 3
 
 MIN_TOTAL_CHUNKS = 3000
 MIN_WEBSITE_CHUNKS = 1600
@@ -53,10 +62,6 @@ MIN_WEBSITE_CATEGORY_CHUNKS = {
     "knowledge": 20,
 }
 
-KHMER_SCRIPT_PATTERN = re.compile(r"[\u1780-\u17FF]")
-DIGIT_RUN_PATTERN = re.compile(r"[\u17E0-\u17E90-9]+")
-ARTICLE_REF_PATTERN = re.compile(r"(មាត្រា|ប្រការ)\s*([\u17E0-\u17E90-9]+)")
-ARTICLE_REF_BOOST = 20
 ARABIC_TO_KHMER = str.maketrans("0123456789", "០១២៣៤៥៦៧៨៩")
 
 POLICY_COUNT_ROW_PATTERN = re.compile(
@@ -140,43 +145,6 @@ EXPECTED_INSURANCE_COMPANY_COUNT_2025 = {
 }
 
 
-def to_khmer_digits(value: str) -> str:
-    return value.translate(ARABIC_TO_KHMER)
-
-
-def khmer_aware_tokenize(text: str) -> list[str]:
-    tokens: list[str] = []
-    for keyword, ref_num in ARTICLE_REF_PATTERN.findall(text):
-        tokens.extend([keyword + to_khmer_digits(ref_num)] * ARTICLE_REF_BOOST)
-
-    for word in text.split():
-        if KHMER_SCRIPT_PATTERN.search(word):
-            tokens.extend(DIGIT_RUN_PATTERN.findall(word))
-            chars = list(word)
-            if len(chars) < NGRAM_SIZE:
-                tokens.append(word)
-            else:
-                tokens.extend(
-                    "".join(chars[i : i + NGRAM_SIZE])
-                    for i in range(len(chars) - NGRAM_SIZE + 1)
-                )
-        else:
-            tokens.append(word.lower())
-    return tokens
-
-
-def reciprocal_rank_fusion(result_lists, k: int = RRF_K):
-    fused_scores = {}
-    chunk_lookup = {}
-    for result_list in result_lists:
-        for rank, (_score, chunk) in enumerate(result_list, start=1):
-            chunk_id = chunk["chunk_id"]
-            chunk_lookup[chunk_id] = chunk
-            fused_scores[chunk_id] = fused_scores.get(chunk_id, 0.0) + 1.0 / (k + rank)
-    ranked_ids = sorted(fused_scores, key=fused_scores.get, reverse=True)
-    return [(fused_scores[chunk_id], chunk_lookup[chunk_id]) for chunk_id in ranked_ids]
-
-
 def load_json(path: Path):
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
@@ -228,9 +196,7 @@ def search_bm25(question: str, bm25_index, chunks):
 
 def extract_policy_rows(chunks):
     text = "\n".join(
-        chunk.get("text") or ""
-        for chunk in chunks
-        if doc_id(chunk) == "website_file_386481a18166"
+        chunk.get("text") or "" for chunk in chunks if doc_id(chunk) == "website_file_386481a18166"
     )
     section_start = text.find("ចំនួនបណ្ណសន្យារ៉ាប់រង")
     if section_start < 0:
@@ -337,8 +303,7 @@ def main() -> int:
     check(type_counts.get("guidance", 0) > 0, "guidance chunks are present", failures)
     check(
         not any(
-            "ធានរបង" in (chunk.get("text") or "")
-            or "ធានរបង" in (chunk.get("embedding_text") or "")
+            "ធានរបង" in (chunk.get("text") or "") or "ធានរបង" in (chunk.get("embedding_text") or "")
             for chunk in chunks
         ),
         "known OCR/generation typo 'ធានរបង' is absent from corpus text",
@@ -377,8 +342,7 @@ def main() -> int:
             for name, results in rankings.items()
         }
         rank_text = ", ".join(
-            f"{name}={rank if rank is not None else 'miss'}"
-            for name, rank in ranks.items()
+            f"{name}={rank if rank is not None else 'miss'}" for name, rank in ranks.items()
         )
         for retrieval_name in item["must_be_in"]:
             check(
